@@ -11,6 +11,7 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
 @ComponentScan(basePackages = {
         "com.aiplatform.model",
+        "com.aiplatform.starter.common",
         "com.aiplatform.starter.web",
         "com.aiplatform.starter.mybatis",
         "com.aiplatform.starter.redis",

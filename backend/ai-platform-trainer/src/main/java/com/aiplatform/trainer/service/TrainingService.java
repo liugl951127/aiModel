@@ -57,6 +57,8 @@ public class TrainingService {
     private final Map<String, JobState> jobs = new ConcurrentHashMap<>();
     private final CorpusAugmenter augmenter;
     private final PreviewService preview;
+    private final com.aiplatform.trainer.checkpoint.CheckpointService checkpointService;
+    private final com.aiplatform.trainer.version.ModelRegistry modelRegistry;
 
     public JobState submit(String corpusPath, MiniTransformerTrainer.Config cfg) {
         String jobId = UUID.randomUUID().toString().substring(0, 8);
@@ -99,7 +101,7 @@ public class TrainingService {
             Files.write(tmpCorpus, raw);
             state.corpusPath = tmpCorpus.toAbsolutePath().toString();
 
-            MiniTransformerTrainer trainer = new MiniTransformerTrainer(preview);
+            MiniTransformerTrainer trainer = new MiniTransformerTrainer(preview, checkpointService, modelRegistry);
             trainer.bindJobId(state.jobId);
             MiniTransformerTrainer.TrainResult result = trainer.train(tmpCorpus, state.config);
             state.progress = 90;
@@ -107,6 +109,24 @@ public class TrainingService {
             Path outDir = Paths.get(exportRoot, "java-" + state.jobId);
             Files.createDirectories(outDir);
             trainer.exportBundle(result.model, outDir, state.guard);
+
+            // 注册模型版本
+            if (state.config.registerVersion && modelRegistry != null) {
+                com.aiplatform.trainer.version.ModelRegistry.Version v =
+                        new com.aiplatform.trainer.version.ModelRegistry.Version();
+                v.setName(state.config.knowledgeSeedTopics == null ? "auto" : String.join("-", state.config.knowledgeSeedTopics));
+                v.setModelType(state.config.modelType);
+                v.setNLayer(state.config.nLayer);
+                v.setNHead(state.config.nHead);
+                v.setNEmbd(state.config.nEmbd);
+                v.setBlockSize(state.config.blockSize);
+                v.setVocabSize(state.config.vocabSize);
+                v.setFinalLoss(result.finalLoss);
+                v.setIters(result.steps);
+                v.setGuardJson(com.alibaba.fastjson2.JSON.toJSONString(state.guard));
+                v.setBundlePath(outDir.toAbsolutePath().toString());
+                modelRegistry.register(v);
+            }
 
             state.status = "succeeded";
             state.progress = 100;

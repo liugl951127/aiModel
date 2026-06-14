@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.aiplatform</groupId>
+        <artifactId>ai-platform-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>ai-platform-common-web</artifactId>
+    <packaging>jar</packaging>
+    <name>ai-platform-common-web</name>
+    <description>servlet 栈通用能力：TraceId、灰度、全局异常处理。仅 servlet 服务引，
+        gateway 等 reactive 服务不引（用 common-core 即可）。</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-common</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-common-core</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+    </dependencies>
+</project>

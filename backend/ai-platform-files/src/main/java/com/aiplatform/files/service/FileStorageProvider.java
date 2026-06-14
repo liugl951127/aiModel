@@ -73,4 +73,19 @@ public interface FileStorageProvider {
         }
         return null;
     }
+
+    /**
+     * 根据 bucket + 原文件名生成实际存储 key。
+     * 默认实现：{@code <bucket>/yyyy/MM/<uuid>-<name>}；子类可覆盖为 S3 风格。
+     */
+    default java.nio.file.Path resolveObjectKey(String bucket, String originalName) {
+        java.time.LocalDate now = java.time.LocalDate.now();
+        String safe = originalName == null ? "file"
+                : originalName.replaceAll("[^a-zA-Z0-9._-]", "_");
+        String sub = String.format("%s/%d/%02d/%s-%s",
+                bucket == null ? "default" : bucket,
+                now.getYear(), now.getMonthValue(),
+                java.util.UUID.randomUUID().toString().substring(0, 8), safe);
+        return java.nio.file.Paths.get(sub);
+    }
 }

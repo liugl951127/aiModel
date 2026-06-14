@@ -49,6 +49,16 @@ public class KnowledgeController {
         return Result.success(knowledgeService.search(kbId, query, topK));
     }
 
+    /**
+     * 增强搜索：query 改写 + 多路召回 + 启发式重排。
+     */
+    @GetMapping("/search-enhanced")
+    public Result<List<Map<String, Object>>> enhancedSearch(@RequestParam Long kbId,
+                                                            @RequestParam String query,
+                                                            @RequestParam(defaultValue = "5") int topK) {
+        return Result.success(knowledgeService.enhancedSearch(kbId, query, topK));
+    }
+
     @GetMapping("/search-all")
     public Result<String> searchAll(@RequestParam String query,
                                     @RequestParam(defaultValue = "3") int topK) {

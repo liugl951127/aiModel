@@ -1,0 +1,12 @@
+[OK]   ai-platform-trainer (10.689s, health=200, boot-overview=0)
+scripts/enhanced-scan.sh: line 15: 20896 Killed                  nohup java -Xmx768m -jar "$JAR" > "$LOG" 2>&1
+[OK]   ai-platform-files (13.545s, health=200, boot-overview=0)
+scripts/enhanced-scan.sh: line 15: 20959 Killed                  nohup java -Xmx768m -jar "$JAR" > "$LOG" 2>&1
+[OK]   ai-platform-knowledge (17.737s, health=000, boot-overview=0)
+scripts/enhanced-scan.sh: line 15: 21026 Killed                  nohup java -Xmx768m -jar "$JAR" > "$LOG" 2>&1
+[OK]   ai-platform-workflow (13.406s, health=200, boot-overview=0)
+scripts/enhanced-scan.sh: line 15: 21117 Killed                  nohup java -Xmx768m -jar "$JAR" > "$LOG" 2>&1
+
+==== summary ====
+PASS: 4
+FAIL: 0

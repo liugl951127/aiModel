@@ -18,6 +18,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
 @ComponentScan(basePackages = {
         "com.aiplatform.trainer",
+        "com.aiplatform.starter.common",
         "com.aiplatform.starter.web",
         "com.aiplatform.starter.mybatis",
         "com.aiplatform.starter.secure",

@@ -35,6 +35,10 @@
             <artifactId>ai-platform-nacos-starter</artifactId>
             <optional>true</optional>
         </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-common-starter</artifactId>
+        </dependency>
 
         <!-- DJL for training (PyTorch native CPU engine) -->
         <dependency>

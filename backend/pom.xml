@@ -26,6 +26,7 @@
         <module>ai-platform-starters/ai-platform-redis-starter</module>
         <module>ai-platform-starters/ai-platform-secure-starter</module>
         <module>ai-platform-starters/ai-platform-nacos-starter</module>
+        <module>ai-platform-starters/ai-platform-common-starter</module>
         <module>ai-platform-trainer</module>
         <module>ai-platform-gateway</module>
         <module>ai-platform-auth</module>
@@ -37,6 +38,8 @@
         <module>ai-platform-inference</module>
         <module>ai-platform-files</module>
         <module>ai-platform-workflow</module>
+        <module>ai-platform-starters/ai-platform-common-core</module>
+        <module>ai-platform-starters/ai-platform-common-web</module>
     </modules>
 
     <properties>
@@ -109,6 +112,16 @@
             </dependency>
             <dependency>
                 <groupId>com.aiplatform</groupId>
+                <artifactId>ai-platform-common-core</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aiplatform</groupId>
+                <artifactId>ai-platform-common-web</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aiplatform</groupId>
                 <artifactId>ai-platform-mybatis-starter</artifactId>
                 <version>${revision}</version>
             </dependency>
@@ -125,6 +138,11 @@
             <dependency>
                 <groupId>com.aiplatform</groupId>
                 <artifactId>ai-platform-nacos-starter</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aiplatform</groupId>
+                <artifactId>ai-platform-common-starter</artifactId>
                 <version>${revision}</version>
             </dependency>
 

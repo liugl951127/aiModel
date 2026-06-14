@@ -22,7 +22,8 @@ import org.springframework.context.annotation.Bean;
 @ComponentScan(
         basePackages = {
                 "com.aiplatform.inference",
-                "com.aiplatform.starter.web",
+                "com.aiplatform.starter.common",
+        "com.aiplatform.starter.web",
                 "com.aiplatform.starter.secure",
                 "com.aiplatform.starter.redis"
         },

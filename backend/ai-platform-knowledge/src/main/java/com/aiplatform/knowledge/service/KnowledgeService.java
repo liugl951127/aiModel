@@ -9,6 +9,8 @@ import com.aiplatform.knowledge.chunker.TextChunker;
 import com.aiplatform.knowledge.entity.KnowledgeBase;
 import com.aiplatform.knowledge.entity.KnowledgeDocument;
 import com.aiplatform.knowledge.es.KnowledgeSearchService;
+import com.aiplatform.knowledge.search.QueryRewriter;
+import com.aiplatform.knowledge.search.ResultReranker;
 import com.aiplatform.knowledge.mapper.KnowledgeBaseMapper;
 import com.aiplatform.knowledge.mapper.KnowledgeDocumentMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -33,8 +35,10 @@ public class KnowledgeService {
 
     private final KnowledgeBaseMapper kbMapper;
     private final KnowledgeDocumentMapper docMapper;
-    private final TextChunker chunker;
     private final KnowledgeSearchService searchService;
+    private final QueryRewriter queryRewriter;
+    private final ResultReranker resultReranker;
+    private final TextChunker chunker;
 
     @Value("${aiplatform.knowledge.storage-path:/opt/ai-platform/kb}")
     private String storageRoot;
@@ -109,6 +113,39 @@ public class KnowledgeService {
         KnowledgeBase kb = kbMapper.selectById(kbId);
         if (kb == null) throw new BusinessException(ResultCode.NOT_FOUND, "知识库不存在");
         return searchService.search(kb.getIndexName(), query, topK);
+    }
+
+    /**
+     * 增强搜索：多路 query 召回 + 启发式重排。
+     * 走原 ES 检索的多个变体，取并集后再 rerank。
+     */
+    public List<Map<String, Object>> enhancedSearch(Long kbId, String query, int topK) {
+        KnowledgeBase kb = kbMapper.selectById(kbId);
+        if (kb == null) throw new BusinessException(ResultCode.NOT_FOUND, "知识库不存在");
+        java.util.List<com.aiplatform.knowledge.search.ResultReranker.Hit> merged = new java.util.ArrayList<>();
+        for (String v : queryRewriter.rewrite(query)) {
+            try {
+                for (Map<String, Object> r : searchService.search(kb.getIndexName(), v, Math.max(3, topK / 2))) {
+                    Object content = r.get("content");
+                    if (content == null) continue;
+                    String id = String.valueOf(r.get("id"));
+                    double es = ((Number) r.getOrDefault("_score", 1.0)).doubleValue();
+                    merged.add(new com.aiplatform.knowledge.search.ResultReranker.Hit(id, content.toString(), es));
+                }
+            } catch (Exception e) {
+                log.warn("[KB] variant search failed: q='{}' {}", v, e.getMessage());
+            }
+        }
+        var ranked = resultReranker.rerank(query, merged, topK);
+        java.util.List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (var rh : ranked) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", rh.getHit().getId());
+            m.put("content", rh.getHit().getText());
+            m.put("score", rh.getScore());
+            out.add(m);
+        }
+        return out;
     }
 
     public String searchAsString(String query, int topK) {

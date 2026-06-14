@@ -12,6 +12,7 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
 @ComponentScan(basePackages = {
         "com.aiplatform.auth",
+        "com.aiplatform.starter.common",
         "com.aiplatform.starter.web",
         "com.aiplatform.starter.redis",
         "com.aiplatform.starter.secure",

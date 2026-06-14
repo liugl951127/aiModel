@@ -70,13 +70,32 @@ public class MiniTransformerTrainer {
         public HallucinationGuardConfig guard = HallucinationGuardConfig.defaults();
         public Long knowledgeKbId;
         public java.util.List<String> knowledgeSeedTopics;
+        // 企业级训练增强
+        public String lrSchedule = "warmup_cosine";   // constant / cosine / warmup_cosine / step
+        public int lrWarmupSteps = 50;
+        public double lrMin = 1e-5;
+        public int earlyStopPatience = 50;             // 0=不启用
+        public double earlyStopMinDelta = 0.001;
+        public int checkpointInterval = 100;            // 0=不保存
+        public boolean registerVersion = true;
     }
 
     private final PreviewService preview;
+    private final com.aiplatform.trainer.checkpoint.CheckpointService checkpointService;
+    private final com.aiplatform.trainer.version.ModelRegistry modelRegistry;
     private volatile String currentJobId;
 
-    public MiniTransformerTrainer() { this.preview = null; }
-    public MiniTransformerTrainer(PreviewService preview) { this.preview = preview; }
+    public MiniTransformerTrainer() { this.preview = null; this.checkpointService = null; this.modelRegistry = null; }
+    public MiniTransformerTrainer(PreviewService preview) {
+        this(preview, null, null);
+    }
+    public MiniTransformerTrainer(PreviewService preview,
+                                  com.aiplatform.trainer.checkpoint.CheckpointService ckpt,
+                                  com.aiplatform.trainer.version.ModelRegistry registry) {
+        this.preview = preview;
+        this.checkpointService = ckpt;
+        this.modelRegistry = registry;
+    }
 
     public void bindJobId(String jobId) { this.currentJobId = jobId; }
 
@@ -101,8 +120,15 @@ public class MiniTransformerTrainer {
             int t = 0;
             double lastLoss = 0;
 
-            log.info("[TRAIN] start: model={} iters={} batch={} ctx={}",
-                    cfg.modelType, cfg.maxIters, cfg.batchSize, cfg.blockSize);
+            // LR schedule + early stop
+            com.aiplatform.trainer.schedule.LRSchedule sched = buildSchedule(cfg);
+            com.aiplatform.trainer.schedule.EarlyStopper early = cfg.earlyStopPatience > 0
+                    ? new com.aiplatform.trainer.schedule.EarlyStopper(cfg.earlyStopPatience, cfg.earlyStopMinDelta)
+                    : null;
+
+            log.info("[TRAIN] start: model={} iters={} batch={} ctx={} lrSchedule={} earlyStop={} ckptInterval={}",
+                    cfg.modelType, cfg.maxIters, cfg.batchSize, cfg.blockSize,
+                    sched.getType(), early != null, cfg.checkpointInterval);
             for (int iter = 0; iter < cfg.maxIters; iter++) {
                 try {
                     int B = cfg.batchSize;
@@ -159,16 +185,32 @@ public class MiniTransformerTrainer {
                     }
                     for (int i = 0; i < gradData.length; i++) gradData[i] /= Math.max(1, B);
                     t++;
+                    double lr = sched.at(iter + 1, cfg.maxIters);
                     for (int i = 0; i < gradData.length; i++) {
                         double g = gradData[i];
                         mBuf[i] = 0.9 * mBuf[i] + 0.1 * g;
                         vBuf[i] = 0.95 * vBuf[i] + 0.05 * g * g;
                         double mHat = mBuf[i] / (1 - Math.pow(0.9, t));
                         double vHat = vBuf[i] / (1 - Math.pow(0.95, t));
-                        wteData[i] -= cfg.learningRate * mHat / (Math.sqrt(vHat) + 1e-8);
+                        wteData[i] -= lr * mHat / (Math.sqrt(vHat) + 1e-8);
                     }
                     model.setWte(TransformerOps.createFloat(manager, wteData,
                             new ai.djl.ndarray.types.Shape(cfg.vocabSize, cfg.nEmbd)));
+
+                    // checkpoint
+                    if (checkpointService != null && cfg.checkpointInterval > 0
+                            && (iter + 1) % cfg.checkpointInterval == 0) {
+                        try {
+                            checkpointService.save(model, iter + 1, lastLoss, lr, "sched=" + sched.getType());
+                        } catch (Exception ce) {
+                            log.warn("[CKPT] save failed at iter {}: {}", iter + 1, ce.getMessage());
+                        }
+                    }
+                    // early stop
+                    if (early != null && early.observe(lastLoss)) {
+                        log.info("[TRAIN] early-stopped at iter {} reason={}", iter + 1, early.reason());
+                        break;
+                    }
                 } catch (Throwable th) {
                     log.error("[TRAIN] iter {} threw:", iter, th);
                     throw th;
@@ -241,6 +283,25 @@ public class MiniTransformerTrainer {
         ByteBuffer bb = ByteBuffer.wrap(out).order(ByteOrder.LITTLE_ENDIAN);
         bb.asLongBuffer().put(arr);
         return out;
+    }
+
+    /**
+     * 根据 config 构建 LR schedule。
+     */
+    private static com.aiplatform.trainer.schedule.LRSchedule buildSchedule(Config cfg) {
+        com.aiplatform.trainer.schedule.LRSchedule.Type type;
+        try {
+            type = com.aiplatform.trainer.schedule.LRSchedule.Type.valueOf(
+                    cfg.lrSchedule == null ? "warmup_cosine" : cfg.lrSchedule.toUpperCase());
+        } catch (Exception e) {
+            type = com.aiplatform.trainer.schedule.LRSchedule.Type.WARMUP_COSINE;
+        }
+        com.aiplatform.trainer.schedule.LRSchedule s = new com.aiplatform.trainer.schedule.LRSchedule();
+        s.setType(type);
+        s.setBase(cfg.learningRate);
+        s.setMin(cfg.lrMin);
+        s.setWarmupSteps(cfg.lrWarmupSteps);
+        return s;
     }
 
     private static void writeJson(Path p, String content) throws IOException {
