@@ -79,3 +79,33 @@ export const inferenceApi = {
   generate: (data) => request.post('/api/inference/generate', data),
   chat: (data) => request.post('/api/chat/completions', data)
 }
+
+// ---------- 训练侧 v2 (多模型 + 实时预览 + 防幻觉) ----------
+export const trainerApi = {
+  // 列出已注册的 trainer (UI model picker)
+  models: () => request.get('/api/trainer/models'),
+  // 提交训练 (新版本:trainerId + params)
+  submit: (data) => request.post('/api/trainer/submit', data),
+  // 查询任务
+  job: (id) => request.get(`/api/trainer/job/${id}`),
+  jobs: () => request.get('/api/trainer/jobs'),
+  // 热更新超参数
+  updateParams: (id, delta) => request.put(`/api/trainer/job/${id}/params`, delta),
+  // 请求实时生成样本
+  sample: (id, prompt, maxTokens = 60) =>
+    request.post(`/api/trainer/job/${id}/sample?prompt=${encodeURIComponent(prompt)}&maxTokens=${maxTokens}`),
+  // SSE 事件流
+  streamUrl: (id) => `/api/trainer/job/${id}/stream`,
+  health: () => request.get('/api/trainer/health')
+}
+
+// ---------- 知识库流程编排 ----------
+export const pipelineApi = {
+  nodes: () => request.get('/api/knowledge/pipeline/nodes'),
+  save: (p) => request.post('/api/knowledge/pipeline', p),
+  list: () => request.get('/api/knowledge/pipeline'),
+  get: (id) => request.get(`/api/knowledge/pipeline/${id}`),
+  remove: (id) => request.delete(`/api/knowledge/pipeline/${id}`),
+  run: (id, query, config = {}) => request.post(`/api/knowledge/pipeline/${id}/run?query=${encodeURIComponent(query)}`, config),
+  getRun: (rid) => request.get(`/api/knowledge/pipeline/run/${rid}`)
+}

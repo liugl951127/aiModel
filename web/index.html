@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>AI Agent Platform · 训练控制台</title>
+<link rel="stylesheet" href="css/console.css" />
+</head>
+<body>
+<header>
+  <h1>AI Agent Platform · 训练控制台</h1>
+  <div class="env">
+    <label>TRAINER <input id="trainerBase" value="http://127.0.0.1:9008" /></label>
+    <label>WORKFLOW <input id="workflowBase" value="http://127.0.0.1:9011" /></label>
+    <label>KNOWLEDGE <input id="knowledgeBase" value="http://127.0.0.1:9005" /></label>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="train" class="active">1. 训练</button>
+  <button data-tab="guard">2. 防幻觉</button>
+  <button data-tab="preview">3. 实时预览</button>
+  <button data-tab="knowledge">4. 知识库</button>
+  <button data-tab="workflow">5. 流程编排</button>
+  <button data-tab="jobs">6. 任务列表</button>
+</nav>
+
+<main>
+  <!-- ================== 训练 ================== -->
+  <section data-tab="train" class="panel active">
+    <h2>训练任务</h2>
+    <div class="grid2">
+      <div>
+        <label>模型类型
+          <select id="modelType">
+            <option value="transformer">Mini-Transformer (推荐)</option>
+            <option value="lstm">Char-LSTM (CPU 备选)</option>
+          </select>
+        </label>
+        <label>语料路径
+          <input id="corpusPath" value="/workspace/ai-agent-platform/ai-model/data/sample_corpus.txt" />
+        </label>
+        <label>最大迭代步数 <input id="maxIters" type="number" value="200" /></label>
+        <label>批次大小     <input id="batchSize" type="number" value="16" /></label>
+        <label>上下文长度   <input id="blockSize" type="number" value="64" /></label>
+        <label>层数         <input id="nLayer"   type="number" value="4" /></label>
+        <label>头数         <input id="nHead"    type="number" value="4" /></label>
+        <label>嵌入维度     <input id="nEmbd"    type="number" value="128" /></label>
+        <label>学习率       <input id="learningRate" type="number" step="1e-4" value="0.003" /></label>
+
+        <fieldset>
+          <legend>知识库注入 (RAG 数据增强)</legend>
+          <label>KB id  <input id="knowledgeKbId" type="number" placeholder="可选" /></label>
+          <label>种子主题 (逗号分隔) <input id="knowledgeSeedTopics" placeholder="AI 模型, Spring Cloud, ..." /></label>
+        </fieldset>
+
+        <div class="row">
+          <button id="btnSubmit" class="primary">提交训练</button>
+          <button id="btnPresetStrict">使用严格防幻觉</button>
+        </div>
+      </div>
+      <div>
+        <h3>提交结果</h3>
+        <pre id="submitResult" class="code">// 提交后这里显示 jobId / 状态</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== 防幻觉 ================== -->
+  <section data-tab="guard" class="panel">
+    <h2>防幻觉 / 生成质量控制</h2>
+    <p class="hint">参数同时控制实时预览和训练后推理的生成行为。</p>
+    <div class="grid3">
+      <div>
+        <h3>采样约束</h3>
+        <label>top-K <input id="g_topK" type="number" min="1" max="256" value="40" /></label>
+        <label>top-P <input id="g_topP" type="number" step="0.05" min="0" max="1" value="0.9" /></label>
+        <label>temperature <input id="g_temperature" type="number" step="0.05" min="0" max="2" value="0.7" /></label>
+        <label>repetition penalty <input id="g_rep" type="number" step="0.05" min="1" max="2" value="1.15" /></label>
+        <label>max consecutive unknowns <input id="g_maxUnk" type="number" value="4" /></label>
+      </div>
+      <div>
+        <h3>知识接地 (RAG)</h3>
+        <label><input type="checkbox" id="g_kg" /> 启用知识接地</label>
+        <label>KB id <input id="g_kbId" type="number" /></label>
+        <label>RAG top-K <input id="g_kgK" type="number" value="3" /></label>
+        <label>knowledgeDocIds (逗号) <input id="g_docIds" placeholder="1,2,3" /></label>
+      </div>
+      <div>
+        <h3>置信度与事实核对</h3>
+        <label>min confidence gap <input id="g_conf" type="number" step="0.1" min="0" value="0" /></label>
+        <label>max answer tokens <input id="g_maxTok" type="number" value="256" /></label>
+        <label><input type="checkbox" id="g_fact" /> 启用事实核对</label>
+        <label>min fact overlap <input id="g_factMin" type="number" step="0.05" min="0" max="1" value="0.15" /></label>
+      </div>
+    </div>
+    <div class="row">
+      <button id="btnGuardApply">应用到训练配置</button>
+      <button id="btnGuardStrict">切到严格模式</button>
+      <button id="btnGuardReset">恢复默认</button>
+    </div>
+    <pre id="guardDump" class="code"></pre>
+  </section>
+
+  <!-- ================== 实时预览 ================== -->
+  <section data-tab="preview" class="panel">
+    <h2>实时预览 (SSE)</h2>
+    <p class="hint">先提交训练拿到 <code>jobId</code>，然后订阅预览事件并输入 prompt 让模型生成样本。</p>
+    <div class="grid2">
+      <div>
+        <label>Job ID <input id="pvJobId" placeholder="训练返回的 jobId" /></label>
+        <label>Prompt
+          <textarea id="pvPrompt" rows="3" placeholder="请输入一段提示文本（UTF-8 字节）"></textarea>
+        </label>
+        <label>最大生成 token <input id="pvMax" type="number" value="80" /></label>
+        <div class="row">
+          <button id="btnPvSubscribe" class="primary">订阅 SSE</button>
+          <button id="btnPvRun">请求生成</button>
+        </div>
+      </div>
+      <div>
+        <h3>事件流</h3>
+        <pre id="pvStream" class="code log"></pre>
+        <h3>生成结果</h3>
+        <pre id="pvResult" class="code"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== 知识库 ================== -->
+  <section data-tab="knowledge" class="panel">
+    <h2>知识库联动</h2>
+    <div class="grid2">
+      <div>
+        <h3>列出知识库</h3>
+        <button id="btnKbList">刷新</button>
+        <pre id="kbList" class="code"></pre>
+      </div>
+      <div>
+        <h3>从 KB 生成 Q/A 训练对</h3>
+        <label>KB id <input id="qaKbId" type="number" /></label>
+        <label>主题 (逗号分隔) <input id="qaTopics" placeholder="分布式训练, RAG, 防幻觉" /></label>
+        <button id="btnQa">生成 Q/A</button>
+        <pre id="qaResult" class="code"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================== 流程编排 ================== -->
+  <section data-tab="workflow" class="panel">
+    <h2>流程编排 (Workflow)</h2>
+    <p class="hint">编排训练→评估→部署流水线。点击"加载模板"使用预设，点击"运行"提交到 workflow 服务。</p>
+    <div class="row">
+      <button id="btnWfTemplate">加载 train→eval→deploy 模板</button>
+      <button id="btnWfRun" class="primary">运行</button>
+    </div>
+    <textarea id="wfSpec" rows="20" class="code"></textarea>
+    <h3>运行状态</h3>
+    <pre id="wfResult" class="code"></pre>
+  </section>
+
+  <!-- ================== 任务列表 ================== -->
+  <section data-tab="jobs" class="panel">
+    <h2>训练任务</h2>
+    <button id="btnJobsRefresh">刷新</button>
+    <table id="jobsTable">
+      <thead><tr><th>jobId</th><th>状态</th><th>进度</th><th>loss</th><th>bundle</th><th>路径</th><th>错误</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</main>
+
+<footer><span>AI Agent Platform · v1.0</span></footer>
+
+<script src="js/console.js"></script>
+</body>
+</html>

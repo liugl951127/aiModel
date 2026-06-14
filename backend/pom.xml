@@ -26,6 +26,7 @@
         <module>ai-platform-starters/ai-platform-redis-starter</module>
         <module>ai-platform-starters/ai-platform-secure-starter</module>
         <module>ai-platform-starters/ai-platform-nacos-starter</module>
+        <module>ai-platform-trainer</module>
         <module>ai-platform-gateway</module>
         <module>ai-platform-auth</module>
         <module>ai-platform-user</module>
@@ -34,6 +35,8 @@
         <module>ai-platform-agent</module>
         <module>ai-platform-knowledge</module>
         <module>ai-platform-inference</module>
+        <module>ai-platform-files</module>
+        <module>ai-platform-workflow</module>
     </modules>
 
     <properties>
@@ -62,7 +65,7 @@
         <lombok.version>1.18.32</lombok.version>
         <onnxruntime.version>1.17.1</onnxruntime.version>
         <tika.version>2.9.1</tika.version>
-        <djl.version>0.25.0</djl.version>
+        <djl.version>0.36.0</djl.version>
         <elasticsearch.client.version>8.13.0</elasticsearch.client.version>
     </properties>
 
@@ -226,16 +229,6 @@
             <dependency>
                 <groupId>ai.djl.pytorch</groupId>
                 <artifactId>pytorch-engine</artifactId>
-                <version>${djl.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>ai.djl.pytorch</groupId>
-                <artifactId>pytorch-native-cpu</artifactId>
-                <version>${djl.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>ai.djl</groupId>
-                <artifactId>onnxruntime-engine</artifactId>
                 <version>${djl.version}</version>
             </dependency>
         </dependencies>

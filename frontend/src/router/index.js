@@ -16,6 +16,7 @@ const routes = [
       { path: 'tools', name: 'Tools', component: () => import('@/views/Tools.vue'), meta: { title: '工具' } },
       { path: 'chat/:agentId', name: 'Chat', component: () => import('@/views/Chat.vue'), meta: { title: '对话' } },
       { path: 'knowledge', name: 'Knowledge', component: () => import('@/views/Knowledge.vue'), meta: { title: '知识库' } },
+      { path: 'knowledge/pipeline', name: 'KnowledgePipeline', component: () => import('@/views/KnowledgePipeline.vue'), meta: { title: '知识库流程编排' } },
       { path: 'inference', name: 'Inference', component: () => import('@/views/Inference.vue'), meta: { title: '推理测试' } },
       { path: 'users', name: 'Users', component: () => import('@/views/Users.vue'), meta: { title: '用户' } },
       { path: 'tenants', name: 'Tenants', component: () => import('@/views/Tenants.vue'), meta: { title: '租户' } }

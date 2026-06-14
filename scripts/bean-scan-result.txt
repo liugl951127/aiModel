@@ -1,0 +1,26 @@
+[OK]   ai-platform-trainer (port 9008, 8.263s)
+/tmp/bean-scan.sh: line 19: 19250 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+[OK]   ai-platform-files (port 9010, 10.489s)
+/tmp/bean-scan.sh: line 19: 19306 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+[OK]   ai-platform-workflow (port 9011, 10.048s)
+/tmp/bean-scan.sh: line 19: 19366 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+[OK]   ai-platform-knowledge (port 9005, 14.403s)
+/tmp/bean-scan.sh: line 19: 19429 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+[OK]   ai-platform-inference (port 9007, 10.664s)
+/tmp/bean-scan.sh: line 19: 19510 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+[OK]   ai-platform-user (port 9002, 11.896s)
+/tmp/bean-scan.sh: line 19: 19571 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+[OK]   ai-platform-system (port 9003, 10.39s)
+/tmp/bean-scan.sh: line 19: 19636 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+[OK]   ai-platform-agent (port 9004, 12.286s)
+/tmp/bean-scan.sh: line 19: 19698 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+[OK]   ai-platform-model (port 9006, 11.594s)
+/tmp/bean-scan.sh: line 19: 19763 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+[OK]   ai-platform-auth (port 9001, 10.004s)
+/tmp/bean-scan.sh: line 19: 19828 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+[OK]   ai-platform-gateway (port 9000, 8.365s)
+/tmp/bean-scan.sh: line 19: 19889 Killed                  nohup java -Xmx768m -jar "$JAR" > /tmp/scan-$MOD.log 2>&1
+
+==== summary ====
+PASS: 11
+FAIL: 0

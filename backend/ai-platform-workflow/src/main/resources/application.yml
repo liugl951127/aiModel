@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: ai-platform-workflow
+  profiles:
+    active: dev
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/aiplatform_workflow?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+server:
+  port: 9011
+
+aiplatform:
+  trainer:
+    base-url: http://127.0.0.1:9008
+  inference:
+    base-url: http://127.0.0.1:9007
+  knowledge:
+    base-url: http://127.0.0.1:9005
+
+nacos:
+  config:
+    import-check:
+      enabled: false
+  discovery:
+    enabled: false

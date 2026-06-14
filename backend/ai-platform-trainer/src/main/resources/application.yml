@@ -1,0 +1,39 @@
+server:
+  port: 9008
+
+spring:
+  application:
+    name: ai-platform-trainer
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # Nacos is optional
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
+      config:
+        enabled: ${NACOS_CONFIG_ENABLED:false}
+        import-check:
+          enabled: false
+
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:ai_platform}?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+aiplatform:
+  jwt:
+    enabled: true
+    secret: ${JWT_SECRET:ai-platform-default-secret-key-please-change-32+}
+    expiration: 86400000
+    issuer: ai-platform
+  trainer:
+    export-root: ${TRAINER_EXPORT_ROOT:/opt/ai-platform/inference-bundles}
+
+logging:
+  level:
+    com.aiplatform: INFO
+    ai.djl: WARN

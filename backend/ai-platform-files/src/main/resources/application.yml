@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: ai-platform-files
+  profiles:
+    active: dev
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 220MB
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/aiplatform_files?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+server:
+  port: 9010
+  servlet:
+    context-path: /
+
+aiplatform:
+  files:
+    root: /opt/ai-platform/files
+    http-path: /files
+    default-bucket: kb
+    max-upload-mb: 200
+
+nacos:
+  config:
+    import-check:
+      enabled: false
+  discovery:
+    enabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: status
