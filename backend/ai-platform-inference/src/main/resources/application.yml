@@ -1,0 +1,26 @@
+server:
+  port: 9007
+
+spring:
+  application:
+    name: ai-platform-inference
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+      config:
+        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
+        file-extension: yaml
+        enabled: ${NACOS_CONFIG_ENABLED:false}
+
+aiplatform:
+  inference:
+    bundle-root: ${INFERENCE_BUNDLE_ROOT:/opt/ai-platform/inference-bundles}
+    bundle-default: ${INFERENCE_BUNDLE_DEFAULT:default}
+
+logging:
+  level:
+    com.aiplatform: INFO

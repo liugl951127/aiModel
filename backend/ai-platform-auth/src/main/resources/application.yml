@@ -1,0 +1,32 @@
+server:
+  port: 9001
+
+spring:
+  application:
+    name: ai-platform-auth
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
+      config:
+        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
+        file-extension: yaml
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 5000
+
+aiplatform:
+  jwt:
+    secret: ${JWT_SECRET:ai-platform-default-secret-key-please-change-32+}
+    expiration: 86400000
+    issuer: ai-platform
+
+logging:
+  level:
+    com.aiplatform: INFO

@@ -1,0 +1,67 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# Java
+target/
+*.jar
+*.war
+*.class
+hs_err_pid*
+replay_pid*
+.mvn/
+mvnw
+mvnw.cmd
+
+# Spring Boot
+application-local.yml
+application-local.yaml
+application-local.properties
+*.env
+
+# Node / Vite
+node_modules/
+dist/
+.npmrc
+.yarn/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.tox/
+.venv/
+venv/
+env/
+
+# Generated model artifacts (keep small sample, ignore big training outputs)
+ai-model/checkpoints/*.npz
+ai-model/checkpoints/*.log
+ai-model/exports/*/weights.json
+ai-model/exports/*/tokenizer.json
+
+# Local storage
+/var/
+/data/
+/opt/
+*.log
+
+# OS runtime
+*.pid
+*.sock
+
+# K8s / Docker
+*.tar
+*.tar.gz
+ai-model/checkpoints/
+ai-model/exports/
+frontend/dist/
+frontend/node_modules/

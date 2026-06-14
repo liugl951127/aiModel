@@ -1,0 +1,34 @@
+:root {
+  --primary: #2c5cff;
+  --bg: #f5f7fa;
+  --sidebar-bg: #001529;
+  --sidebar-active: #2c5cff;
+}
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: #303133;
+}
+
+* { box-sizing: border-box; }
+
+.page-container {
+  padding: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.flex { display: flex; }
+.flex-1 { flex: 1; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }

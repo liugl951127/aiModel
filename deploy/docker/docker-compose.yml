@@ -1,0 +1,157 @@
+version: '3.8'
+
+services:
+  nacos:
+    image: nacos/nacos-server:v2.3.1
+    container_name: ai-nacos
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    environment:
+      - MODE=standalone
+      - JVM_XMS=512m
+      - JVM_XMX=512m
+    volumes:
+      - nacos-data:/home/nacos/data
+
+  mysql:
+    image: mysql:8.0
+    container_name: ai-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ai_platform
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../sql:/docker-entrypoint-initdb.d
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: ai-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
+  gateway:
+    build:
+      context: ../../backend
+      dockerfile: ../deploy/docker/Dockerfile.gateway
+    container_name: ai-gateway
+    depends_on: [nacos, mysql, redis]
+    ports:
+      - "9000:9000"
+    environment:
+      NACOS_SERVER: nacos:8848
+      MYSQL_HOST: mysql
+      REDIS_HOST: redis
+      JWT_SECRET: ai-platform-default-secret-key-please-change-32+
+
+  auth:
+    build:
+      context: ../../backend
+      dockerfile: ../deploy/docker/Dockerfile.auth
+    container_name: ai-auth
+    depends_on: [nacos, redis]
+    environment:
+      NACOS_SERVER: nacos:8848
+      REDIS_HOST: redis
+      JWT_SECRET: ai-platform-default-secret-key-please-change-32+
+
+  user:
+    build:
+      context: ../../backend
+      dockerfile: ../deploy/docker/Dockerfile.user
+    container_name: ai-user
+    depends_on: [nacos, mysql, redis]
+    environment:
+      NACOS_SERVER: nacos:8848
+      MYSQL_HOST: mysql
+      REDIS_HOST: redis
+
+  system:
+    build:
+      context: ../../backend
+      dockerfile: ../deploy/docker/Dockerfile.system
+    container_name: ai-system
+    depends_on: [nacos, mysql, redis]
+    environment:
+      NACOS_SERVER: nacos:8848
+      MYSQL_HOST: mysql
+      REDIS_HOST: redis
+
+  model:
+    build:
+      context: ../../backend
+      dockerfile: ../deploy/docker/Dockerfile.model
+    container_name: ai-model
+    depends_on: [nacos, mysql, redis]
+    environment:
+      NACOS_SERVER: nacos:8848
+      MYSQL_HOST: mysql
+      REDIS_HOST: redis
+
+  agent:
+    build:
+      context: ../../backend
+      dockerfile: ../deploy/docker/Dockerfile.agent
+    container_name: ai-agent
+    depends_on: [nacos, mysql, redis]
+    environment:
+      NACOS_SERVER: nacos:8848
+      MYSQL_HOST: mysql
+      REDIS_HOST: redis
+
+  knowledge:
+    build:
+      context: ../../backend
+      dockerfile: ../deploy/docker/Dockerfile.knowledge
+    container_name: ai-knowledge
+    depends_on: [nacos, mysql, redis, elasticsearch]
+    environment:
+      NACOS_SERVER: nacos:8848
+      MYSQL_HOST: mysql
+      REDIS_HOST: redis
+      ES_HOST: elasticsearch
+
+  inference:
+    build:
+      context: ../../backend
+      dockerfile: ../deploy/docker/Dockerfile.inference
+    container_name: ai-inference
+    depends_on: [nacos]
+    environment:
+      NACOS_SERVER: nacos:8848
+    volumes:
+      - /opt/ai-platform/inference-bundles:/opt/ai-platform/inference-bundles
+
+  web:
+    image: nginx:alpine
+    container_name: ai-web
+    depends_on: [gateway]
+    ports:
+      - "8080:80"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ../../frontend/dist:/usr/share/nginx/html
+
+volumes:
+  nacos-data:
+  mysql-data:
+  redis-data:
+  es-data:

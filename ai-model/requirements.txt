@@ -1,0 +1,10 @@
+# Minimal training / inference dependencies.
+# The training pipeline is intentionally NumPy-only so it runs on any laptop.
+numpy>=1.23
+# Optional: real ONNX export
+onnx>=1.15
+onnxruntime>=1.17
+# Optional: real tokenizer
+tokenizers>=0.15
+# Optional: PyTorch for real fine-tuning
+torch>=2.0
