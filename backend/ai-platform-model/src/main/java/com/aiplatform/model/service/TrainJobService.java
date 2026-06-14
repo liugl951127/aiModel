@@ -1,9 +1,10 @@
 package com.aiplatform.model.service;
 
 import cn.hutool.core.util.StrUtil;
-import com.aiplatform.common.entity.PageQuery;
+import com.aiplatform.starter.mybatis.entity.PageQuery;
 import com.aiplatform.common.exception.BusinessException;
 import com.aiplatform.common.result.PageResult;
+import com.aiplatform.starter.mybatis.support.PageAdapter;
 import com.aiplatform.common.result.ResultCode;
 import com.aiplatform.model.entity.ModelRegistry;
 import com.aiplatform.model.entity.TrainJob;
@@ -93,7 +94,7 @@ public class TrainJobService {
             w.like(TrainJob::getJobCode, q.getKeyword());
         }
         w.orderByDesc(TrainJob::getCreateTime);
-        return PageResult.of(trainJobMapper.selectPage(page, w));
+        return PageAdapter.of(trainJobMapper.selectPage(page, w));
     }
 
     public TrainJob get(Long id) {

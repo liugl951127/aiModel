@@ -1,9 +1,10 @@
 package com.aiplatform.user.service;
 
 import com.aiplatform.common.constant.CommonConstants;
-import com.aiplatform.common.entity.PageQuery;
+import com.aiplatform.starter.mybatis.entity.PageQuery;
 import com.aiplatform.common.exception.BusinessException;
 import com.aiplatform.common.result.PageResult;
+import com.aiplatform.starter.mybatis.support.PageAdapter;
 import com.aiplatform.common.result.ResultCode;
 import com.aiplatform.user.entity.SysUser;
 import com.aiplatform.user.mapper.SysUserMapper;
@@ -70,7 +71,7 @@ public class UserService {
                     .or().like(SysUser::getNickname, query.getKeyword());
         }
         wrapper.orderByDesc(SysUser::getCreateTime);
-        return PageResult.of(userMapper.selectPage(page, wrapper));
+        return PageAdapter.of(userMapper.selectPage(page, wrapper));
     }
 
     public List<SysUser> listAll() {

@@ -9,7 +9,7 @@
     <version>1.0.0</version>
     <packaging>pom</packaging>
     <name>ai-platform-parent</name>
-    <description>AI Agent Platform - Spring Cloud Distributed AI Platform</description>
+    <description>AI Agent Platform - Spring Cloud Distributed AI Platform (Enterprise)</description>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
@@ -19,7 +19,13 @@
     </parent>
 
     <modules>
+        <module>ai-platform-api</module>
         <module>ai-platform-common</module>
+        <module>ai-platform-starters/ai-platform-web-starter</module>
+        <module>ai-platform-starters/ai-platform-mybatis-starter</module>
+        <module>ai-platform-starters/ai-platform-redis-starter</module>
+        <module>ai-platform-starters/ai-platform-secure-starter</module>
+        <module>ai-platform-starters/ai-platform-nacos-starter</module>
         <module>ai-platform-gateway</module>
         <module>ai-platform-auth</module>
         <module>ai-platform-user</module>
@@ -36,7 +42,14 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <spring-boot.version>3.2.5</spring-boot.version>
+
+        <!-- Aliyun mirror 优先,中央仓库备用 -->
+        <aliyun-mirror>https://maven.aliyun.com/repository/public</aliyun-mirror>
+        <aliyun-spring-mirror>https://maven.aliyun.com/repository/spring</aliyun-spring-mirror>
+        <aliyun-spring-plugin-mirror>https://maven.aliyun.com/repository/spring-plugin</aliyun-spring-plugin-mirror>
+
+        <!-- ============ 第三方版本（集中在此, 供所有子模块继承） ============ -->
+        <revision>1.0.0</revision>
         <spring-cloud.version>2023.0.1</spring-cloud.version>
         <spring-cloud-alibaba.version>2023.0.1.0</spring-cloud-alibaba.version>
         <mybatis-plus.version>3.5.5</mybatis-plus.version>
@@ -47,9 +60,15 @@
         <easyexcel.version>3.3.4</easyexcel.version>
         <fastjson2.version>2.0.49</fastjson2.version>
         <lombok.version>1.18.32</lombok.version>
-        <nacos.client.version>2.3.9</nacos.client.version>
+        <onnxruntime.version>1.17.1</onnxruntime.version>
+        <tika.version>2.9.1</tika.version>
+        <djl.version>0.25.0</djl.version>
+        <elasticsearch.client.version>8.13.0</elasticsearch.client.version>
     </properties>
 
+    <!-- ===================================================== -->
+    <!-- 全部依赖版本集中在这里 (替代 BOM,避免循环 import)        -->
+    <!-- ===================================================== -->
     <dependencyManagement>
         <dependencies>
             <!-- Spring Cloud BOM -->
@@ -69,33 +88,56 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Internal modules -->
+            <!-- 内部模块 -->
             <dependency>
                 <groupId>com.aiplatform</groupId>
                 <artifactId>ai-platform-common</artifactId>
-                <version>${project.version}</version>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aiplatform</groupId>
+                <artifactId>ai-platform-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aiplatform</groupId>
+                <artifactId>ai-platform-web-starter</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aiplatform</groupId>
+                <artifactId>ai-platform-mybatis-starter</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aiplatform</groupId>
+                <artifactId>ai-platform-redis-starter</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aiplatform</groupId>
+                <artifactId>ai-platform-secure-starter</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aiplatform</groupId>
+                <artifactId>ai-platform-nacos-starter</artifactId>
+                <version>${revision}</version>
             </dependency>
 
-            <!-- MyBatis Plus -->
+            <!-- 第三方 -->
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
-            <dependency>
-                <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-jsqlparser</artifactId>
-                <version>${mybatis-plus.version}</version>
-            </dependency>
 
-            <!-- MySQL Driver -->
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
                 <version>${mysql.version}</version>
             </dependency>
 
-            <!-- JJWT -->
             <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-api</artifactId>
@@ -112,39 +154,89 @@
                 <version>${jjwt.version}</version>
             </dependency>
 
-            <!-- Hutool -->
             <dependency>
                 <groupId>cn.hutool</groupId>
                 <artifactId>hutool-all</artifactId>
                 <version>${hutool.version}</version>
             </dependency>
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-core</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
 
-            <!-- Knife4j OpenAPI -->
             <dependency>
                 <groupId>com.github.xiaoymin</groupId>
                 <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
                 <version>${knife4j.version}</version>
             </dependency>
 
-            <!-- EasyExcel -->
             <dependency>
                 <groupId>com.alibaba</groupId>
                 <artifactId>easyexcel</artifactId>
                 <version>${easyexcel.version}</version>
             </dependency>
 
-            <!-- Fastjson2 -->
             <dependency>
                 <groupId>com.alibaba.fastjson2</groupId>
                 <artifactId>fastjson2</artifactId>
                 <version>${fastjson2.version}</version>
             </dependency>
 
-            <!-- Lombok -->
             <dependency>
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
                 <version>${lombok.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.microsoft.onnxruntime</groupId>
+                <artifactId>onnxruntime</artifactId>
+                <version>${onnxruntime.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-core</artifactId>
+                <version>${tika.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.tika</groupId>
+                <artifactId>tika-parsers-standard-package</artifactId>
+                <version>${tika.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>co.elastic.clients</groupId>
+                <artifactId>elasticsearch-java</artifactId>
+                <version>${elasticsearch.client.version}</version>
+            </dependency>
+
+            <!-- DJL -->
+            <dependency>
+                <groupId>ai.djl</groupId>
+                <artifactId>api</artifactId>
+                <version>${djl.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ai.djl</groupId>
+                <artifactId>basicdataset</artifactId>
+                <version>${djl.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ai.djl.pytorch</groupId>
+                <artifactId>pytorch-engine</artifactId>
+                <version>${djl.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ai.djl.pytorch</groupId>
+                <artifactId>pytorch-native-cpu</artifactId>
+                <version>${djl.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ai.djl</groupId>
+                <artifactId>onnxruntime-engine</artifactId>
+                <version>${djl.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -153,51 +245,61 @@
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-maven-plugin</artifactId>
-                    <configuration>
-                        <excludes>
-                            <exclude>
-                                <groupId>org.projectlombok</groupId>
-                                <artifactId>lombok</artifactId>
-                            </exclude>
-                        </excludes>
-                    </configuration>
-                </plugin>
-                <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
                         <source>${java.version}</source>
                         <target>${java.version}</target>
                         <encoding>${project.build.sourceEncoding}</encoding>
-                        <annotationProcessorPaths>
-                            <path>
-                                <groupId>org.projectlombok</groupId>
-                                <artifactId>lombok</artifactId>
-                                <version>${lombok.version}</version>
-                            </path>
-                        </annotationProcessorPaths>
                     </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
     </build>
 
+    <!-- Aliyun mirror + Central fallback -->
     <repositories>
         <repository>
-            <id>aliyun</id>
-            <name>aliyun maven</name>
-            <url>https://maven.aliyun.com/repository/public</url>
+            <id>aliyun-public</id>
+            <name>Aliyun Public</name>
+            <url>${aliyun-mirror}</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>aliyun-spring</id>
+            <name>Aliyun Spring</name>
+            <url>${aliyun-spring-mirror}</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>central</id>
+            <name>Central</name>
+            <url>https://repo.maven.apache.org/maven2</url>
             <releases><enabled>true</enabled></releases>
             <snapshots><enabled>false</enabled></snapshots>
         </repository>
     </repositories>
     <pluginRepositories>
         <pluginRepository>
-            <id>aliyun</id>
-            <name>aliyun maven</name>
-            <url>https://maven.aliyun.com/repository/public</url>
+            <id>aliyun-public</id>
+            <name>Aliyun Public</name>
+            <url>${aliyun-mirror}</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </pluginRepository>
+        <pluginRepository>
+            <id>aliyun-spring-plugin</id>
+            <name>Aliyun Spring Plugin</name>
+            <url>${aliyun-spring-plugin-mirror}</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </pluginRepository>
+        <pluginRepository>
+            <id>central</id>
+            <name>Central</name>
+            <url>https://repo.maven.apache.org/maven2</url>
             <releases><enabled>true</enabled></releases>
             <snapshots><enabled>false</enabled></snapshots>
         </pluginRepository>

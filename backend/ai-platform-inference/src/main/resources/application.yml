@@ -5,18 +5,31 @@ spring:
   application:
     name: ai-platform-inference
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # ----- Nacos is OPTIONAL. Default off so service can start standalone -----
   cloud:
     nacos:
       discovery:
-        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
         enabled: ${NACOS_DISCOVERY_ENABLED:false}
-      config:
         server-addr: ${NACOS_SERVER:127.0.0.1:8848}
-        file-extension: yaml
+      config:
         enabled: ${NACOS_CONFIG_ENABLED:false}
+        import-check:
+          enabled: false
+
+  # Inference service has no DB; Redis is optional. Both auto-configurations
+  # are disabled so the service can run with zero infrastructure.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
 
 aiplatform:
+  jwt:
+    enabled: true
+    secret: ${JWT_SECRET:ai-platform-default-secret-key-please-change-32+}
+    expiration: 86400000
+    issuer: ai-platform
   inference:
     bundle-root: ${INFERENCE_BUNDLE_ROOT:/opt/ai-platform/inference-bundles}
     bundle-default: ${INFERENCE_BUNDLE_DEFAULT:default}

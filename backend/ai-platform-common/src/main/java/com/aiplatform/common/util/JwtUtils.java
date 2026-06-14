@@ -4,12 +4,6 @@ import com.aiplatform.common.constant.CommonConstants;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import jakarta.annotation.PostConstruct;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -18,30 +12,24 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * JWT utility - sign / parse / validate tokens.
- *
- * Configurable via {@code aiplatform.jwt.*} properties.
+ * Pure Java JWT utility. No Spring annotations so it can be used from
+ * non-Spring modules too. The Spring-aware binding lives in the
+ * secure-starter which constructs a singleton instance and binds config.
  */
-@Slf4j
-@Getter
-@Setter
-@Component
-@ConfigurationProperties(prefix = "aiplatform.jwt")
 public class JwtUtils {
 
-    /** HMAC-SHA secret, must be >= 32 bytes for HS256. */
-    private String secret = "ai-platform-default-secret-key-please-change-32+";
+    private final String secret;
+    private final long expiration;
+    private final String issuer;
+    private final SecretKey key;
 
-    /** Expiration in milliseconds. Default 24h. */
-    private long expiration = 24L * 60L * 60L * 1000L;
-
-    /** Token issuer. */
-    private String issuer = "ai-platform";
-
-    private SecretKey key;
-
-    @PostConstruct
-    public void init() {
+    public JwtUtils(String secret, long expiration, String issuer) {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalArgumentException("JWT secret must be >= 32 bytes for HS256");
+        }
+        this.secret = secret;
+        this.expiration = expiration;
+        this.issuer = issuer;
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -89,8 +77,15 @@ public class JwtUtils {
             parse(token);
             return true;
         } catch (Exception e) {
-            log.debug("[JWT] invalid token: {}", e.getMessage());
             return false;
         }
+    }
+
+    public long getExpiration() {
+        return expiration;
+    }
+
+    public String getSecret() {
+        return secret;
     }
 }

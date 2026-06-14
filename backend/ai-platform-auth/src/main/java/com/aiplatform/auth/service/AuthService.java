@@ -8,7 +8,7 @@ import com.aiplatform.common.exception.BusinessException;
 import com.aiplatform.common.result.Result;
 import com.aiplatform.common.result.ResultCode;
 import com.aiplatform.common.util.JwtUtils;
-import com.aiplatform.common.util.RedisUtils;
+import com.aiplatform.starter.redis.RedisUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;

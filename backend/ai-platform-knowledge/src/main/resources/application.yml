@@ -1,23 +1,24 @@
 server:
   port: 9006
-  servlet:
-    context-path: /
-    multipart:
-      max-file-size: 200MB
-      max-request-size: 200MB
 
 spring:
   application:
     name: ai-platform-knowledge
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # ----- Nacos is OPTIONAL. Default off so service can start standalone -----
   cloud:
     nacos:
       discovery:
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
         server-addr: ${NACOS_SERVER:127.0.0.1:8848}
       config:
-        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
-        file-extension: yaml
+        enabled: ${NACOS_CONFIG_ENABLED:false}
+        import-check:
+          enabled: false
+
+  # ----- Optional datasource -----
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:ai_platform}?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USER:root}
@@ -41,17 +42,12 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 aiplatform:
-  knowledge:
-    storage-path: ${KB_STORAGE_PATH:/opt/ai-platform/kb}
-  elasticsearch:
-    enabled: ${ES_ENABLED:true}
-    host: ${ES_HOST:127.0.0.1}
-    port: ${ES_PORT:9200}
-    scheme: ${ES_SCHEME:http}
-    username: ${ES_USERNAME:}
-    password: ${ES_PASSWORD:}
+  jwt:
+    enabled: true
+    secret: ${JWT_SECRET:ai-platform-default-secret-key-please-change-32+}
+    expiration: 86400000
+    issuer: ai-platform
 
 logging:
   level:
     com.aiplatform: INFO
-    org.apache.tika: WARN

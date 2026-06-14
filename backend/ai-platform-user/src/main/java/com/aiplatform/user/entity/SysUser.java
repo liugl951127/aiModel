@@ -1,6 +1,6 @@
 package com.aiplatform.user.entity;
 
-import com.aiplatform.common.entity.BaseEntity;
+import com.aiplatform.starter.mybatis.entity.BaseEntity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;

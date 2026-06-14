@@ -2,7 +2,7 @@ package com.aiplatform.agent.controller;
 
 import com.aiplatform.agent.entity.ToolEntity;
 import com.aiplatform.agent.service.ToolService;
-import com.aiplatform.common.entity.PageQuery;
+import com.aiplatform.starter.mybatis.entity.PageQuery;
 import com.aiplatform.common.result.PageResult;
 import com.aiplatform.common.result.Result;
 import lombok.RequiredArgsConstructor;

@@ -3,7 +3,7 @@ package com.aiplatform.agent.memory;
 import com.aiplatform.agent.entity.Conversation;
 import com.aiplatform.agent.entity.Message;
 import com.aiplatform.agent.service.ConversationService;
-import com.aiplatform.common.util.RedisUtils;
+import com.aiplatform.starter.redis.RedisUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

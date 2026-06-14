@@ -1,8 +1,9 @@
 package com.aiplatform.model.service;
 
-import com.aiplatform.common.entity.PageQuery;
+import com.aiplatform.starter.mybatis.entity.PageQuery;
 import com.aiplatform.common.exception.BusinessException;
 import com.aiplatform.common.result.PageResult;
+import com.aiplatform.starter.mybatis.support.PageAdapter;
 import com.aiplatform.common.result.ResultCode;
 import com.aiplatform.model.entity.ModelRegistry;
 import com.aiplatform.model.mapper.ModelRegistryMapper;
@@ -53,7 +54,7 @@ public class ModelRegistryService {
                     .or().like(ModelRegistry::getModelCode, q.getKeyword());
         }
         w.orderByDesc(ModelRegistry::getCreateTime);
-        return PageResult.of(modelMapper.selectPage(page, w));
+        return PageAdapter.of(modelMapper.selectPage(page, w));
     }
 
     public ModelRegistry update(ModelRegistry model) {

@@ -4,8 +4,8 @@ import com.aiplatform.common.constant.CommonConstants;
 import com.aiplatform.common.util.JwtUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -29,7 +29,6 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class AuthGlobalFilter implements GlobalFilter, Ordered {
 
     private static final List<String> WHITELIST_PREFIXES = List.of(
@@ -45,7 +44,8 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             "/favicon.ico"
     );
 
-    private final JwtUtils jwtUtils;
+    @Autowired
+    private JwtUtils jwtUtils;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override

@@ -1,6 +1,6 @@
 package com.aiplatform.user.controller;
 
-import com.aiplatform.common.entity.PageQuery;
+import com.aiplatform.starter.mybatis.entity.PageQuery;
 import com.aiplatform.common.result.PageResult;
 import com.aiplatform.common.result.Result;
 import com.aiplatform.user.entity.SysUser;

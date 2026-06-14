@@ -11,13 +11,23 @@
     </parent>
 
     <artifactId>ai-platform-gateway</artifactId>
+    <packaging>jar</packaging>
     <name>ai-platform-gateway</name>
-    <description>API gateway (Spring Cloud Gateway + Nacos discovery)</description>
+    <description>API gateway (Spring Cloud Gateway + optional Nacos discovery)</description>
 
     <dependencies>
         <dependency>
             <groupId>com.aiplatform</groupId>
             <artifactId>ai-platform-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-secure-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-nacos-starter</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -25,20 +35,9 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-bootstrap</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -54,9 +53,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <executions>
-                    <execution>
-                        <goals><goal>repackage</goal></goals>
-                    </execution>
+                    <execution><goals><goal>repackage</goal></goals></execution>
                 </executions>
             </plugin>
         </plugins>

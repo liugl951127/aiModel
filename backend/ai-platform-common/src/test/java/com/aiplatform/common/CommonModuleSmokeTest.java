@@ -12,8 +12,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Smoke test for the common module: bean wiring is not exercised here
- * (Spring context is started by individual services), but core utilities are.
+ * Smoke test for the common module: pure utilities only, no Spring context.
  */
 class CommonModuleSmokeTest {
 
@@ -48,14 +47,19 @@ class CommonModuleSmokeTest {
 
     @Test
     void jwtRoundTrip() {
-        JwtUtils jwt = new JwtUtils();
-        jwt.setSecret("test-secret-key-32bytes-min-padding");
-        jwt.init();
+        JwtUtils jwt = new JwtUtils("test-secret-key-32bytes-min-padding",
+                3600_000L, "test-issuer");
         String token = jwt.generate(99L, "alice", 7L);
         assertTrue(jwt.validate(token));
         Claims c = jwt.parse(token);
         assertEquals(99L, ((Number) c.get("userId")).longValue());
         assertEquals(7L, ((Number) c.get("tenantId")).longValue());
+    }
+
+    @Test
+    void jwtRejectsShortSecret() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new JwtUtils("short", 1000L, "x"));
     }
 
     @Test

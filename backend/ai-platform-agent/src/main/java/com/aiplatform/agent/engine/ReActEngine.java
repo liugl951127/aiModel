@@ -9,7 +9,7 @@ import com.aiplatform.agent.tool.ToolRegistry;
 import com.aiplatform.common.exception.BusinessException;
 import com.aiplatform.common.result.Result;
 import com.aiplatform.common.result.ResultCode;
-import com.aiplatform.common.util.RedisUtils;
+import com.aiplatform.starter.redis.RedisUtils;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;

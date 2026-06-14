@@ -11,38 +11,57 @@
     </parent>
 
     <artifactId>ai-platform-inference</artifactId>
+    <packaging>jar</packaging>
     <name>ai-platform-inference</name>
-    <description>ONNX Runtime inference + chat completion API for deployed local models</description>
+    <description>Standalone inference service: ONNX + self-implemented Java Transformer</description>
 
     <dependencies>
         <dependency>
             <groupId>com.aiplatform</groupId>
             <artifactId>ai-platform-common</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-web-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-mybatis-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-redis-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-secure-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-nacos-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
 
-        <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
-        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-commons</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-config</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-web</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>com.microsoft.onnxruntime</groupId>

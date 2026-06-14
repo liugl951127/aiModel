@@ -1,57 +1,61 @@
 server:
   port: 9000
-  servlet:
-    context-path: /
 
 spring:
   application:
     name: ai-platform-gateway
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # ----- Nacos is OPTIONAL -----
   cloud:
     nacos:
       discovery:
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
         server-addr: ${NACOS_SERVER:127.0.0.1:8848}
       config:
-        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
-        file-extension: yaml
+        enabled: ${NACOS_CONFIG_ENABLED:false}
+        import-check:
+          enabled: false
+
+    # Spring Cloud Gateway routes (use literal URIs when Nacos is off)
     gateway:
       discovery:
         locator:
-          enabled: true
-          lower-case-service-id: true
+          enabled: false
       routes:
         - id: auth-route
-          uri: lb://ai-platform-auth
+          uri: ${AUTH_URL:http://127.0.0.1:9001}
           predicates:
             - Path=/api/auth/**
         - id: user-route
-          uri: lb://ai-platform-user
+          uri: ${USER_URL:http://127.0.0.1:9002}
           predicates:
             - Path=/api/user/**,/api/tenant/**
         - id: system-route
-          uri: lb://ai-platform-system
+          uri: ${SYSTEM_URL:http://127.0.0.1:9003}
           predicates:
             - Path=/api/system/**,/api/menu/**,/api/role/**,/api/dict/**
         - id: model-route
-          uri: lb://ai-platform-model
+          uri: ${MODEL_URL:http://127.0.0.1:9004}
           predicates:
             - Path=/api/model/**,/api/dataset/**,/api/train/**
         - id: agent-route
-          uri: lb://ai-platform-agent
+          uri: ${AGENT_URL:http://127.0.0.1:9005}
           predicates:
             - Path=/api/agent/**,/api/tool/**,/api/conversation/**
         - id: knowledge-route
-          uri: lb://ai-platform-knowledge
+          uri: ${KNOWLEDGE_URL:http://127.0.0.1:9006}
           predicates:
             - Path=/api/knowledge/**,/api/document/**
         - id: inference-route
-          uri: lb://ai-platform-inference
+          uri: ${INFERENCE_URL:http://127.0.0.1:9007}
           predicates:
             - Path=/api/inference/**,/api/chat/**
 
 aiplatform:
   jwt:
+    enabled: true
     secret: ${JWT_SECRET:ai-platform-default-secret-key-please-change-32+}
     expiration: 86400000
     issuer: ai-platform

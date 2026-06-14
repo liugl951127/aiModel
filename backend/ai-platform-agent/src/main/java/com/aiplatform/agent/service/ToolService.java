@@ -2,8 +2,9 @@ package com.aiplatform.agent.service;
 
 import com.aiplatform.agent.entity.ToolEntity;
 import com.aiplatform.agent.mapper.ToolMapper;
-import com.aiplatform.common.entity.PageQuery;
+import com.aiplatform.starter.mybatis.entity.PageQuery;
 import com.aiplatform.common.result.PageResult;
+import com.aiplatform.starter.mybatis.support.PageAdapter;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +40,7 @@ public class ToolService {
             w.like(ToolEntity::getToolName, q.getKeyword());
         }
         w.orderByDesc(ToolEntity::getCreateTime);
-        return PageResult.of(toolMapper.selectPage(p, w));
+        return PageAdapter.of(toolMapper.selectPage(p, w));
     }
 
     public void delete(Long id) {

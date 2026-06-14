@@ -9,8 +9,14 @@ import org.springframework.context.annotation.ComponentScan;
 
 @EnableDiscoveryClient
 @EnableFeignClients(basePackages = "com.aiplatform.auth.feign")
-@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
-@ComponentScan(basePackages = {"com.aiplatform.auth", "com.aiplatform.common"})
+@SpringBootApplication
+@ComponentScan(basePackages = {
+        "com.aiplatform.auth",
+        "com.aiplatform.starter.web",
+        "com.aiplatform.starter.redis",
+        "com.aiplatform.starter.secure",
+        "com.aiplatform.starter.nacos"
+})
 public class AuthApplication {
 
     public static void main(String[] args) {

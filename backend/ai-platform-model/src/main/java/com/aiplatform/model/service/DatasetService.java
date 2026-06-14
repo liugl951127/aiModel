@@ -1,7 +1,8 @@
 package com.aiplatform.model.service;
 
-import com.aiplatform.common.entity.PageQuery;
+import com.aiplatform.starter.mybatis.entity.PageQuery;
 import com.aiplatform.common.result.PageResult;
+import com.aiplatform.starter.mybatis.support.PageAdapter;
 import com.aiplatform.model.entity.ModelDataset;
 import com.aiplatform.model.mapper.ModelDatasetMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -35,7 +36,7 @@ public class DatasetService {
             w.like(ModelDataset::getDatasetName, q.getKeyword());
         }
         w.orderByDesc(ModelDataset::getCreateTime);
-        return PageResult.of(datasetMapper.selectPage(page, w));
+        return PageAdapter.of(datasetMapper.selectPage(page, w));
     }
 
     public void delete(Long id) {

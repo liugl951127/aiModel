@@ -1,8 +1,9 @@
 package com.aiplatform.knowledge.service;
 
-import com.aiplatform.common.entity.PageQuery;
+import com.aiplatform.starter.mybatis.entity.PageQuery;
 import com.aiplatform.common.exception.BusinessException;
 import com.aiplatform.common.result.PageResult;
+import com.aiplatform.starter.mybatis.support.PageAdapter;
 import com.aiplatform.common.result.ResultCode;
 import com.aiplatform.knowledge.chunker.TextChunker;
 import com.aiplatform.knowledge.entity.KnowledgeBase;
@@ -58,7 +59,7 @@ public class KnowledgeService {
         LambdaQueryWrapper<KnowledgeDocument> w = new LambdaQueryWrapper<>();
         if (kbId != null) w.eq(KnowledgeDocument::getKbId, kbId);
         w.orderByDesc(KnowledgeDocument::getCreateTime);
-        return PageResult.of(docMapper.selectPage(p, w));
+        return PageAdapter.of(docMapper.selectPage(p, w));
     }
 
     public KnowledgeDocument uploadDocument(Long kbId, MultipartFile file) throws IOException {

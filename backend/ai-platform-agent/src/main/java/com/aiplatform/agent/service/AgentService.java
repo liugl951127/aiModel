@@ -1,8 +1,9 @@
 package com.aiplatform.agent.service;
 
-import com.aiplatform.common.entity.PageQuery;
+import com.aiplatform.starter.mybatis.entity.PageQuery;
 import com.aiplatform.common.exception.BusinessException;
 import com.aiplatform.common.result.PageResult;
+import com.aiplatform.starter.mybatis.support.PageAdapter;
 import com.aiplatform.common.result.ResultCode;
 import com.aiplatform.agent.entity.AgentEntity;
 import com.aiplatform.agent.mapper.AgentMapper;
@@ -60,6 +61,6 @@ public class AgentService {
                     .or().like(AgentEntity::getAgentCode, q.getKeyword());
         }
         w.orderByDesc(AgentEntity::getCreateTime);
-        return PageResult.of(agentMapper.selectPage(p, w));
+        return PageAdapter.of(agentMapper.selectPage(p, w));
     }
 }
