@@ -94,11 +94,12 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
         response.setStatusCode(HttpStatus.UNAUTHORIZED);
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
         try {
-            byte[] body = objectMapper.writeValueAsBytes(Map.of(
-                    "code", 401,
-                    "message", msg,
-                    "data", (Object) null
-            ));
+            // Map.of 不接受 null value，统一用 HashMap
+            java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+            payload.put("code", 401);
+            payload.put("message", msg);
+            payload.put("data", null);
+            byte[] body = objectMapper.writeValueAsBytes(payload);
             DataBuffer buffer = response.bufferFactory().wrap(body);
             return response.writeWith(Mono.just(buffer));
         } catch (JsonProcessingException e) {

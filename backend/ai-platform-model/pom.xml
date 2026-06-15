@@ -41,7 +41,11 @@
         </dependency>
         <dependency>
             <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-starter</artifactId>
+            <artifactId>ai-platform-common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-common-web</artifactId>
         </dependency>
 
         <dependency>

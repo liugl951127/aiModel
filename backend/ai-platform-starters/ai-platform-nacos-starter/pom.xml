@@ -14,45 +14,33 @@
     <artifactId>ai-platform-nacos-starter</artifactId>
     <packaging>jar</packaging>
     <name>ai-platform-nacos-starter</name>
-    <description>Starter: Nacos discovery + config (optional, defaults off)</description>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>com.aiplatform</groupId>
-                <artifactId>ai-platform-dependencies</artifactId>
-                <version>${project.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+    <description>Starter: Nacos discovery + config (enabled via env NACOS_DISCOVERY_ENABLED=true).</description>
 
     <dependencies>
         <dependency>
             <groupId>com.aiplatform</groupId>
             <artifactId>ai-platform-common</artifactId>
         </dependency>
+        <!-- 非 optional：业务模块引这个 starter 时，nacos client 一定会进 fat-jar。
+             运行时是否连 nacos 由 application.yml 的 nacos.discovery.enabled 控制（默认 false）。 -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
-            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
-            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-bootstrap</artifactId>
-            <optional>true</optional>
         </dependency>
     </dependencies>
 
     <build>
         <finalName>${project.artifactId}</finalName>
         <plugins>
+            <!-- starter 自己不打 fat-jar（业务模块才需要） -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

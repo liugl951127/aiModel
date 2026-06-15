@@ -94,14 +94,15 @@ public class AuthService {
                     : ((Number) user.get("tenantId")).longValue();
         } else {
             // 校验该用户确实属于这家公司
+            final long finalTenantId = tenantId;
             Result<List<Map<String, Object>>> tr = tenantServiceClient.listByUsername(username);
             if (tr != null && tr.getData() != null) {
-                boolean ok = tr.getData().stream().anyMatch(t -> tenantId.equals(((Number) t.get("id")).longValue()));
+                boolean ok = tr.getData().stream().anyMatch(t -> finalTenantId == ((Number) t.get("id")).longValue());
                 if (!ok) {
                     throw new BusinessException(ResultCode.FORBIDDEN, "该用户不属于此公司");
                 }
                 for (Map<String, Object> t : tr.getData()) {
-                    if (tenantId.equals(((Number) t.get("id")).longValue())) {
+                    if (finalTenantId == ((Number) t.get("id")).longValue()) {
                         tenantCode = (String) t.get("tenantCode");
                         tenantName = (String) t.get("tenantName");
                         break;

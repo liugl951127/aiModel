@@ -7,7 +7,7 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
-  # ----- Nacos is OPTIONAL -----
+  # ----- Nacos is OPTIONAL (default off) -----
   cloud:
     nacos:
       discovery:
@@ -18,40 +18,54 @@ spring:
         import-check:
           enabled: false
 
-    # Spring Cloud Gateway routes (use literal URIs when Nacos is off)
+    # Spring Cloud Gateway routes.
+    # uri 走 nacos service name（lb://XXX）时，Spring Cloud LoadBalancer 会从 nacos 拉实例；
+    # nacos 关闭时，fallback 到 ${XXX_URL:http://127.0.0.1:PORT} 字面量地址。
     gateway:
       discovery:
         locator:
           enabled: false
       routes:
         - id: auth-route
-          uri: ${AUTH_URL:http://127.0.0.1:9001}
+          uri: ${AUTH_URI:lb://ai-platform-auth}
           predicates:
             - Path=/api/auth/**
         - id: user-route
-          uri: ${USER_URL:http://127.0.0.1:9002}
+          uri: ${USER_URI:lb://ai-platform-user}
           predicates:
             - Path=/api/user/**,/api/tenant/**
         - id: system-route
-          uri: ${SYSTEM_URL:http://127.0.0.1:9003}
+          uri: ${SYSTEM_URI:lb://ai-platform-system}
           predicates:
             - Path=/api/system/**,/api/menu/**,/api/role/**,/api/dict/**
         - id: model-route
-          uri: ${MODEL_URL:http://127.0.0.1:9004}
+          uri: ${MODEL_URI:lb://ai-platform-model}
           predicates:
-            - Path=/api/model/**,/api/dataset/**,/api/train/**
+            - Path=/api/model/**,/api/dataset/**
         - id: agent-route
-          uri: ${AGENT_URL:http://127.0.0.1:9005}
+          uri: ${AGENT_URI:lb://ai-platform-agent}
           predicates:
-            - Path=/api/agent/**,/api/tool/**,/api/conversation/**
+            - Path=/api/agent/**,/api/tool/**,/api/conversation/**,/api/web/**
         - id: knowledge-route
-          uri: ${KNOWLEDGE_URL:http://127.0.0.1:9006}
+          uri: ${KNOWLEDGE_URI:lb://ai-platform-knowledge}
           predicates:
             - Path=/api/knowledge/**,/api/document/**
         - id: inference-route
-          uri: ${INFERENCE_URL:http://127.0.0.1:9007}
+          uri: ${INFERENCE_URI:lb://ai-platform-inference}
           predicates:
             - Path=/api/inference/**,/api/chat/**
+        - id: files-route
+          uri: ${FILES_URI:lb://ai-platform-files}
+          predicates:
+            - Path=/api/files/**,/api/chunk/**
+        - id: workflow-route
+          uri: ${WORKFLOW_URI:lb://ai-platform-workflow}
+          predicates:
+            - Path=/api/workflow/**
+        - id: trainer-route
+          uri: ${TRAINER_URI:lb://ai-platform-trainer}
+          predicates:
+            - Path=/api/trainer/**
 
 aiplatform:
   jwt:
@@ -64,3 +78,4 @@ logging:
   level:
     com.aiplatform: INFO
     org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.loadbalancer: INFO
