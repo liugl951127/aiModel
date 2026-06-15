@@ -3,6 +3,17 @@ spring:
     name: ai-platform-files
   profiles:
     active: dev
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
+        username: ${NACOS_USER:nacos}
+        password: ${NACOS_PASS:nacos}
+      config:
+        enabled: ${NACOS_CONFIG_ENABLED:false}
+        import-check:
+          enabled: false
   servlet:
     multipart:
       max-file-size: 200MB

@@ -3,6 +3,17 @@ spring:
     name: ai-platform-workflow
   profiles:
     active: dev
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
+        username: ${NACOS_USER:nacos}
+        password: ${NACOS_PASS:nacos}
+      config:
+        enabled: ${NACOS_CONFIG_ENABLED:false}
+        import-check:
+          enabled: false
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/aiplatform_workflow?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
     username: root
