@@ -4,11 +4,21 @@ server:
 spring:
   application:
     name: ai-platform-gateway
+  main:
+    allow-bean-definition-overriding: true
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
   # ----- Nacos is OPTIONAL (default off) -----
   cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 3000
+            read-timeout: 8000
+      # 不扫描 classpath 上的 @FeignClient interface，只扫 @EnableFeignClients(basePackages)
+      # 避免多服务 jar 互引时 FeignClientSpecification bean 冲突
     nacos:
       discovery:
         enabled: ${NACOS_DISCOVERY_ENABLED:false}

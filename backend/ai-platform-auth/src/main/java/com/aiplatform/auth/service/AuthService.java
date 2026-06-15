@@ -45,6 +45,7 @@ public class AuthService {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
         Map<String, Object> user = resp.getData();
+        boolean isSuperAdmin = "admin".equalsIgnoreCase(username);
         Result<List<Map<String, Object>>> tenantsResp = tenantServiceClient.listByUsername(username);
         List<Map<String, Object>> tenants = tenantsResp == null ? List.of()
                 : (tenantsResp.getData() == null ? List.of() : tenantsResp.getData());
@@ -56,7 +57,14 @@ public class AuthService {
         safe.put("nickname", user.get("nickname"));
         safe.put("avatar", user.get("avatar"));
         safe.put("department", user.get("department"));
-        safe.put("tenants", tenants);
+        safe.put("isSuperAdmin", isSuperAdmin);
+        safe.put("roles", isSuperAdmin
+                ? java.util.List.of("SUPER_ADMIN", "PLATFORM_ADMIN", "user")
+                : java.util.List.of("user"));
+        safe.put("tenants", isSuperAdmin
+                ? java.util.List.of(java.util.Map.of(
+                        "id", 0L, "tenantCode", "ALL", "tenantName", "全部公司（超管）", "role", "super"))
+                : tenants);
         return safe;
     }
 
@@ -85,10 +93,21 @@ public class AuthService {
         String nickname = (String) user.get("nickname");
         String avatar = (String) user.get("avatar");
 
+        // 超级管理员判定：username = "admin" — 拥有所有租户的最高权限。
+        // 业务场景：admin 登录时不需要选公司，AuthService 自动给超级租户 0L。
+        // 后台 sys_role 表里有 PLATFORM_ADMIN role，这里用 username 快速判定，
+        // 生产可以替换为：查 sys_user_role 关联表。
+        boolean isSuperAdmin = "admin".equalsIgnoreCase(username);
+
         Long tenantId = req.getTenantId();
         String tenantCode = null;
         String tenantName = null;
-        if (tenantId == null) {
+        if (isSuperAdmin && (tenantId == null || tenantId == 0L)) {
+            // 超级管理员：不需选公司，默认拥有所有租户权限
+            tenantId = CommonConstants.SUPER_TENANT_ID;
+            tenantCode = "ALL";
+            tenantName = "全部公司（超级管理员）";
+        } else if (tenantId == null) {
             tenantId = user.get("tenantId") == null
                     ? CommonConstants.SUPER_TENANT_ID
                     : ((Number) user.get("tenantId")).longValue();
@@ -122,13 +141,15 @@ public class AuthService {
                 .expiresIn(jwtUtils.getExpiration() / 1000)
                 .userId(userId)
                 .username(username)
+                .roles(isSuperAdmin
+                        ? java.util.List.of("SUPER_ADMIN", "PLATFORM_ADMIN", "user")
+                        : java.util.List.of("user"))
                 .nickname(nickname)
                 .avatar(avatar)
                 .department(department)
                 .tenantId(tenantId)
                 .tenantCode(tenantCode)
                 .tenantName(tenantName)
-                .roles(List.of("user"))
                 .build();
     }
 

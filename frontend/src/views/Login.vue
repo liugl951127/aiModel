@@ -44,15 +44,16 @@
           </button>
         </div>
 
-        <!-- 公共：3 步流程（账号 → 公司 → 密码） -->
+        <!-- ============================================ -->
+        <!-- Tab: 账号登录（单页单步：用户名 + 密码 + 租户） -->
+        <!-- ============================================ -->
         <transition name="step" mode="out-in">
-          <!-- ============ 步骤 1：账号 ============ -->
-          <div v-if="activeTab === 'account' && step === 0" key="s1" class="step-panel">
-            <h2 class="panel-title">欢迎回来 👋</h2>
-            <p class="panel-tip">输入账号，我们来帮你找可登录的公司</p>
+          <div v-if="activeTab === 'account'" key="account" class="step-panel">
+            <h2 class="panel-title">账号登录</h2>
+            <p class="panel-tip">输入账号、密码、租户（公司）即可登录</p>
 
-            <el-form @keyup.enter="onCheckUser" :model="form" label-position="top" size="large">
-              <el-form-item label="用户名 / 邮箱 / 手机号">
+            <el-form @keyup.enter="onSubmit" :model="form" label-position="top" size="large" class="login-form">
+              <el-form-item label="用户名">
                 <el-input
                   v-model="form.username"
                   placeholder="admin / demo / manager"
@@ -61,33 +62,90 @@
                   clearable
                 />
               </el-form-item>
-              <el-button type="primary" :loading="checking" class="primary-btn" @click="onCheckUser">
-                下一步
+
+              <el-form-item label="密码">
+                <el-input
+                  v-model="form.password"
+                  type="password"
+                  placeholder="请输入密码"
+                  show-password
+                  :prefix-icon="Lock"
+                />
+              </el-form-item>
+
+              <el-form-item label="租户（公司）">
+                <el-input
+                  v-model="form.tenantIdText"
+                  placeholder="1=默认公司 / 2=示例科技 / 3=创业小公司"
+                  :prefix-icon="OfficeBuilding"
+                  clearable
+                >
+                  <template #append>
+                    <el-dropdown @command="onPickTenant" trigger="click">
+                      <el-button>
+                        <el-icon><ArrowDown /></el-icon>
+                        选择
+                      </el-button>
+                      <template #dropdown>
+                        <el-dropdown-menu>
+                          <el-dropdown-item
+                            v-for="t in tenantOptions"
+                            :key="t.id"
+                            :command="t"
+                          >
+                            <span class="tenant-ic">{{ t.name.charAt(0) }}</span>
+                            {{ t.name }} <small class="muted">({{ t.code }})</small>
+                          </el-dropdown-item>
+                        </el-dropdown-menu>
+                      </template>
+                    </el-dropdown>
+                  </template>
+                </el-input>
+                <div class="form-hint">
+                  <span v-if="isSuperAdmin" class="hint-admin">
+                    🔑 超级管理员：admin 登录后<strong>自动拥有所有租户</strong>权限，无需指定
+                  </span>
+                  <span v-else-if="form.tenantIdText" class="hint-ok">
+                    ✓ 租户 ID: <code>{{ form.tenantIdText }}</code>
+                  </span>
+                  <span v-else class="hint-warn">
+                    留空 = 使用账号默认租户；输错 = 登录被拒
+                  </span>
+                </div>
+              </el-form-item>
+
+              <div class="form-extras">
+                <el-checkbox v-model="form.remember">7 天内自动登录</el-checkbox>
+                <el-link type="primary" :underline="false" class="forgot">忘记密码？</el-link>
+              </div>
+
+              <el-button type="primary" :loading="loading" class="primary-btn" @click="onSubmit">
+                登 录
               </el-button>
             </el-form>
 
             <div class="quick-fill">
-              <p class="quick-tip">快速体验账号：</p>
+              <p class="quick-tip">快速体验账号（点击自动填）：</p>
               <div class="quick-row">
-                <button class="chip" @click="quickFill('admin','admin123','技术部','默认公司',1)">
+                <button class="chip" @click="quickFill('admin','admin123','','全部公司（超管）','')">
                   <span class="chip-avatar admin">A</span>
                   <div class="chip-meta">
                     <div class="chip-name">admin / admin123</div>
-                    <div class="chip-dept">技术部 · 平台管理员</div>
+                    <div class="chip-dept">超级管理员 · 拥有所有公司</div>
                   </div>
                 </button>
-                <button class="chip" @click="quickFill('demo','demo123','市场部','默认公司',1)">
+                <button class="chip" @click="quickFill('demo','demo123','1','默认公司',1)">
                   <span class="chip-avatar demo">D</span>
                   <div class="chip-meta">
                     <div class="chip-name">demo / demo123</div>
-                    <div class="chip-dept">市场部 · 普通用户</div>
+                    <div class="chip-dept">市场部 · 默认公司（id=1）</div>
                   </div>
                 </button>
-                <button class="chip" @click="quickFill('manager','demo123','运营部','示例科技公司',2)">
+                <button class="chip" @click="quickFill('manager','demo123','2','示例科技公司',2)">
                   <span class="chip-avatar mgr">M</span>
                   <div class="chip-meta">
                     <div class="chip-name">manager / demo123</div>
-                    <div class="chip-dept">运营部 · 子公司</div>
+                    <div class="chip-dept">运营部 · 示例科技（id=2）</div>
                   </div>
                 </button>
               </div>
@@ -99,90 +157,9 @@
             </div>
           </div>
 
-          <!-- ============ 步骤 2：选公司 ============ -->
-          <div v-else-if="activeTab === 'account' && step === 1" key="s2" class="step-panel">
-            <div class="user-card">
-              <el-avatar :size="48" :src="avatar" class="user-avatar">
-                {{ (nickname || username).charAt(0) }}
-              </el-avatar>
-              <div class="user-info">
-                <div class="user-name">{{ nickname || username }}</div>
-                <div class="user-dept">
-                  <el-icon><OfficeBuilding /></el-icon>
-                  <el-tag v-if="department" size="small" effect="light" round>{{ department }}</el-tag>
-                  <span v-else class="muted">未设置部门</span>
-                </div>
-              </div>
-              <el-link type="info" :underline="false" @click="step = 0">重选</el-link>
-            </div>
-
-            <p class="panel-tip">请选择要登录的公司（租户）：</p>
-            <div class="tenant-grid">
-              <div
-                v-for="t in tenants"
-                :key="t.id"
-                class="tenant-card"
-                :class="{ active: form.tenantId === t.id }"
-                @click="form.tenantId = t.id; form.tenantName = t.tenantName; form.tenantCode = t.tenantCode"
-              >
-                <div class="tenant-avatar">
-                  {{ (t.tenantName || t.tenantCode).charAt(0) }}
-                </div>
-                <div class="tenant-meta">
-                  <div class="tenant-name">{{ t.tenantName }}</div>
-                  <div class="tenant-code">{{ t.tenantCode }} · {{ t.role === 'owner' ? '主公司' : '访客' }}</div>
-                </div>
-                <el-icon v-if="form.tenantId === t.id" class="check"><CircleCheckFilled /></el-icon>
-              </div>
-            </div>
-
-            <el-button type="primary" :disabled="!form.tenantId" class="primary-btn" @click="step = 2">
-              下一步
-            </el-button>
-          </div>
-
-          <!-- ============ 步骤 3：密码 ============ -->
-          <div v-else-if="activeTab === 'account' && step === 2" key="s3" class="step-panel">
-            <div class="confirm-card">
-              <div class="confirm-row">
-                <span class="label">用户</span>
-                <span class="value">{{ nickname || username }}</span>
-              </div>
-              <div class="confirm-row">
-                <span class="label">公司</span>
-                <span class="value">{{ form.tenantName }} <small class="muted">({{ form.tenantCode }})</small></span>
-              </div>
-              <div class="confirm-row">
-                <span class="label">部门</span>
-                <span class="value">
-                  <el-tag size="small" effect="light" round>{{ department || '未设置' }}</el-tag>
-                </span>
-              </div>
-              <el-link type="info" :underline="false" class="change" @click="step = 1">换公司</el-link>
-            </div>
-
-            <el-form @keyup.enter="onSubmit" :model="form" label-position="top" size="large">
-              <el-form-item label="密码">
-                <el-input
-                  v-model="form.password"
-                  type="password"
-                  placeholder="请输入密码"
-                  show-password
-                  :prefix-icon="Lock"
-                  autofocus
-                />
-              </el-form-item>
-              <el-form-item>
-                <el-checkbox v-model="form.remember">7 天内自动登录</el-checkbox>
-                <el-link type="primary" :underline="false" class="forgot">忘记密码？</el-link>
-              </el-form-item>
-              <el-button type="primary" :loading="loading" class="primary-btn" @click="onSubmit">
-                登 录
-              </el-button>
-            </el-form>
-          </div>
-
-          <!-- ============ Tab: SSO ============ -->
+          <!-- ============================================ -->
+          <!-- Tab: 企业 SSO（占位） -->
+          <!-- ============================================ -->
           <div v-else-if="activeTab === 'sso'" key="sso" class="step-panel">
             <h2 class="panel-title">企业 SSO 登录</h2>
             <p class="panel-tip">使用企业账号（OIDC / LDAP / 飞书 / 钉钉）登录</p>
@@ -222,7 +199,9 @@
             <p class="sso-note">企业 SSO 接入请联系系统管理员配置 client_id / 重定向 URL</p>
           </div>
 
-          <!-- ============ Tab: 访客 ============ -->
+          <!-- ============================================ -->
+          <!-- Tab: 访客体验 -->
+          <!-- ============================================ -->
           <div v-else-if="activeTab === 'guest'" key="guest" class="step-panel">
             <h2 class="panel-title">访客体验</h2>
             <p class="panel-tip">无需账号，1 分钟快速浏览平台功能（只读沙箱）</p>
@@ -242,22 +221,16 @@
             </div>
           </div>
         </transition>
-
-        <!-- 步骤指示器（仅账号 tab 显示） -->
-        <div v-if="activeTab === 'account'" class="step-dots">
-          <div v-for="i in 3" :key="i" :class="['dot', { on: step >= i - 1 }]"></div>
-          <span class="step-label">{{ stepLabels[step] }}</span>
-        </div>
       </section>
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, onBeforeUnmount } from 'vue'
+import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, OfficeBuilding, CircleCheckFilled, WarningFilled } from '@element-plus/icons-vue'
+import { User, Lock, OfficeBuilding, ArrowDown, WarningFilled } from '@element-plus/icons-vue'
 import { authApi } from '@/api'
 
 const router = useRouter()
@@ -269,80 +242,51 @@ const tabs = [
   { key: 'guest',   label: '访客体验', icon: '👀' }
 ]
 const activeTab = ref('account')
-const switchTab = (k) => { activeTab.value = k; step.value = 0 }
-
-// ============== 步骤 ==============
-const step = ref(0)
-const stepLabels = ['输入账号', '选择公司', '登录']
+const switchTab = (k) => { activeTab.value = k }
 
 // ============== 表单 ==============
 const form = reactive({
   username: '',
   password: '',
-  tenantId: null,
-  tenantName: '',
-  tenantCode: '',
+  tenantIdText: '',
   remember: true
 })
 
-const checking = ref(false)
+const isSuperAdmin = computed(() => form.username.toLowerCase() === 'admin')
+
+// 租户下拉选项（与 sys_tenant seed 对齐：1=默认公司 / 2=示例科技 / 3=创业小公司）
+const tenantOptions = [
+  { id: 1, code: 'default',  name: '默认公司' },
+  { id: 2, code: 'demo-corp', name: '示例科技公司' },
+  { id: 3, code: 'startup-co', name: '创业小公司' }
+]
+
 const loading = ref(false)
 
-// 用户信息（步骤 1 拉取）
-const username = ref('')
-const nickname = ref('')
-const department = ref('')
-const avatar = ref('')
-const tenants = ref([])
-
-// ============== 背景粒子 ==============
+// ============== 背景粒子 / 时钟 ==============
 const canvas = ref(null)
 const currentTime = ref(new Date().toLocaleString('zh-CN'))
 let rafId = null
 let clockTimer = null
 
-// ============== 步骤 1：检查用户 ==============
-const onCheckUser = async () => {
-  if (!form.username) return ElMessage.warning('请输入用户名')
-  checking.value = true
-  try {
-    const resp = await authApi.preview(form.username)
-    if (!resp.data) {
-      ElMessage.error('用户不存在')
-      return
-    }
-    const d = resp.data
-    username.value = d.username
-    nickname.value = d.nickname || d.username
-    department.value = d.department || ''
-    avatar.value = d.avatar || ''
-    tenants.value = d.tenants || []
-    if (tenants.value.length === 0) {
-      ElMessage.warning('该用户暂无可登录的公司')
-      return
-    }
-    // 默认选第一个
-    form.tenantId = tenants.value[0].id
-    form.tenantName = tenants.value[0].tenantName
-    form.tenantCode = tenants.value[0].tenantCode
-    step.value = 1
-  } catch (e) {
-    ElMessage.error(e?.response?.data?.message || e.message || '查询失败')
-  } finally {
-    checking.value = false
-  }
-}
-
-// ============== 步骤 3：登录 ==============
+// ============== 登录 ==============
 const onSubmit = async () => {
+  if (!form.username) return ElMessage.warning('请输入用户名')
   if (!form.password) return ElMessage.warning('请输入密码')
+
+  // admin 跳过租户校验；普通用户 tenantIdText 必填
+  let tenantId = null
+  if (form.tenantIdText && form.tenantIdText.trim() !== '') {
+    const n = Number(form.tenantIdText.trim())
+    if (Number.isNaN(n) || n < 0) {
+      return ElMessage.error('租户 ID 必须是数字')
+    }
+    tenantId = n
+  }
+
   loading.value = true
   try {
-    const body = {
-      username: form.username,
-      password: form.password,
-      tenantId: form.tenantId
-    }
+    const body = { username: form.username, password: form.password, tenantId }
     const resp = await authApi.login(body)
     const data = resp.data
     localStorage.setItem('access_token', data.accessToken)
@@ -355,7 +299,6 @@ const onSubmit = async () => {
     localStorage.setItem('tenant_code', data.tenantCode || '')
     localStorage.setItem('tenant_name', data.tenantName || '')
     localStorage.setItem('roles', JSON.stringify(data.roles || ['user']))
-    // 7 天自动登录
     if (form.remember) {
       localStorage.setItem('remember_login', 'true')
       localStorage.setItem('remember_username', form.username)
@@ -371,20 +314,20 @@ const onSubmit = async () => {
   }
 }
 
+// ============== 租户下拉选择 ==============
+const onPickTenant = (t) => {
+  form.tenantIdText = String(t.id)
+}
+
 // ============== 快捷填充 ==============
-const quickFill = (u, p, dept, tname, tid) => {
+const quickFill = (u, p, tid, _name, _tId) => {
   form.username = u
   form.password = p
-  form.tenantId = tid
-  form.tenantName = tname
-  department.value = dept
-  // 自动提交
-  onCheckUser()
+  form.tenantIdText = tid
 }
 
 // ============== SSO 登录 ==============
 const onSsoLogin = (provider) => {
-  // 真实场景：window.location.href = `/api/auth/sso/${provider}/login?redirect=...`
   ElMessage.info(`${provider} SSO 接入待配置（联系管理员获取 client_id / redirect_uri）`)
 }
 
@@ -407,7 +350,6 @@ onMounted(() => {
     const saved = localStorage.getItem('remember_username')
     if (saved) form.username = saved
   }
-  // 时钟
   clockTimer = setInterval(() => {
     currentTime.value = new Date().toLocaleString('zh-CN')
   }, 1000)
@@ -558,7 +500,7 @@ onBeforeUnmount(() => {
 /* 右 form panel */
 .form-panel { flex: 1; padding: 36px 44px; display: flex; flex-direction: column; position: relative; }
 
-.login-tabs { display: flex; gap: 6px; padding: 4px; background: #f3f4f6; border-radius: 12px; margin-bottom: 28px; }
+.login-tabs { display: flex; gap: 6px; padding: 4px; background: #f3f4f6; border-radius: 12px; margin-bottom: 24px; }
 .tab {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px 12px; border: none; background: transparent; cursor: pointer;
@@ -569,16 +511,40 @@ onBeforeUnmount(() => {
 .tab.active { background: #fff; color: #6366f1; box-shadow: 0 2px 8px -2px rgba(99, 102, 241, 0.3); font-weight: 600; }
 .tab-ico { font-size: 14px; }
 
-/* step 容器 */
-.step-panel { flex: 1; min-height: 380px; }
-.panel-title { font-size: 24px; font-weight: 700; color: #1e1b4b; margin: 0 0 8px; }
-.panel-tip { font-size: 13px; color: #6b7280; margin: 0 0 24px; }
+/* 表单 */
+.step-panel { flex: 1; }
+.panel-title { font-size: 22px; font-weight: 700; color: #1e1b4b; margin: 0 0 6px; }
+.panel-tip { font-size: 12px; color: #6b7280; margin: 0 0 18px; }
+.login-form { max-width: 440px; }
 .primary-btn { width: 100%; height: 44px; font-size: 15px; font-weight: 600; letter-spacing: 1px;
-               background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; }
+               background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; margin-top: 8px; }
 .primary-btn:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
 
-/* 步骤 1：账号 */
-.quick-fill { margin-top: 28px; }
+.form-extras {
+  display: flex; justify-content: space-between; align-items: center;
+  margin: 4px 0 16px;
+}
+.forgot { font-size: 12px; }
+
+.form-hint {
+  margin-top: 6px; font-size: 11px; line-height: 1.5;
+}
+.hint-admin { color: #7c3aed; }
+.hint-admin strong { color: #5b21b6; }
+.hint-ok { color: #059669; }
+.hint-ok code { background: #d1fae5; padding: 1px 6px; border-radius: 4px; color: #065f46; }
+.hint-warn { color: #9ca3af; }
+
+/* 下拉里的租户选项 */
+.tenant-ic {
+  display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border-radius: 5px;
+  font-size: 11px; font-weight: 700; margin-right: 6px;
+}
+.muted { color: #9ca3af; }
+
+/* 快速填充 */
+.quick-fill { margin-top: 24px; }
 .quick-tip { font-size: 12px; color: #9ca3af; margin: 0 0 10px; }
 .quick-row { display: flex; flex-direction: column; gap: 8px; }
 .chip {
@@ -601,47 +567,6 @@ onBeforeUnmount(() => {
 .chip-dept { font-size: 11px; color: #6b7280; margin-top: 1px; }
 .foot-tip { text-align: center; margin-top: 16px; font-size: 12px; color: #9ca3af; }
 .foot-tip .el-link { margin-left: 4px; }
-
-/* 步骤 2：选公司 */
-.user-card {
-  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
-  background: linear-gradient(135deg, #f3f4f6, #e0e7ff); border-radius: 12px; margin-bottom: 16px;
-}
-.user-avatar { background: linear-gradient(135deg, #6366f1, #ec4899); color: #fff; font-weight: 600; }
-.user-info { flex: 1; }
-.user-name { font-size: 15px; font-weight: 600; color: #1e1b4b; }
-.user-dept { font-size: 12px; color: #6b7280; margin-top: 2px; display: flex; align-items: center; gap: 4px; }
-.muted { color: #9ca3af; }
-
-.tenant-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 16px; max-height: 240px; overflow-y: auto; }
-.tenant-card {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 14px; border-radius: 12px; cursor: pointer;
-  border: 1.5px solid #e5e7eb; background: #fff; transition: all 0.18s;
-}
-.tenant-card:hover { border-color: #a5b4fc; transform: translateY(-1px); box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.2); }
-.tenant-card.active { border-color: #6366f1; background: linear-gradient(135deg, #eef2ff, #fdf4ff); box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.4); }
-.tenant-avatar {
-  width: 40px; height: 40px; border-radius: 10px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: #fff; display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 16px;
-}
-.tenant-meta { flex: 1; }
-.tenant-name { font-size: 14px; font-weight: 600; color: #1e1b4b; }
-.tenant-code { font-size: 11px; color: #6b7280; margin-top: 1px; }
-.check { color: #6366f1; font-size: 20px; }
-
-/* 步骤 3：密码 */
-.confirm-card {
-  position: relative; padding: 14px 16px; margin-bottom: 18px;
-  background: linear-gradient(135deg, #eef2ff, #fdf4ff); border-radius: 12px;
-}
-.confirm-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
-.confirm-row .label { color: #6b7280; }
-.confirm-row .value { color: #1e1b4b; font-weight: 500; }
-.change { position: absolute; top: 8px; right: 12px; font-size: 12px; }
-.forgot { float: right; font-size: 12px; }
 
 /* SSO 卡片 */
 .sso-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -679,18 +604,6 @@ onBeforeUnmount(() => {
   padding: 10px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px;
   color: #c2410c; font-size: 12px;
 }
-
-/* 步骤指示器 */
-.step-dots {
-  position: absolute; bottom: 16px; right: 44px;
-  display: flex; align-items: center; gap: 6px;
-}
-.dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: #e5e7eb; transition: all 0.3s;
-}
-.dot.on { background: #6366f1; width: 24px; border-radius: 4px; }
-.step-label { font-size: 11px; color: #9ca3af; margin-left: 6px; }
 
 /* 步骤切换动画 */
 .step-enter-active, .step-leave-active { transition: all 0.25s ease; }
