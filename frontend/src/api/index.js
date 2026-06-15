@@ -3,7 +3,9 @@ import request from '@/utils/request'
 export const authApi = {
   login: (data) => request.post('/api/auth/login', data),
   logout: () => request.post('/api/auth/logout'),
-  refresh: (refreshToken) => request.post('/api/auth/refresh', null, { params: { refreshToken } })
+  refresh: (refreshToken) => request.post('/api/auth/refresh', null, { params: { refreshToken } }),
+  /** 登录前置：拉用户信息 + 可选公司。 */
+  preview: (username) => request.get('/api/auth/preview', { params: { username } })
 }
 
 export const userApi = {

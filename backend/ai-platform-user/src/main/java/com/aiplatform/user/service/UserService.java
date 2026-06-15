@@ -42,6 +42,7 @@ public class UserService {
         map.put("avatar", user.getAvatar());
         map.put("status", user.getStatus());
         map.put("tenantId", user.getTenantId());
+        map.put("department", user.getDepartment());
         return map;
     }
 

@@ -41,6 +41,21 @@ public class JwtUtils {
         return generate(claims);
     }
 
+    /**
+     * 生成带部门标识的 JWT。
+     *
+     * <p>登录时用户选完公司 + 部门（"部职"）后调用。{@code department} 字段
+     * 放部门字符串（如"研发部"），后续日志 / 智能体上下文可读取显示。</p>
+     */
+    public String generate(Long userId, String username, Long tenantId, String department) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(CommonConstants.CLAIM_USER_ID, userId);
+        claims.put(CommonConstants.CLAIM_USERNAME, username);
+        claims.put(CommonConstants.CLAIM_TENANT_ID, tenantId);
+        if (department != null) claims.put("department", department);
+        return generate(claims);
+    }
+
     public String generate(Map<String, Object> claims) {
         long now = System.currentTimeMillis();
         return Jwts.builder()

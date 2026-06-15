@@ -22,6 +22,17 @@ public class AuthController {
         return Result.success(authService.login(request));
     }
 
+    /**
+     * 登录前置查询：根据用户名拿用户信息 + 该用户可登录的公司列表。
+     *
+     * <p>前端流程：用户输完用户名 → 调这个接口 → 弹公司下拉 → 用户选完公司
+     * 输密码 → 调 /login。体验类似钉钉/飞书企业登录。</p>
+     */
+    @GetMapping("/preview")
+    public Result<Map<String, Object>> preview(@RequestParam String username) {
+        return Result.success(authService.preview(username));
+    }
+
     @PostMapping("/logout")
     public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String auth) {
         String token = auth == null ? null : (auth.startsWith("Bearer ") ? auth.substring(7) : auth);
@@ -36,7 +47,6 @@ public class AuthController {
 
     @GetMapping("/captcha")
     public Result<Map<String, Object>> captcha() {
-        // 简化版：返回固定图形 captcha
         String id = java.util.UUID.randomUUID().toString().replace("-", "");
         return Result.success(Map.of("captchaId", id, "code", "abcd"));
     }

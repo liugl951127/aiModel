@@ -38,6 +38,7 @@ CREATE TABLE sys_user (
     email           VARCHAR(128),
     phone           VARCHAR(32),
     avatar          VARCHAR(255),
+    department      VARCHAR(64)  COMMENT '部门（员工所属部门，如"研发部"/"市场部"）',
     status          INT          DEFAULT 1,
     last_login_ip   VARCHAR(64),
     last_login_time DATETIME,

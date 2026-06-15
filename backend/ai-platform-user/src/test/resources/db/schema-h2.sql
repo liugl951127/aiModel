@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     email VARCHAR(128),
     phone VARCHAR(32),
     avatar VARCHAR(255),
+    department VARCHAR(64),
     status INT DEFAULT 1,
     last_login_ip VARCHAR(64),
     last_login_time TIMESTAMP,

@@ -23,4 +23,11 @@ public class SysUser extends BaseEntity {
 
     private String lastLoginIp;
     private java.time.LocalDateTime lastLoginTime;
+
+    /**
+     * 部门（员工所属部门，用字符串表示，如"研发部"/"市场部"）。
+     * 同一公司（租户）下不同部门的人登录后看到同样的数据范围，
+     * 但前端可按部门做标识（头像徽章 / 顶部 tag）。
+     */
+    private String department;
 }

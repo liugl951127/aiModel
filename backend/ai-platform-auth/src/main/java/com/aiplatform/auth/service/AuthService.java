@@ -2,6 +2,7 @@ package com.aiplatform.auth.service;
 
 import com.aiplatform.auth.dto.LoginRequest;
 import com.aiplatform.auth.dto.LoginResponse;
+import com.aiplatform.auth.feign.TenantServiceClient;
 import com.aiplatform.auth.feign.UserServiceClient;
 import com.aiplatform.common.constant.CommonConstants;
 import com.aiplatform.common.exception.BusinessException;
@@ -14,8 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -25,7 +28,37 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final RedisUtils redisUtils;
     private final UserServiceClient userServiceClient;
+    private final TenantServiceClient tenantServiceClient;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    /**
+     * 登录前置：按用户名查用户信息 + 该用户可用的公司列表。
+     * 之所以分两步，是为了让前端可以"先输用户名 → 拿到公司下拉 → 选完公司 + 输密码 → 登录"，
+     * 体验更接近钉钉/飞书的企业登录流程。
+     */
+    public Map<String, Object> preview(String username) {
+        if (username == null || username.isBlank()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "username required");
+        }
+        Result<Map<String, Object>> resp = userServiceClient.getByUsername(username);
+        if (resp == null || resp.getData() == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        Map<String, Object> user = resp.getData();
+        Result<List<Map<String, Object>>> tenantsResp = tenantServiceClient.listByUsername(username);
+        List<Map<String, Object>> tenants = tenantsResp == null ? List.of()
+                : (tenantsResp.getData() == null ? List.of() : tenantsResp.getData());
+
+        // 给前端一个不泄漏密码的版本
+        Map<String, Object> safe = new java.util.LinkedHashMap<>();
+        safe.put("userId", user.get("id"));
+        safe.put("username", user.get("username"));
+        safe.put("nickname", user.get("nickname"));
+        safe.put("avatar", user.get("avatar"));
+        safe.put("department", user.get("department"));
+        safe.put("tenants", tenants);
+        return safe;
+    }
 
     public LoginResponse login(LoginRequest req) {
         Result<Map<String, Object>> resp = userServiceClient.getByUsername(req.getUsername());
@@ -48,12 +81,36 @@ public class AuthService {
 
         Long userId = ((Number) user.get("id")).longValue();
         String username = (String) user.get("username");
-        Long tenantId = req.getTenantId() != null
-                ? req.getTenantId()
-                : user.get("tenantId") == null ? CommonConstants.SUPER_TENANT_ID
-                    : ((Number) user.get("tenantId")).longValue();
+        String department = (String) user.get("department");
+        String nickname = (String) user.get("nickname");
+        String avatar = (String) user.get("avatar");
 
-        String accessToken = jwtUtils.generate(userId, username, tenantId);
+        Long tenantId = req.getTenantId();
+        String tenantCode = null;
+        String tenantName = null;
+        if (tenantId == null) {
+            tenantId = user.get("tenantId") == null
+                    ? CommonConstants.SUPER_TENANT_ID
+                    : ((Number) user.get("tenantId")).longValue();
+        } else {
+            // 校验该用户确实属于这家公司
+            Result<List<Map<String, Object>>> tr = tenantServiceClient.listByUsername(username);
+            if (tr != null && tr.getData() != null) {
+                boolean ok = tr.getData().stream().anyMatch(t -> tenantId.equals(((Number) t.get("id")).longValue()));
+                if (!ok) {
+                    throw new BusinessException(ResultCode.FORBIDDEN, "该用户不属于此公司");
+                }
+                for (Map<String, Object> t : tr.getData()) {
+                    if (tenantId.equals(((Number) t.get("id")).longValue())) {
+                        tenantCode = (String) t.get("tenantCode");
+                        tenantName = (String) t.get("tenantName");
+                        break;
+                    }
+                }
+            }
+        }
+
+        String accessToken = jwtUtils.generate(userId, username, tenantId, department);
         String refreshToken = UUID.randomUUID().toString().replace("-", "");
         redisUtils.set("refresh:" + refreshToken, accessToken, 7 * 24 * 3600);
 
@@ -64,7 +121,13 @@ public class AuthService {
                 .expiresIn(jwtUtils.getExpiration() / 1000)
                 .userId(userId)
                 .username(username)
+                .nickname(nickname)
+                .avatar(avatar)
+                .department(department)
                 .tenantId(tenantId)
+                .tenantCode(tenantCode)
+                .tenantName(tenantName)
+                .roles(List.of("user"))
                 .build();
     }
 
