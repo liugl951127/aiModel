@@ -11,17 +11,16 @@ import org.springframework.stereotype.Service;
 /**
  * ReAct 任务执行的全局事务入口。
  *
- * <p>封装"扣费 + 记日志 + 累计数"三步为一个 seata 全局事务。任意一步抛
- * 业务异常，全部回滚（用户的额度、agent 审计行、stats 计数都不变）。</p>
- *
- * <h2>AT 模式原理</h2>
+ * <h2>三层事务保障</h2>
  * <ol>
- *   <li>TM (本方法所在 Bean) 向 TC 注册全局事务，拿到 XID</li>
- *   <li>三个 RM (UserService/AgentService/StatsService) 在自己 DB 上执行本地事务，
- *       同时把"前镜像"和"后镜像"写 {@code undo_log}</li>
- *   <li>TM 抛异常 → TC 让所有 RM 用 undo_log 回滚到 step 2 之前</li>
- *   <li>TM 正常返回 → TC 让所有 RM 删 undo_log（异步）</li>
+ *   <li>seata TC 在场：{@code @GlobalTransactional} 走 seata AT 模式（undo_log）</li>
+ *   <li>seata TC 不可达：chained PTM 兜底，3 个 datasource 共享一个事务边界</li>
+ *   <li>单 service 调用：{@code @Transactional} 让 spring 用 chained PTM 开启</li>
  * </ol>
+ *
+ * <p>也就是说：<strong>任意一个 service 方法被外部调用时</strong>，spring-tx
+ * 会触发 chained PTM.begin，把 3 个 datasource 的事务绑在一起 —
+ * 保证 3 步要么都成功要么都回滚。</p>
  */
 @Slf4j
 @Service
@@ -32,38 +31,32 @@ public class AgentInvokeService {
     private final AgentService agentService;
     private final StatsService statsService;
 
-    /**
-     * 正常调用 — 三个子事务全部成功，seata 协调 commit。
-     */
     @GlobalTransactional(name = "agent-invoke-success", rollbackFor = Exception.class)
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public InvokeResult invokeSuccess(Long userId, String agentCode, String prompt, Long tokens) {
-        log.info("[TM] BEGIN agent-invoke-success userId={} agentCode={} tokens={}", userId, agentCode, tokens);
+        return doInvoke(userId, agentCode, prompt, tokens, false);
+    }
+
+    @GlobalTransactional(name = "agent-invoke-rollback", rollbackFor = Exception.class)
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
+    public InvokeResult invokeRollback(Long userId, String agentCode, String prompt, Long tokens) {
+        return doInvoke(userId, agentCode, prompt, tokens, true);
+    }
+
+    private InvokeResult doInvoke(Long userId, String agentCode, String prompt, Long tokens,
+                                  boolean simulateFail) {
+        log.info("[TM] BEGIN userId={} agentCode={} tokens={}", userId, agentCode, tokens);
         Long remaining = userService.deduct(userId, tokens);
-        String response = "[mock response for: " + prompt + "]";
-        Long logId = agentService.log(userId, agentCode, prompt, response, tokens, true);
+        String response = simulateFail ? "[partial]" : "[mock response for: " + prompt + "]";
+        Long logId = agentService.log(userId, agentCode, prompt, response, tokens, !simulateFail);
         Long statId = statsService.increment(agentCode, tokens);
-        log.info("[TM] COMMIT agent-invoke-success logId={} statId={} remaining={}", logId, statId, remaining);
+        if (simulateFail) {
+            log.info("[TM] simulating downstream LLM failure...");
+            throw new IllegalStateException("downstream LLM call failed (simulated for rollback test)");
+        }
+        log.info("[TM] COMMIT remaining={} logId={} statId={}", remaining, logId, statId);
         return new InvokeResult(remaining, logId, statId);
     }
 
-    /**
-     * 失败调用 — 用户扣费成功，但 agent log 写完后**主动抛**异常，seata 应该把
-     * 用户的扣费也回滚（看到余额不变）。
-     */
-    @GlobalTransactional(name = "agent-invoke-rollback", rollbackFor = Exception.class)
-    public InvokeResult invokeRollback(Long userId, String agentCode, String prompt, Long tokens) {
-        log.info("[TM] BEGIN agent-invoke-rollback userId={} agentCode={} tokens={}", userId, agentCode, tokens);
-        // 1. 扣费（成功）
-        Long remaining = userService.deduct(userId, tokens);
-        // 2. 写日志（成功）
-        agentService.log(userId, agentCode, prompt, "[partial]", tokens, true);
-        // 3. 累加 stats（成功）
-        statsService.increment(agentCode, tokens);
-        // 4. 模拟下游 LLM 调用失败
-        log.info("[TM] simulating downstream LLM failure...");
-        throw new IllegalStateException("downstream LLM call failed (simulated for rollback test)");
-    }
-
-    /** 统一结果。 */
     public record InvokeResult(Long remainingCredits, Long logId, Long statId) {}
 }

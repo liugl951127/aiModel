@@ -28,14 +28,12 @@ public class UserService {
     }
 
     /**
-     * 扣减用户 AI 额度。
+     * 扣减用户 AI 额度。本地事务保护 — credits 不能被错误扣减。
      *
-     * @param userId  用户 ID
-     * @param tokens  消耗 token 数
-     * @return 扣减后余额
-     * @throws BusinessException 余额不足时抛 {@code USER_CREDITS_NOT_ENOUGH}，
-     *                           seata coordinator 会把所有分支事务回滚
+     * <p>有 seata TC 时上层 {@code @GlobalTransactional} 接管本事务；无 TC
+     * 时本事务仍然是单 datasource 提交，不会被外部 rollback 影响。</p>
      */
+    @org.springframework.transaction.annotation.Transactional
     public Long deduct(Long userId, Long tokens) {
         log.info("[user-service] deduct userId={} tokens={}", userId, tokens);
         int rows = mapper.deduct(userId, tokens);

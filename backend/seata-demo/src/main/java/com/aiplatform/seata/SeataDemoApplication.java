@@ -40,11 +40,15 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 @SpringBootApplication(exclude = {
         org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration.class
 })
-@MapperScan(basePackages = {
-        "com.aiplatform.seata.user.mapper",
-        "com.aiplatform.seata.agent.mapper",
-        "com.aiplatform.seata.stats.mapper"
-})
+@org.mybatis.spring.annotation.MapperScan(
+        basePackages = "com.aiplatform.seata.user.mapper",
+        sqlSessionFactoryRef = "userSqlSessionFactory")
+@org.mybatis.spring.annotation.MapperScan(
+        basePackages = "com.aiplatform.seata.agent.mapper",
+        sqlSessionFactoryRef = "agentSqlSessionFactory")
+@org.mybatis.spring.annotation.MapperScan(
+        basePackages = "com.aiplatform.seata.stats.mapper",
+        sqlSessionFactoryRef = "statsSqlSessionFactory")
 public class SeataDemoApplication {
 
     public static void main(String[] args) {

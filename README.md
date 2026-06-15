@@ -21,6 +21,7 @@
 | **Web** | Vue 3 + Element Plus + Vite + Pinia（11 页面） |
 | **部署** | 一键 `docker compose up`（Nacos + MySQL + Redis + ES + 8 服务 + Nginx） |
 | **可观测** | Spring Boot Actuator + Knife4j API 文档 |
+| **分布式事务** | Seata 2.0.0 AT 模式 + 3 数据源示例（seata-demo） |
 
 ---
 
@@ -240,6 +241,33 @@ curl -X POST http://localhost:9004/api/agent/cases/{caseKey}/run
 
 **生产可换**：把 `endpoint` 指向自有搜索服务（如 Elasticsearch + crawl4j），
 其它代码无需改。
+
+---
+
+### 5.5 分布式事务（Seata 2.0 AT 模式）
+
+`backend/seata-demo/` 独立模块演示真实业务场景的分布式事务：
+**用户调用一次 ReAct 智能体任务，跨 user / agent / stats 3 个微服务原子完成**
+"扣费 + 记日志 + 累计数"。详见 [`backend/seata-demo/README.md`](backend/seata-demo/README.md)。
+
+| 项 | 说明 |
+| --- | --- |
+| seata TC | 2.0.0，可选接入（无 TC 时降级到本地事务） |
+| 注册中心 | Nacos（与业务服务同集群） |
+| 3 个 DataSource | 独立 Hikari + seata-spring-boot-starter 自动包 DataSourceProxy |
+| 测试矩阵 | **13/13 通过**（4 mock 单元 + 4 集成 + 5 数据源隔离） |
+| `@GlobalTransactional` 入口 | `AgentInvokeService.invokeSuccess / invokeRollback` |
+
+```bash
+# 跑完整 13 个测试
+mvn -pl seata-demo test
+# → Tests run: 13, Failures: 0, Errors: 0, Skipped: 0
+
+# 启动 demo 服务
+java -jar seata-demo/target/seata-demo.jar --server.port=9100
+curl http://localhost:9100/api/seata/user/1
+# → 200 OK, credits: 10000
+```
 
 ---
 

@@ -13,13 +13,20 @@ final class DataSourceHelper {
     private DataSourceHelper() {}
 
     static HikariDataSource build(String jdbcUrl) {
+        // H2 in-memory 单 JVM 内多连接是允许的；LOCK_MODE=0 关文件锁让多连接并发不据塞。
+        String url = jdbcUrl;
+        if (url.contains("LOCK_MODE=")) {
+            // 已经有了
+        } else {
+            url = url + ";LOCK_MODE=0;DB_CLOSE_DELAY=-1";
+        }
         HikariDataSource ds = new HikariDataSource();
-        ds.setJdbcUrl(jdbcUrl);
+        ds.setJdbcUrl(url);
         ds.setDriverClassName("org.h2.Driver");
         ds.setUsername("sa");
         ds.setPassword("");
-        ds.setMaximumPoolSize(5);
-        ds.setMinimumIdle(1);
+        ds.setMaximumPoolSize(10);
+        ds.setMinimumIdle(2);
         return ds;
     }
 }

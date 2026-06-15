@@ -22,6 +22,7 @@ public class AgentService {
 
     private final AgentInvokeLogMapper mapper;
 
+    @org.springframework.transaction.annotation.Transactional
     public Long log(Long userId, String agentCode, String prompt, String response, Long tokens, boolean success) {
         log.info("[agent-service] log invoke userId={} agentCode={} tokens={} success={}", userId, agentCode, tokens, success);
         AgentInvokeLog row = new AgentInvokeLog();

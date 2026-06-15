@@ -110,9 +110,9 @@ class AgentInvokeServiceTest {
                 service.invokeRollback(2L, "A-DEFAULT01", "hello", 30L));
         assertTrue(ex.getMessage().contains("downstream LLM"));
 
-        // 3 步都跑了（最后才抛）
+        // 3 步都跑了（最后才抛）。rollback 路径里 agent.log 传 success=false
         verify(userService).deduct(2L, 30L);
-        verify(agentService).log(eq(2L), eq("A-DEFAULT01"), eq("hello"), anyString(), eq(30L), eq(true));
+        verify(agentService).log(eq(2L), eq("A-DEFAULT01"), eq("hello"), eq("[partial]"), eq(30L), eq(false));
         verify(statsService).increment("A-DEFAULT01", 30L);
     }
 }

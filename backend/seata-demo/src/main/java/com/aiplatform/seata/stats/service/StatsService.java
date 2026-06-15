@@ -18,6 +18,7 @@ public class StatsService {
 
     private final UsageStatsMapper mapper;
 
+    @org.springframework.transaction.annotation.Transactional
     public Long increment(String agentCode, Long tokens) {
         log.info("[stats-service] increment agentCode={} tokens={}", agentCode, tokens);
         String date = LocalDate.now().toString();
