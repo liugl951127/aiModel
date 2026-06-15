@@ -40,6 +40,7 @@
         <module>ai-platform-workflow</module>
         <module>ai-platform-starters/ai-platform-common-core</module>
         <module>ai-platform-starters/ai-platform-common-web</module>
+        <module>seata-demo</module>
     </modules>
 
     <properties>
@@ -92,6 +93,18 @@
                 <version>${spring-cloud-alibaba.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- Seata 分布式事务（spring-cloud-alibaba 2023.0.1.0 自带 2.0.0） -->
+            <dependency>
+                <groupId>io.seata</groupId>
+                <artifactId>seata-spring-boot-starter</artifactId>
+                <version>2.0.0</version>
+            </dependency>
+            <dependency>
+                <groupId>io.seata</groupId>
+                <artifactId>seata-all</artifactId>
+                <version>2.0.0</version>
             </dependency>
 
             <!-- 内部模块 -->

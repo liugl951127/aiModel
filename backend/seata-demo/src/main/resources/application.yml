@@ -1,0 +1,90 @@
+server:
+  port: 9100
+
+spring:
+  application:
+    name: seata-demo
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  main:
+    allow-bean-definition-overriding: true
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
+        username: ${NACOS_USER:nacos}
+        password: ${NACOS_PASS:nacos}
+      config:
+        enabled: ${NACOS_CONFIG_ENABLED:false}
+        import-check:
+          enabled: false
+
+# 3 个独立数据源：URL 在 DataSourceConfig 里 hard-code（H2 内存库，多 schema 模拟三服务）。
+# 沙箱无 MySQL 时自动用 H2；生产换成 MySQL URL 即可。
+
+# Seata 配置
+seata:
+  enabled: true
+  application-id: seata-demo
+  tx-service-group: my_test_tx_group
+  registry:
+    type: nacos
+    nacos:
+      server-addr: ${NACOS_SERVER:127.0.0.1:8848}
+      namespace: ""
+      username: ${NACOS_USER:nacos}
+      password: ${NACOS_PASS:nacos}
+      cluster: default
+      application: seata-server
+  config:
+    type: nacos
+    nacos:
+      server-addr: ${NACOS_SERVER:127.0.0.1:8848}
+      username: ${NACOS_USER:nacos}
+      password: ${NACOS_PASS:nacos}
+      namespace: ""
+      group: SEATA_GROUP
+  service:
+    vgroup-mapping:
+      my_test_tx_group: default
+    grouplist:
+      default: 127.0.0.1:8091
+  client:
+    rm:
+      report-success-enable: false
+      async-commit-buffer-limit: 10000
+      lock:
+        retry-interval: 10
+        retry-times: 30
+        retry-policy-branch-rollback-on-conflict: true
+    tm:
+      commit-retry-count: 5
+      rollback-retry-count: 5
+  transport:
+    shutdown:
+      wait: 3
+    thread-factory:
+      boss-thread-prefix: NettyBoss
+      worker-thread-prefix: NettyClientNIOWorker
+      boss-thread-size: 1
+    type: TCP
+    serialization: seata
+    compressor: none
+    enable-tm-client-batch-send-request: false
+  log:
+    exception-rate: 100
+
+# 关闭 mybatis-plus auto-config（多数据源时由我们自己接管 SqlSessionFactory）
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    com.aiplatform.seata: DEBUG
+    io.seata: INFO
+
+aiplatform:
+  jwt:
+    enabled: false

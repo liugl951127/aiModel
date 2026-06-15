@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.aiplatform</groupId>
+        <artifactId>ai-platform-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>seata-demo</artifactId>
+    <packaging>jar</packaging>
+    <name>seata-demo</name>
+    <description>
+        AI Agent Platform 上的分布式事务 demo。场景：用户调用智能体跑一次 ReAct
+        任务，跨 3 个服务做"扣费 + 记日志 + 累计数"，任何一步失败整体回滚。
+        涉及的逻辑微服务（同一进程 / 多 datasource 模拟）：user-service /
+        agent-service / stats-service。GlobalTransactional 协调，seata AT 模式
+        + nacos TC。
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-common-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-nacos-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-mybatis-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-redis-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>${mybatis-plus.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Seata 分布式事务 -->
+        <dependency>
+            <groupId>io.seata</groupId>
+            <artifactId>seata-spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.seata</groupId>
+            <artifactId>seata-all</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>${project.artifactId}</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions><execution><goals><goal>repackage</goal></goals></execution></executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
