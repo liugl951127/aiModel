@@ -16,6 +16,7 @@
 | **大模型** | 自实现字符级 Transformer 训练（NumPy only）/ 训练→导出→Java 推理全链路 |
 | **导出** | ONNX bundle（manifest + weights + tokenizer）→ 本地开箱即用 |
 | **智能体** | ReAct 引擎 + Spring 自动发现的工具注册中心 + 短期/长期记忆 |
+| **联网搜索** | `WebSearchTool` 基于 DuckDuckGo Instant Answer（无需 API Key），ReAct 循环中以 `web_search(query=…)` 调用 |
 | **知识库** | Elasticsearch 8 + Tika 文档解析 + RAG（带回退索引） |
 | **Web** | Vue 3 + Element Plus + Vite + Pinia（11 页面） |
 | **部署** | 一键 `docker compose up`（Nacos + MySQL + Redis + ES + 8 服务 + Nginx） |
@@ -185,6 +186,60 @@ public boolean ignoreTable(String name) { return IGNORE_TABLES.contains(name.toL
 
 - 训练侧 (Python) 导出 4 个文件：`config.json / weights.json / tokenizer.json / manifest.json`
 - 推理侧 (Java) 用 fastjson 解析，**无需 PyTorch / ONNX Runtime**（已留好 classpath 给真实 ONNX）
+
+### 5.4 智能体联网搜索
+
+智能体在 ReAct 循环中可通过 `web_search(query="…")` 调用联网搜索。
+
+| 项 | 说明 |
+| --- | --- |
+| 工具名 | `web_search` |
+| 实现 | `com.aiplatform.agent.tool.builtin.WebSearchTool` |
+| 后端 | DuckDuckGo Instant Answer (`https://api.duckduckgo.com/?q=…&format=json`)，**无需 API Key** |
+| 协议 | JDK `HttpURLConnection`（不增加额外 http 客户端依赖） |
+| 超时 | 默认 4s，可配 |
+| 多 Agent 示例 | `agent_multi_agent_case` 中 `launch-campaign-2025` 的 research 步同时调 `web_search + kbs` |
+
+**配置**（`ai-platform-agent/src/main/resources/application.yml`）：
+
+```yaml
+aiplatform:
+  agent:
+    tools:
+      websearch:
+        enabled: true
+        endpoint: https://api.duckduckgo.com/
+        max-results: 5
+        timeout-ms: 4000
+```
+
+**ReAct 提示词注入**：`ToolRegistry.init()` 在启动时自动扫描所有 `AgentTool` bean 并
+打印 `[TOOL] registered N tools: [web_search, knowledge_search, calculator, time] …`。
+引擎会把这些工具的 `name + description + parametersSchema` 拼到系统提示词里。
+
+**调用示例**（伪对话）：
+
+```
+User:    帮我想一句 2025 年营销文案，主题是 AI 助手
+Thought: 本地知识可能不够，先联网
+Action:  web_search(query="2025 AI 助手 营销文案 案例")
+Obs:     《2025 年中国 AI 营销趋势报告》指出：① 场景化落地 ② 人机协同 ……
+Thought: 信息足够
+Action:  Final Answer: 在 2025 年，AI 助手进入“场景化、人机协同”阶段 …
+```
+
+**API**（多 Agent 演示服务）：
+
+```bash
+curl http://localhost:9004/api/agent/cases/list
+# → {"code":200,"data":[{"caseKey":"launch-campaign-2025","title":"2025 营销文案多 Agent 调研", …}]}
+
+curl -X POST http://localhost:9004/api/agent/cases/{caseKey}/run
+# → 走完整 Plan-Act-Observe 循环，会调 web_search + kbs
+```
+
+**生产可换**：把 `endpoint` 指向自有搜索服务（如 Elasticsearch + crawl4j），
+其它代码无需改。
 
 ---
 

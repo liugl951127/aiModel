@@ -45,7 +45,8 @@ import java.util.Map;
 public class WebSearchTool implements AgentTool {
 
     /** 工具名 — 在 ReAct prompt 中以 {@code web_search(query=...)} 形式出现。 */
-    @Override public String name() { return "web_search"; }
+    public static final String NAME = "web_search";
+    @Override public String name() { return NAME; }
 
     /** 工具用途 — 注入到 LLM prompt 头部，让模型知道何时调用。 */
     @Override
