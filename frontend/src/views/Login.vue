@@ -1,6 +1,5 @@
 <template>
   <div class="login-bg">
-    <!-- 背景动效 -->
     <canvas ref="canvas" class="particles"></canvas>
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
@@ -32,339 +31,339 @@
         </div>
       </section>
 
-      <!-- 右：登录表单 -->
+      <!-- 右：登录表单（多组横排 + 模拟发送） -->
       <section class="form-panel">
-        <!-- 顶 tab：登录方式 -->
-        <div class="login-tabs">
-          <button v-for="t in tabs" :key="t.key"
-                  :class="['tab', { active: activeTab === t.key }]"
-                  @click="switchTab(t.key)">
-            <span class="tab-ico">{{ t.icon }}</span>
-            <span>{{ t.label }}</span>
-          </button>
+        <h2 class="panel-title">登录信息</h2>
+        <p class="panel-tip">
+          多组横排展示，每组独立发送请求验证；
+          <strong>Admin</strong> 是最高系统管理员，<span class="hl">公司信息留空</span>。
+        </p>
+
+        <!-- 列头 -->
+        <div class="grid-head">
+          <span class="col-idx">#</span>
+          <span class="col-name">用户名 <small class="req">*</small></span>
+          <span class="col-name">密码 <small class="req">*</small></span>
+          <span class="col-tenant">
+            公司
+            <small class="req" v-if="!anyAdminEntered">*</small>
+            <small class="req admin-tip" v-else>admin 留空</small>
+            <el-icon class="reload" :class="{ spinning: loadingTenants }" @click="loadTenants">
+              <Refresh />
+            </el-icon>
+          </span>
+          <span class="col-act">操作</span>
         </div>
 
-        <!-- ============================================ -->
-        <!-- Tab: 账号登录（单页单步：用户名 + 密码 + 租户） -->
-        <!-- ============================================ -->
-        <transition name="step" mode="out-in">
-          <div v-if="activeTab === 'account'" key="account" class="step-panel">
-            <h2 class="panel-title">账号登录</h2>
-            <p class="panel-tip">输入账号、密码、租户（公司）即可登录</p>
+        <!-- 多组横排：每行 = 一组登录信息（用户/密码/公司 三 input + 发送按钮 + 结果） -->
+        <transition-group name="row" tag="div" class="grid-rows">
+          <div v-for="(g, idx) in groups" :key="g.id" class="grid-row" :class="{ admin: g.username.toLowerCase() === 'admin' }">
+            <span class="col-idx row-idx">#{{ idx + 1 }}</span>
 
-            <el-form @keyup.enter="onSubmit" :model="form" label-position="top" size="large" class="login-form">
-              <el-form-item label="用户名">
-                <el-input
-                  v-model="form.username"
-                  placeholder="admin / demo / manager"
-                  :prefix-icon="User"
-                  autofocus
-                  clearable
-                />
-              </el-form-item>
+            <!-- 用户名 -->
+            <div class="col-name cell-input">
+              <el-input
+                v-model="g.username"
+                placeholder="用户名"
+                :prefix-icon="User"
+                size="default"
+                clearable
+                @blur="recheckAdmin(g)"
+              />
+            </div>
 
-              <el-form-item label="密码">
-                <el-input
-                  v-model="form.password"
-                  type="password"
-                  placeholder="请输入密码"
-                  show-password
-                  :prefix-icon="Lock"
-                />
-              </el-form-item>
+            <!-- 密码 -->
+            <div class="col-name cell-input">
+              <el-input
+                v-model="g.password"
+                type="password"
+                placeholder="密码"
+                show-password
+                :prefix-icon="Lock"
+                size="default"
+              />
+            </div>
 
-              <el-form-item label="租户（公司）">
-                <el-input
-                  v-model="form.tenantIdText"
-                  placeholder="1=默认公司 / 2=示例科技 / 3=创业小公司"
-                  :prefix-icon="OfficeBuilding"
-                  clearable
+            <!-- 公司（admin 自动隐藏） -->
+            <div class="col-tenant cell-input">
+              <el-select
+                v-if="g.username.toLowerCase() !== 'admin'"
+                v-model="g.tenantId"
+                :placeholder="loadingTenants ? '加载公司…' : '选择公司'"
+                size="default"
+                clearable
+                filterable
+                class="tenant-sel"
+                :loading="loadingTenants"
+              >
+                <el-option
+                  v-for="t in tenants"
+                  :key="t.id"
+                  :label="t.tenantName || t.tenantCode"
+                  :value="t.id"
                 >
-                  <template #append>
-                    <el-dropdown @command="onPickTenant" trigger="click">
-                      <el-button>
-                        <el-icon><ArrowDown /></el-icon>
-                        选择
-                      </el-button>
-                      <template #dropdown>
-                        <el-dropdown-menu>
-                          <el-dropdown-item
-                            v-for="t in tenantOptions"
-                            :key="t.id"
-                            :command="t"
-                          >
-                            <span class="tenant-ic">{{ t.name.charAt(0) }}</span>
-                            {{ t.name }} <small class="muted">({{ t.code }})</small>
-                          </el-dropdown-item>
-                        </el-dropdown-menu>
-                      </template>
-                    </el-dropdown>
-                  </template>
-                </el-input>
-                <div class="form-hint">
-                  <span v-if="isSuperAdmin" class="hint-admin">
-                    🔑 超级管理员：admin 登录后<strong>自动拥有所有租户</strong>权限，无需指定
+                  <span class="opt-row">
+                    <span class="opt-name">{{ t.tenantName || t.tenantCode }}</span>
+                    <span class="opt-code">{{ t.tenantCode }} · id={{ t.id }}</span>
                   </span>
-                  <span v-else-if="form.tenantIdText" class="hint-ok">
-                    ✓ 租户 ID: <code>{{ form.tenantIdText }}</code>
-                  </span>
-                  <span v-else class="hint-warn">
-                    留空 = 使用账号默认租户；输错 = 登录被拒
-                  </span>
-                </div>
-              </el-form-item>
-
-              <div class="form-extras">
-                <el-checkbox v-model="form.remember">7 天内自动登录</el-checkbox>
-                <el-link type="primary" :underline="false" class="forgot">忘记密码？</el-link>
-              </div>
-
-              <el-button type="primary" :loading="loading" class="primary-btn" @click="onSubmit">
-                登 录
-              </el-button>
-            </el-form>
-
-            <div class="quick-fill">
-              <p class="quick-tip">快速体验账号（点击自动填）：</p>
-              <div class="quick-row">
-                <button class="chip" @click="quickFill('admin','admin123','','全部公司（超管）','')">
-                  <span class="chip-avatar admin">A</span>
-                  <div class="chip-meta">
-                    <div class="chip-name">admin / admin123</div>
-                    <div class="chip-dept">超级管理员 · 拥有所有公司</div>
-                  </div>
-                </button>
-                <button class="chip" @click="quickFill('demo','demo123','1','默认公司',1)">
-                  <span class="chip-avatar demo">D</span>
-                  <div class="chip-meta">
-                    <div class="chip-name">demo / demo123</div>
-                    <div class="chip-dept">市场部 · 默认公司（id=1）</div>
-                  </div>
-                </button>
-                <button class="chip" @click="quickFill('manager','demo123','2','示例科技公司',2)">
-                  <span class="chip-avatar mgr">M</span>
-                  <div class="chip-meta">
-                    <div class="chip-name">manager / demo123</div>
-                    <div class="chip-dept">运营部 · 示例科技（id=2）</div>
-                  </div>
-                </button>
+                </el-option>
+              </el-select>
+              <div v-else class="admin-tenant">
+                <el-icon><Avatar /></el-icon>
+                全部公司（超管）
               </div>
             </div>
 
-            <div class="foot-tip">
-              <span>没账号？</span>
-              <el-link type="primary" :underline="false">联系企业管理员</el-link>
-            </div>
-          </div>
-
-          <!-- ============================================ -->
-          <!-- Tab: 企业 SSO（占位） -->
-          <!-- ============================================ -->
-          <div v-else-if="activeTab === 'sso'" key="sso" class="step-panel">
-            <h2 class="panel-title">企业 SSO 登录</h2>
-            <p class="panel-tip">使用企业账号（OIDC / LDAP / 飞书 / 钉钉）登录</p>
-
-            <div class="sso-grid">
-              <button class="sso-btn" @click="onSsoLogin('feishu')">
-                <div class="sso-ico feishu">飞</div>
-                <div class="sso-name">飞书</div>
-                <div class="sso-sub">Lark OIDC</div>
-              </button>
-              <button class="sso-btn" @click="onSsoLogin('dingtalk')">
-                <div class="sso-ico ding">钉</div>
-                <div class="sso-name">钉钉</div>
-                <div class="sso-sub">DingTalk OAuth</div>
-              </button>
-              <button class="sso-btn" @click="onSsoLogin('wecom')">
-                <div class="sso-ico wec">企</div>
-                <div class="sso-name">企业微信</div>
-                <div class="sso-sub">WeCom QR</div>
-              </button>
-              <button class="sso-btn" @click="onSsoLogin('ldap')">
-                <div class="sso-ico ldap">LD</div>
-                <div class="sso-name">LDAP / AD</div>
-                <div class="sso-sub">企业目录</div>
-              </button>
-              <button class="sso-btn" @click="onSsoLogin('oauth2')">
-                <div class="sso-ico oa">O2</div>
-                <div class="sso-name">OAuth 2.0</div>
-                <div class="sso-sub">通用 OIDC</div>
-              </button>
-              <button class="sso-btn" @click="onSsoLogin('saml')">
-                <div class="sso-ico sam">SA</div>
-                <div class="sso-name">SAML 2.0</div>
-                <div class="sso-sub">企业 SAML</div>
-              </button>
-            </div>
-            <p class="sso-note">企业 SSO 接入请联系系统管理员配置 client_id / 重定向 URL</p>
-          </div>
-
-          <!-- ============================================ -->
-          <!-- Tab: 访客体验 -->
-          <!-- ============================================ -->
-          <div v-else-if="activeTab === 'guest'" key="guest" class="step-panel">
-            <h2 class="panel-title">访客体验</h2>
-            <p class="panel-tip">无需账号，1 分钟快速浏览平台功能（只读沙箱）</p>
-
-            <div class="guest-card">
-              <div class="guest-ico">👀</div>
-              <div class="guest-title">Demo Sandbox</div>
-              <p class="guest-desc">预置 AI 助手、示例知识库、3 个示例多 Agent 案例。<br/>可聊天但不能保存数据，刷新即清空。</p>
-              <el-button type="primary" size="large" round @click="onGuestLogin">
-                进入沙箱 →
+            <!-- 操作：发送请求 + 删除 -->
+            <div class="col-act cell-act">
+              <el-button
+                type="primary"
+                :loading="g.sending"
+                :disabled="!g.username || !g.password"
+                size="default"
+                @click="onSend(g)"
+              >
+                <el-icon><Promotion /></el-icon>
+                发送
+              </el-button>
+              <el-button
+                v-if="groups.length > 1"
+                text
+                :underline="false"
+                size="default"
+                class="del-btn"
+                @click="removeRow(g.id)"
+              >
+                <el-icon><Close /></el-icon>
               </el-button>
             </div>
 
-            <div class="guest-warn">
-              <el-icon><WarningFilled /></el-icon>
-              访客模式仅供评估用，生产数据请用正式账号登录
+            <!-- 结果行（横跨全行） -->
+            <div v-if="g.result" class="result-line" :class="g.result.kind">
+              <span class="result-icon">
+                <el-icon v-if="g.result.kind === 'success'"><CircleCheckFilled /></el-icon>
+                <el-icon v-else-if="g.result.kind === 'error'"><CircleCloseFilled /></el-icon>
+                <el-icon v-else><Loading /></el-icon>
+              </span>
+              <span class="result-text">{{ g.result.text }}</span>
+              <span v-if="g.result.detail" class="result-detail">{{ g.result.detail }}</span>
+              <el-button
+                v-if="g.result.kind === 'success' && g.result.token"
+                text
+                :underline="false"
+                size="small"
+                type="primary"
+                @click="useTokenAndEnter(g)"
+              >
+                进入系统 →
+              </el-button>
             </div>
           </div>
-        </transition>
+        </transition-group>
+
+        <!-- 工具栏 -->
+        <div class="toolbar">
+          <el-button :underline="false" @click="addRow" type="primary" plain>
+            <el-icon><Plus /></el-icon>
+            增加一组
+          </el-button>
+          <el-button :underline="false" @click="batchSend" :loading="batchSending">
+            <el-icon><VideoPlay /></el-icon>
+            一键批量发送（{{ groups.length }} 组）
+          </el-button>
+          <el-button :underline="false" @click="clearAll" text>
+            <el-icon><Delete /></el-icon>
+            清空
+          </el-button>
+          <div class="spacer"></div>
+          <span class="stat-pill">
+            总数 <strong>{{ groups.length }}</strong>
+            ·
+            已登录 <strong class="ok">{{ successCount }}</strong>
+            ·
+            失败 <strong class="err">{{ errorCount }}</strong>
+          </span>
+        </div>
+
+        <!-- 调试信息 -->
+        <div class="debug-box">
+          <p class="debug-title">🐛 调试信息（每次发送请求会显示完整链路）</p>
+          <div class="debug-log">
+            <p v-if="!logs.length" class="empty">点击"发送"后这里会显示 HTTP 请求/响应/状态码…</p>
+            <p v-for="(l, i) in logs" :key="i" class="log-line" :class="l.kind">
+              <span class="log-time">{{ l.time }}</span>
+              <span class="log-tag">{{ l.tag }}</span>
+              <span class="log-msg">{{ l.msg }}</span>
+            </p>
+          </div>
+        </div>
       </section>
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, OfficeBuilding, ArrowDown, WarningFilled } from '@element-plus/icons-vue'
+import {
+  User, Lock, Avatar, Promotion, Close, Plus, VideoPlay, Delete,
+  Refresh, CircleCheckFilled, CircleCloseFilled, Loading
+} from '@element-plus/icons-vue'
 import { authApi } from '@/api'
 
 const router = useRouter()
 
-// ============== Tab 配置 ==============
-const tabs = [
-  { key: 'account', label: '账号登录', icon: '🔑' },
-  { key: 'sso',     label: '企业 SSO', icon: '🏢' },
-  { key: 'guest',   label: '访客体验', icon: '👀' }
-]
-const activeTab = ref('account')
-const switchTab = (k) => { activeTab.value = k }
-
-// ============== 表单 ==============
-const form = reactive({
-  username: '',
-  password: '',
-  tenantIdText: '',
-  remember: true
+// ============== 多组登录信息（每组 = 一行） ==============
+let _id = 0
+const makeRow = (u = '', p = '', t = null) => ({
+  id: ++_id,
+  username: u,
+  password: p,
+  tenantId: t,
+  sending: false,
+  result: null
 })
 
-const isSuperAdmin = computed(() => form.username.toLowerCase() === 'admin')
+const groups = reactive([makeRow('admin', 'admin123', null), makeRow('demo', 'demo123', 1), makeRow('manager', 'demo123', 2)])
 
-// 租户下拉选项（与 sys_tenant seed 对齐：1=默认公司 / 2=示例科技 / 3=创业小公司）
-const tenantOptions = [
-  { id: 1, code: 'default',  name: '默认公司' },
-  { id: 2, code: 'demo-corp', name: '示例科技公司' },
-  { id: 3, code: 'startup-co', name: '创业小公司' }
-]
+const anyAdminEntered = computed(() => groups.some(g => g.username.toLowerCase() === 'admin'))
 
-const loading = ref(false)
+const addRow = () => groups.push(makeRow())
+const removeRow = (id) => {
+  const idx = groups.findIndex(g => g.id === id)
+  if (idx >= 0 && groups.length > 1) groups.splice(idx, 1)
+}
+const recheckAdmin = (g) => {
+  if (g.username.toLowerCase() === 'admin') {
+    g.tenantId = null
+  }
+}
 
-// ============== 背景粒子 / 时钟 ==============
+const successCount = computed(() => groups.filter(g => g.result?.kind === 'success').length)
+const errorCount = computed(() => groups.filter(g => g.result?.kind === 'error').length)
+
+const clearAll = () => {
+  groups.splice(0, groups.length, makeRow())
+  logs.splice(0, logs.length)
+}
+
+// ============== 公司列表（页面加载时初始化） ==============
+const tenants = ref([])
+const loadingTenants = ref(false)
+const loadTenants = async () => {
+  loadingTenants.value = true
+  log('GET', '/api/auth/tenants 拉取公司列表…')
+  try {
+    const resp = await authApi.tenants()
+    tenants.value = resp.data || []
+    log('OK', `拿到 ${tenants.value.length} 家公司: ${tenants.value.map(t => t.tenantName).join(' / ')}`, 'success')
+  } catch (e) {
+    log('ERR', `拉取公司失败: ${e?.response?.status} ${e?.response?.data?.message || e.message}`, 'error')
+    // 用 fallback
+    tenants.value = [
+      { id: 1, tenantCode: 'default', tenantName: '默认公司' },
+      { id: 2, tenantCode: 'demo-corp', tenantName: '示例科技公司' },
+      { id: 3, tenantCode: 'startup-co', tenantName: '创业小公司' }
+    ]
+    log('FALLBACK', `使用内置 fallback 3 家公司`, 'warn')
+  } finally {
+    loadingTenants.value = false
+  }
+}
+
+// ============== 调试日志 ==============
+const logs = reactive([])
+const log = (tag, msg, kind = 'info') => {
+  const t = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+  logs.unshift({ time: t, tag, msg, kind })
+  if (logs.length > 30) logs.length = 30
+}
+
+// ============== 发送请求 ==============
+const onSend = async (g) => {
+  g.sending = true
+  g.result = { kind: 'pending', text: '正在请求…', detail: `${g.username} @ 租户 ${g.tenantId || 'ALL(admin)'}` }
+  log('POST', `→ /api/auth/login { username: ${g.username}, tenantId: ${g.tenantId} }`)
+
+  const isAdmin = g.username.toLowerCase() === 'admin'
+  const tenantId = isAdmin ? null : (g.tenantId || null)
+
+  const t0 = performance.now()
+  try {
+    const resp = await authApi.login({ username: g.username, password: g.password, tenantId })
+    const dt = (performance.now() - t0).toFixed(0)
+    const data = resp.data
+    g.result = {
+      kind: 'success',
+      text: `✅ 登录成功 (${dt}ms)`,
+      detail: `用户 ${data.username} · 租户 ${data.tenantName}(id=${data.tenantId}) · 角色 ${data.roles?.join('/')}`,
+      token: data.accessToken,
+      _data: data
+    }
+    log('200', `← login OK, 耗时 ${dt}ms, token ${data.accessToken?.slice(0, 20)}…`, 'success')
+  } catch (e) {
+    const dt = (performance.now() - t0).toFixed(0)
+    const status = e?.response?.status
+    const body = e?.response?.data
+    g.result = {
+      kind: 'error',
+      text: `❌ 登录失败 (${dt}ms)`,
+      detail: `HTTP ${status} · ${body?.message || e.message}`
+    }
+    log(`${status}`, `← login FAIL: ${body?.message || e.message}`, 'error')
+  } finally {
+    g.sending = false
+  }
+}
+
+const batchSending = ref(false)
+const batchSend = async () => {
+  batchSending.value = true
+  log('BATCH', `批量发送 ${groups.length} 组请求…`, 'info')
+  for (const g of groups) {
+    if (g.username && g.password) await onSend(g)
+  }
+  batchSending.value = false
+  log('BATCH', '批量完成', 'success')
+}
+
+const useTokenAndEnter = (g) => {
+  if (!g.result?.token) return
+  const data = g.result._data
+  localStorage.setItem('access_token', g.result.token)
+  if (data) {
+    localStorage.setItem('username', data.username)
+    localStorage.setItem('nickname', data.nickname || data.username)
+    localStorage.setItem('tenant_id', String(data.tenantId))
+    localStorage.setItem('tenant_code', data.tenantCode || '')
+    localStorage.setItem('tenant_name', data.tenantName || '')
+    localStorage.setItem('department', data.department || '')
+    localStorage.setItem('roles', JSON.stringify(data.roles || ['user']))
+  }
+  ElMessage.success(`使用 ${g.username} 身份进入系统`)
+  router.push('/dashboard')
+}
+
+// ============== 背景 / 时钟 ==============
 const canvas = ref(null)
 const currentTime = ref(new Date().toLocaleString('zh-CN'))
 let rafId = null
 let clockTimer = null
 
-// ============== 登录 ==============
-const onSubmit = async () => {
-  if (!form.username) return ElMessage.warning('请输入用户名')
-  if (!form.password) return ElMessage.warning('请输入密码')
-
-  // admin 跳过租户校验；普通用户 tenantIdText 必填
-  let tenantId = null
-  if (form.tenantIdText && form.tenantIdText.trim() !== '') {
-    const n = Number(form.tenantIdText.trim())
-    if (Number.isNaN(n) || n < 0) {
-      return ElMessage.error('租户 ID 必须是数字')
-    }
-    tenantId = n
-  }
-
-  loading.value = true
-  try {
-    const body = { username: form.username, password: form.password, tenantId }
-    const resp = await authApi.login(body)
-    const data = resp.data
-    localStorage.setItem('access_token', data.accessToken)
-    localStorage.setItem('refresh_token', data.refreshToken)
-    localStorage.setItem('username', data.username)
-    localStorage.setItem('nickname', data.nickname || data.username)
-    localStorage.setItem('avatar', data.avatar || '')
-    localStorage.setItem('department', data.department || '')
-    localStorage.setItem('tenant_id', String(data.tenantId))
-    localStorage.setItem('tenant_code', data.tenantCode || '')
-    localStorage.setItem('tenant_name', data.tenantName || '')
-    localStorage.setItem('roles', JSON.stringify(data.roles || ['user']))
-    if (form.remember) {
-      localStorage.setItem('remember_login', 'true')
-      localStorage.setItem('remember_username', form.username)
-    } else {
-      localStorage.removeItem('remember_login')
-    }
-    ElMessage.success(`欢迎回来，${data.nickname || data.username}！`)
-    router.push('/dashboard')
-  } catch (e) {
-    ElMessage.error(e?.response?.data?.message || e.message || '登录失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-// ============== 租户下拉选择 ==============
-const onPickTenant = (t) => {
-  form.tenantIdText = String(t.id)
-}
-
-// ============== 快捷填充 ==============
-const quickFill = (u, p, tid, _name, _tId) => {
-  form.username = u
-  form.password = p
-  form.tenantIdText = tid
-}
-
-// ============== SSO 登录 ==============
-const onSsoLogin = (provider) => {
-  ElMessage.info(`${provider} SSO 接入待配置（联系管理员获取 client_id / redirect_uri）`)
-}
-
-// ============== 访客登录 ==============
-const onGuestLogin = () => {
-  localStorage.setItem('access_token', 'guest_token')
-  localStorage.setItem('username', 'guest')
-  localStorage.setItem('nickname', '访客体验')
-  localStorage.setItem('tenant_id', '0')
-  localStorage.setItem('tenant_name', 'Demo Sandbox')
-  localStorage.setItem('tenant_code', 'guest')
-  localStorage.setItem('department', '体验组')
-  ElMessage.success('已进入访客沙箱')
-  router.push('/dashboard')
-}
-
-// ============== 自动填（记住登录） ==============
 onMounted(() => {
-  if (localStorage.getItem('remember_login') === 'true') {
-    const saved = localStorage.getItem('remember_username')
-    if (saved) form.username = saved
-  }
+  loadTenants()
   clockTimer = setInterval(() => {
     currentTime.value = new Date().toLocaleString('zh-CN')
   }, 1000)
-  // 粒子背景
   const c = canvas.value
   if (!c) return
-  c.width = c.offsetWidth
-  c.height = c.offsetHeight
+  c.width = c.offsetWidth; c.height = c.offsetHeight
   const ctx = c.getContext('2d')
   const N = 60
   const particles = Array.from({ length: N }, () => ({
-    x: Math.random() * c.width,
-    y: Math.random() * c.height,
-    vx: (Math.random() - 0.5) * 0.4,
-    vy: (Math.random() - 0.5) * 0.4,
+    x: Math.random() * c.width, y: Math.random() * c.height,
+    vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
     r: Math.random() * 1.6 + 0.6
   }))
   const draw = () => {
@@ -384,8 +383,7 @@ onMounted(() => {
         const d = Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
         if (d < 110) {
           ctx.beginPath()
-          ctx.moveTo(a.x, a.y)
-          ctx.lineTo(b.x, b.y)
+          ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y)
           ctx.strokeStyle = `rgba(167, 139, 250, ${(1 - d / 110) * 0.2})`
           ctx.stroke()
         }
@@ -394,20 +392,12 @@ onMounted(() => {
     rafId = requestAnimationFrame(draw)
   }
   draw()
-  window.addEventListener('resize', () => {
-    c.width = c.offsetWidth
-    c.height = c.offsetHeight
-  })
+  window.addEventListener('resize', () => { c.width = c.offsetWidth; c.height = c.offsetHeight })
 })
-
-onBeforeUnmount(() => {
-  if (rafId) cancelAnimationFrame(rafId)
-  if (clockTimer) clearInterval(clockTimer)
-})
+onBeforeUnmount(() => { if (rafId) cancelAnimationFrame(rafId); if (clockTimer) clearInterval(clockTimer) })
 </script>
 
 <style scoped>
-/* =================================================== */
 .login-bg {
   position: fixed; inset: 0; overflow: hidden;
   background: linear-gradient(135deg, #1e1b4b 0%, #312e81 30%, #4338ca 70%, #6366f1 100%);
@@ -418,17 +408,13 @@ onBeforeUnmount(() => {
 .blob-1 { width: 380px; height: 380px; background: #ec4899; top: -100px; left: -120px; }
 .blob-2 { width: 460px; height: 460px; background: #06b6d4; bottom: -150px; right: -150px; animation-delay: -4s; }
 .blob-3 { width: 300px; height: 300px; background: #f59e0b; top: 40%; right: 25%; animation-delay: -8s; }
-@keyframes float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(40px, -30px) scale(1.1); }
-}
+@keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(40px, -30px) scale(1.1); } }
 
-/* =================================================== */
 .login-shell {
   position: relative; z-index: 2;
   display: flex;
-  width: 1100px; max-width: calc(100vw - 40px);
-  min-height: 660px; max-height: calc(100vh - 40px);
+  width: 1180px; max-width: calc(100vw - 40px);
+  min-height: 720px; max-height: calc(100vh - 40px);
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(20px);
@@ -438,15 +424,12 @@ onBeforeUnmount(() => {
 }
 @keyframes shellIn { from { opacity: 0; transform: translateY(20px) scale(0.96); } to { opacity: 1; transform: none; } }
 
-/* 左 brand panel */
 .brand-panel {
-  flex: 0 0 420px;
+  flex: 0 0 380px;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
-  color: #fff;
-  padding: 48px 40px;
-  position: relative;
-  overflow: hidden;
+  color: #fff; padding: 40px 32px;
   display: flex; flex-direction: column; justify-content: center;
+  position: relative; overflow: hidden;
 }
 .brand-panel::before {
   content: ''; position: absolute; inset: 0;
@@ -457,164 +440,165 @@ onBeforeUnmount(() => {
 .logo-ring {
   width: 64px; height: 64px; border-radius: 18px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));
-  backdrop-filter: blur(10px);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 36px;
+  display: flex; align-items: center; justify-content: center; font-size: 36px;
   box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.3);
   animation: pulse 3s ease-in-out infinite;
 }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-.logo-version {
-  font-size: 11px; padding: 4px 10px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2); color: #fff; letter-spacing: 1px;
-}
-.brand-title { font-size: 30px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.5px; }
-.brand-sub { font-size: 13px; opacity: 0.85; margin: 0 0 36px; }
-
+.logo-version { font-size: 11px; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.2); color: #fff; letter-spacing: 1px; }
+.brand-title { font-size: 28px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.5px; }
+.brand-sub { font-size: 13px; opacity: 0.85; margin: 0 0 32px; }
 .feature-list { list-style: none; padding: 0; margin: 0; }
-.feature-list li {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 0; font-size: 13px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
+.feature-list li { display: flex; align-items: center; gap: 12px; padding: 9px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
 .feature-list li:last-child { border-bottom: none; }
-.feature-list .ico {
-  width: 28px; height: 28px; border-radius: 8px;
-  background: rgba(255, 255, 255, 0.18);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
-}
-
-.brand-foot {
-  margin-top: 36px; display: flex; align-items: center; gap: 8px;
-  font-size: 12px; opacity: 0.7;
-}
-.status-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: #34d399;
-  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.3);
-  animation: blink 2s infinite;
-}
+.feature-list .ico { width: 28px; height: 28px; border-radius: 8px; background: rgba(255, 255, 255, 0.18); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.brand-foot { margin-top: 28px; display: flex; align-items: center; gap: 8px; font-size: 12px; opacity: 0.7; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.3); animation: blink 2s infinite; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
-/* 右 form panel */
-.form-panel { flex: 1; padding: 36px 44px; display: flex; flex-direction: column; position: relative; }
+.form-panel {
+  flex: 1; padding: 28px 32px; display: flex; flex-direction: column;
+  position: relative; min-height: 0; overflow-y: auto;
+}
+.panel-title { font-size: 22px; font-weight: 700; color: #1e1b4b; margin: 0 0 4px; }
+.panel-tip { font-size: 12px; color: #6b7280; margin: 0 0 16px; }
+.panel-tip .hl { color: #7c3aed; font-weight: 600; }
 
-.login-tabs { display: flex; gap: 6px; padding: 4px; background: #f3f4f6; border-radius: 12px; margin-bottom: 24px; }
-.tab {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 10px 12px; border: none; background: transparent; cursor: pointer;
-  border-radius: 9px; font-size: 13px; color: #64748b; font-weight: 500;
-  transition: all 0.2s;
+/* ============ 网格：列头 + 多行横排 ============ */
+.grid-head, .grid-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 1fr 1.2fr 130px;
+  gap: 10px; align-items: center;
 }
-.tab:hover { color: #1e293b; }
-.tab.active { background: #fff; color: #6366f1; box-shadow: 0 2px 8px -2px rgba(99, 102, 241, 0.3); font-weight: 600; }
-.tab-ico { font-size: 14px; }
+.grid-head {
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+  border-radius: 10px;
+  font-size: 12px; font-weight: 600; color: #4b5563;
+  margin-bottom: 8px;
+}
+.col-idx { color: #9ca3af; font-weight: 500; }
+.col-tenant .reload { margin-left: 4px; cursor: pointer; transition: transform 0.4s; }
+.col-tenant .reload.spinning { animation: spin 0.8s linear infinite; }
+.col-tenant .reload:hover { color: #6366f1; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.req { color: #ef4444; font-weight: 700; margin-left: 2px; }
+.admin-tip { color: #7c3aed; font-size: 10px; }
+.col-act { text-align: right; }
 
-/* 表单 */
-.step-panel { flex: 1; }
-.panel-title { font-size: 22px; font-weight: 700; color: #1e1b4b; margin: 0 0 6px; }
-.panel-tip { font-size: 12px; color: #6b7280; margin: 0 0 18px; }
-.login-form { max-width: 440px; }
-.primary-btn { width: 100%; height: 44px; font-size: 15px; font-weight: 600; letter-spacing: 1px;
-               background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; margin-top: 8px; }
-.primary-btn:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+.grid-rows { display: flex; flex-direction: column; gap: 6px; }
+.grid-row {
+  padding: 10px 12px;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  transition: all 0.18s;
+}
+.grid-row:hover { border-color: #a5b4fc; box-shadow: 0 2px 8px -2px rgba(99, 102, 241, 0.15); }
+.grid-row.admin {
+  background: linear-gradient(90deg, #faf5ff, #fff);
+  border-color: #c4b5fd;
+}
+.row-idx { font-weight: 700; color: #6366f1; }
 
-.form-extras {
-  display: flex; justify-content: space-between; align-items: center;
-  margin: 4px 0 16px;
+.cell-input :deep(.el-input__wrapper) {
+  border: 1.5px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  padding: 1px 10px;
+  transition: all 0.15s;
 }
-.forgot { font-size: 12px; }
-
-.form-hint {
-  margin-top: 6px; font-size: 11px; line-height: 1.5;
+.cell-input :deep(.el-input__wrapper.is-focus) {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12) !important;
 }
-.hint-admin { color: #7c3aed; }
-.hint-admin strong { color: #5b21b6; }
-.hint-ok { color: #059669; }
-.hint-ok code { background: #d1fae5; padding: 1px 6px; border-radius: 4px; color: #065f46; }
-.hint-warn { color: #9ca3af; }
-
-/* 下拉里的租户选项 */
-.tenant-ic {
-  display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border-radius: 5px;
-  font-size: 11px; font-weight: 700; margin-right: 6px;
+.cell-input :deep(.el-select__wrapper) {
+  border: 1.5px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  background: #fff !important;
+  padding: 1px 10px;
+  min-height: 32px;
 }
-.muted { color: #9ca3af; }
-
-/* 快速填充 */
-.quick-fill { margin-top: 24px; }
-.quick-tip { font-size: 12px; color: #9ca3af; margin: 0 0 10px; }
-.quick-row { display: flex; flex-direction: column; gap: 8px; }
-.chip {
-  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-  border: 1.5px solid #e5e7eb; background: #fff; border-radius: 12px;
-  cursor: pointer; text-align: left; transition: all 0.18s;
-}
-.chip:hover { border-color: #a5b4fc; transform: translateY(-1px); box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.2); }
-.chip-avatar {
-  width: 36px; height: 36px; border-radius: 10px;
-  color: #fff; font-weight: 700; font-size: 14px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.chip-avatar.admin { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
-.chip-avatar.demo { background: linear-gradient(135deg, #ec4899, #f43f5e); }
-.chip-avatar.mgr  { background: linear-gradient(135deg, #10b981, #06b6d4); }
-.chip-meta { flex: 1; min-width: 0; }
-.chip-name { font-size: 13px; font-weight: 600; color: #1e293b; }
-.chip-dept { font-size: 11px; color: #6b7280; margin-top: 1px; }
-.foot-tip { text-align: center; margin-top: 16px; font-size: 12px; color: #9ca3af; }
-.foot-tip .el-link { margin-left: 4px; }
-
-/* SSO 卡片 */
-.sso-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-.sso-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 16px 12px; border: 1.5px solid #e5e7eb; background: #fff; border-radius: 12px;
-  cursor: pointer; transition: all 0.2s;
-}
-.sso-btn:hover { border-color: #a5b4fc; transform: translateY(-2px); box-shadow: 0 6px 16px -4px rgba(99, 102, 241, 0.2); }
-.sso-ico {
-  width: 44px; height: 44px; border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 18px; font-weight: 700;
-}
-.sso-ico.feishu { background: linear-gradient(135deg, #00d6b9, #3370ff); }
-.sso-ico.ding { background: linear-gradient(135deg, #1296db, #1677ff); }
-.sso-ico.wec { background: linear-gradient(135deg, #10aeff, #2675ec); }
-.sso-ico.ldap { background: linear-gradient(135deg, #6b7280, #1f2937); }
-.sso-ico.oa { background: linear-gradient(135deg, #f59e0b, #ef4444); }
-.sso-ico.sam { background: linear-gradient(135deg, #8b5cf6, #6366f1); }
-.sso-name { font-size: 13px; font-weight: 600; color: #1e293b; }
-.sso-sub { font-size: 10px; color: #6b7280; }
-.sso-note { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 16px; }
-
-/* 访客卡片 */
-.guest-card {
-  text-align: center; padding: 32px 24px; background: linear-gradient(135deg, #fef3c7, #fce7f3); border-radius: 16px;
-  margin-bottom: 16px;
-}
-.guest-ico { font-size: 48px; }
-.guest-title { font-size: 18px; font-weight: 700; color: #1e1b4b; margin: 8px 0; }
-.guest-desc { font-size: 13px; color: #4b5563; line-height: 1.6; margin: 0 0 20px; }
-.guest-warn {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 10px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px;
-  color: #c2410c; font-size: 12px;
+.cell-input :deep(.el-select__wrapper.is-focused) {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12) !important;
 }
 
-/* 步骤切换动画 */
-.step-enter-active, .step-leave-active { transition: all 0.25s ease; }
-.step-enter-from { opacity: 0; transform: translateX(20px); }
-.step-leave-to { opacity: 0; transform: translateX(-20px); }
+.tenant-sel { width: 100%; }
+.admin-tenant {
+  display: flex; align-items: center; gap: 6px; padding: 4px 12px;
+  background: linear-gradient(135deg, #ede9fe, #fae8ff);
+  color: #7c3aed; font-weight: 600; font-size: 13px;
+  border-radius: 8px; height: 32px;
+}
 
-/* 响应式 */
+.opt-row { display: flex; justify-content: space-between; width: 100%; align-items: center; }
+.opt-name { font-size: 13px; font-weight: 500; }
+.opt-code { font-size: 11px; color: #9ca3af; }
+
+.cell-act { display: flex; gap: 4px; justify-content: flex-end; align-items: center; }
+.del-btn { color: #9ca3af; padding: 4px; }
+.del-btn:hover { color: #ef4444; }
+
+/* 结果行 */
+.result-line {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 6px; padding: 8px 12px;
+  border-radius: 8px; font-size: 12px;
+  border-left: 3px solid;
+}
+.result-line.pending { background: #fffbeb; border-color: #f59e0b; color: #92400e; }
+.result-line.success { background: #ecfdf5; border-color: #10b981; color: #065f46; }
+.result-line.error   { background: #fef2f2; border-color: #ef4444; color: #991b1b; }
+.result-icon { font-size: 14px; display: flex; }
+.result-line.success .result-icon { color: #10b981; }
+.result-line.error .result-icon { color: #ef4444; }
+.result-text { font-weight: 600; }
+.result-detail { color: inherit; opacity: 0.85; font-size: 11px; }
+
+/* ============ 工具栏 ============ */
+.toolbar { display: flex; gap: 8px; align-items: center; margin-top: 12px; padding: 0 4px; }
+.toolbar .spacer { flex: 1; }
+.stat-pill {
+  font-size: 12px; color: #6b7280;
+  background: #f3f4f6; padding: 4px 12px; border-radius: 999px;
+}
+.stat-pill .ok { color: #10b981; }
+.stat-pill .err { color: #ef4444; }
+
+/* ============ 调试 ============ */
+.debug-box { margin-top: 12px; padding: 10px 12px; background: #1e1b4b; border-radius: 10px; max-height: 200px; overflow-y: auto; }
+.debug-title { font-size: 11px; color: #a5b4fc; margin: 0 0 6px; font-weight: 600; }
+.debug-log .empty { font-size: 11px; color: #6b7280; font-style: italic; margin: 0; }
+.log-line {
+  display: flex; gap: 8px; font-family: 'SF Mono', Monaco, monospace; font-size: 11px;
+  padding: 2px 0; line-height: 1.5;
+}
+.log-time { color: #6b7280; flex-shrink: 0; }
+.log-tag {
+  flex-shrink: 0; font-weight: 700; padding: 0 6px; border-radius: 3px;
+  background: #312e81; color: #a5b4fc; min-width: 50px; text-align: center;
+}
+.log-line.success .log-tag { background: #064e3b; color: #6ee7b7; }
+.log-line.error   .log-tag { background: #7f1d1d; color: #fca5a5; }
+.log-line.warn    .log-tag { background: #78350f; color: #fcd34d; }
+.log-msg { color: #c7d2fe; word-break: break-all; }
+
+/* ============ 动画 ============ */
+.row-enter-active, .row-leave-active { transition: all 0.25s ease; }
+.row-enter-from, .row-leave-to { opacity: 0; transform: translateX(-20px); }
+.row-enter-to, .row-leave-from { opacity: 1; transform: none; }
+
 @media (max-width: 900px) {
   .login-shell { flex-direction: column; min-height: auto; }
-  .brand-panel { flex: 0 0 auto; padding: 32px 24px; }
+  .brand-panel { flex: 0 0 auto; padding: 24px; }
   .feature-list { display: none; }
-  .form-panel { padding: 24px; }
+  .form-panel { padding: 20px; }
+  .grid-head, .grid-row { grid-template-columns: 24px 1fr 1fr; }
+  .grid-head .col-tenant, .grid-row .col-tenant,
+  .grid-head .col-act, .grid-row .col-act { grid-column: 1 / -1; }
 }
 </style>

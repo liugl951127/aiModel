@@ -5,7 +5,9 @@ export const authApi = {
   logout: () => request.post('/api/auth/logout'),
   refresh: (refreshToken) => request.post('/api/auth/refresh', null, { params: { refreshToken } }),
   /** 登录前置：拉用户信息 + 可选公司。 */
-  preview: (username) => request.get('/api/auth/preview', { params: { username } })
+  preview: (username) => request.get('/api/auth/preview', { params: { username } }),
+  /** 公开端点：拉所有公司 (登录页初始化用) */
+  tenants: () => request.get('/api/auth/tenants')
 }
 
 export const userApi = {

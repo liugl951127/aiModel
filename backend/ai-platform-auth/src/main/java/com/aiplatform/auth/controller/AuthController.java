@@ -3,11 +3,13 @@ package com.aiplatform.auth.controller;
 import com.aiplatform.auth.dto.LoginRequest;
 import com.aiplatform.auth.dto.LoginResponse;
 import com.aiplatform.auth.service.AuthService;
+import com.aiplatform.auth.service.TenantDirectory;
 import com.aiplatform.common.result.Result;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -16,6 +18,19 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final TenantDirectory tenantDirectory;
+
+    /**
+     * 公开端点：返回系统全部公司（登录页初始化用），无需登录。
+     *
+     * <p>前端在 Login.vue 加载时调这个接口来初始化"公司"下拉，Admin 不需要
+     * 公司信息；普通用户登录时从这个列表里选公司。所有公司来自
+     * {@code TenantDirectory}，由 deploy 阶段或 {@code data.sql} 注入。</p>
+     */
+    @GetMapping("/tenants")
+    public Result<List<Map<String, Object>>> tenants() {
+        return Result.success(tenantDirectory.listAll());
+    }
 
     @PostMapping("/login")
     public Result<LoginResponse> login(@RequestBody @Valid LoginRequest request) {
