@@ -80,6 +80,12 @@ spring:
           uri: ${TRAINER_URI:lb://ai-platform-trainer}
           predicates:
             - Path=/api/trainer/**
+        # Swagger UI / OpenAPI 路由 — 入口到 user 服务，user 跳查看所有服务 @FeignClient
+        # 也可直接跳转到各服务的 swagger (本路由只供快速查看 user 服务的接口)
+        - id: swagger-route
+          uri: ${SWAGGER_URI:lb://ai-platform-user}
+          predicates:
+            - Path=/doc.html,/swagger-ui/**,/webjars/**,/v3/api-docs/**,/v3/api-docs.yaml,/swagger-resources/**
 
 aiplatform:
   jwt:

@@ -42,8 +42,11 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             "/api/public/",
             "/actuator/",
             "/v3/api-docs",
+            "/v3/api-docs.yaml",
             "/doc.html",
             "/swagger-ui",
+            "/swagger-resources/",
+            "/webjars/",
             "/favicon.ico"
     );
 
