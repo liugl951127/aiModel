@@ -1,15 +1,20 @@
+# =====================================================
+# Spring Cloud Alibaba 配置 v3 (yml 重构)
+# nacos 默认 enabled: true (因为 config.import 拉取).
+# 想关闭: --spring.cloud.nacos.discovery.enabled=false
+#         --spring.cloud.nacos.config.enabled=false
+# =====================================================
+
 server:
   port: 9100
 
 spring:
   application:
     name: seata-demo
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
   main:
     allow-bean-definition-overriding: true
   config:
-    import: "nacos:seata-demo.yaml"
+    import: nacos:seata-demo.yaml
   cloud:
     openfeign:
       client:
@@ -21,19 +26,14 @@ spring:
       # 避免多服务 jar 互引时 FeignClientSpecification bean 冲突
     nacos:
       discovery:
-        enabled: ${NACOS_DISCOVERY_ENABLED:false}
-        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
-        username: ${NACOS_USER:nacos}
-        password: ${NACOS_PASS:nacos}
+        server-addr: 127.0.0.1:8848
+        enabled: true
       config:
-        enabled: ${NACOS_CONFIG_ENABLED:false}
-        import-check:
-          enabled: false
-
-# 3 个独立数据源：URL 在 DataSourceConfig 里 hard-code（H2 内存库，多 schema 模拟三服务）。
-# 沙箱无 MySQL 时自动用 H2；生产换成 MySQL URL 即可。
-
-# Seata 配置
+        server-addr: 127.0.0.1:8848
+        file-extension: yaml
+        enabled: true
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 seata:
   enabled: true
   application-id: seata-demo

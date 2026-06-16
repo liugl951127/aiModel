@@ -1,3 +1,10 @@
+# =====================================================
+# Spring Cloud Alibaba 配置 v3 (yml 重构)
+# nacos 默认 enabled: true (因为 config.import 拉取).
+# 想关闭: --spring.cloud.nacos.discovery.enabled=false
+#         --spring.cloud.nacos.config.enabled=false
+# =====================================================
+
 server:
   port: 9000
 
@@ -7,11 +14,7 @@ spring:
   main:
     allow-bean-definition-overriding: true
   config:
-    import: "nacos:ai-platform-gateway.yaml"
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
-
-  # ----- Nacos is OPTIONAL (default off) -----
+    import: nacos:ai-platform-gateway.yaml
   cloud:
     openfeign:
       client:
@@ -23,18 +26,12 @@ spring:
       # 避免多服务 jar 互引时 FeignClientSpecification bean 冲突
     nacos:
       discovery:
-        enabled: ${NACOS_DISCOVERY_ENABLED:false}
-        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
-        username: ${NACOS_USER:nacos}
-        password: ${NACOS_PASS:nacos}
+        server-addr: 127.0.0.1:8848
+        enabled: true
       config:
-        enabled: ${NACOS_CONFIG_ENABLED:false}
-        import-check:
-          enabled: false
-
-    # Spring Cloud Gateway routes.
-    # uri 走 nacos service name（lb://XXX）时，Spring Cloud LoadBalancer 会从 nacos 拉实例；
-    # nacos 关闭时，fallback 到 ${XXX_URL:http://127.0.0.1:PORT} 字面量地址。
+        server-addr: 127.0.0.1:8848
+        file-extension: yaml
+        enabled: true
     gateway:
       discovery:
         locator:
@@ -87,6 +84,8 @@ spring:
           predicates:
             - Path=/doc.html,/swagger-ui/**,/webjars/**,/v3/api-docs/**,/v3/api-docs.yaml,/swagger-resources/**
 
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 aiplatform:
   jwt:
     enabled: true

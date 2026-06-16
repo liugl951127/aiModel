@@ -1,3 +1,10 @@
+# =====================================================
+# Spring Cloud Alibaba 配置 v3 (yml 重构)
+# nacos 默认 enabled: true (因为 config.import 拉取).
+# 想关闭: --spring.cloud.nacos.discovery.enabled=false
+#         --spring.cloud.nacos.config.enabled=false
+# =====================================================
+
 server:
   port: 9003
 
@@ -7,11 +14,7 @@ spring:
   main:
     allow-bean-definition-overriding: true
   config:
-    import: "nacos:ai-platform-system.yaml"
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
-
-  # ----- Nacos is OPTIONAL. Default off so service can start standalone -----
+    import: nacos:ai-platform-system.yaml
   cloud:
     openfeign:
       client:
@@ -23,18 +26,17 @@ spring:
       # 避免多服务 jar 互引时 FeignClientSpecification bean 冲突
     nacos:
       discovery:
-        enabled: ${NACOS_DISCOVERY_ENABLED:false}
-        server-addr: ${NACOS_SERVER:127.0.0.1:8848}
-        username: ${NACOS_USER:nacos}
-        password: ${NACOS_PASS:nacos}
+        server-addr: 127.0.0.1:8848
+        enabled: true
       config:
-        enabled: ${NACOS_CONFIG_ENABLED:false}
-        import-check:
-          enabled: false
-
-  # ----- Optional datasource -----
+        server-addr: 127.0.0.1:8848
+        file-extension: yaml
+        enabled: true
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:ai_platform}?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    url: 
+      jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:ai_platform}?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USER:root}
     password: ${MYSQL_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
