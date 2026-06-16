@@ -1,482 +1,374 @@
 <template>
-  <div class="login-bg">
-    <canvas ref="canvas" class="particles"></canvas>
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-    <div class="blob blob-3"></div>
-
-    <!-- 顶栏: 用 el-page-header -->
-    <el-affix :offset="0" class="topbar-affix">
-      <div class="topbar-info">
-        <div class="tb-left">
-          <el-tag size="small" type="success" effect="plain">
-            <el-icon class="dot-icon"><CircleCheckFilled /></el-icon>
-            系统正常 · {{ currentTime }}
-          </el-tag>
-        </div>
-        <div class="tb-right">
-          <el-link :underline="false" @click="showAudit = true" type="primary">
-            <el-icon><Document /></el-icon>
-            最近登录记录
+  <div class="login-page">
+    <!-- 顶部工具条 (桌面端) -->
+    <header class="topbar" v-if="!isMobile">
+      <div class="tb-left"></div>
+      <div class="tb-right">
+        <el-dropdown trigger="click" @command="onLang">
+          <el-link :underline="false" class="tb-link">
+            <el-icon><Position /></el-icon>
+            {{ currentLang.label }}
+            <el-icon><ArrowDown /></el-icon>
           </el-link>
-          <el-divider direction="vertical" />
-          <el-link :underline="false" @click="showHelp = true">
-            <el-icon><QuestionFilled /></el-icon>
-            帮助
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item v-for="l in langs" :key="l.code" :command="l.code" :disabled="l.code === currentLangCode">
+                <el-icon v-if="l.code === currentLangCode"><Check /></el-icon>
+                {{ l.label }}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-divider direction="vertical" />
+        <el-tooltip content="主题" placement="bottom">
+          <el-link :underline="false" class="tb-link" @click="cycleTheme">
+            <el-icon :size="14"><component :is="themeIcon" /></el-icon>
           </el-link>
-          <el-divider direction="vertical" />
-          <el-tooltip :content="`主题: ${themes[themeIdx]}`" placement="bottom">
-            <el-button :underline="false" link @click="cycleTheme" class="tb-btn">
-              <el-icon :size="16"><component :is="themeIcon" /></el-icon>
-            </el-button>
-          </el-tooltip>
-        </div>
+        </el-tooltip>
+        <el-divider direction="vertical" />
+        <el-tooltip content="登录审计" placement="bottom">
+          <el-link :underline="false" class="tb-link" @click="showAudit = true">
+            <el-icon :size="14"><Document /></el-icon>
+          </el-link>
+        </el-tooltip>
       </div>
-    </el-affix>
+    </header>
 
-    <div class="login-shell">
-      <!-- ============== 左: 品牌区 ============== -->
-      <section class="brand-panel">
-        <div class="brand-stack">
-          <div class="logo-wrap">
-            <div class="logo-ring"><span class="logo-emoji">🤖</span></div>
-            <el-tag size="small" effect="dark" round class="logo-version">v 1.0</el-tag>
+    <div class="main" :class="{ mobile: isMobile, tablet: isTablet }">
+      <!-- ============== 左品牌区 ============== -->
+      <section class="brand-panel" v-if="!isMobile">
+        <div class="brand-content">
+          <!-- Logo + 品牌名 -->
+          <div class="brand-head">
+            <div class="logo">
+              <span class="logo-mark">L</span>
+              <div class="logo-text">
+                <strong>LAIYE</strong>
+                <small>智能自动化平台</small>
+              </div>
+            </div>
           </div>
-          <h1 class="brand-title">AI Agent Platform</h1>
-          <p class="brand-sub">大模型 · 智能体 · 分布式事务 一体化平台</p>
 
-          <ul class="feature-list">
-            <li v-for="(f, i) in features" :key="i">
-              <el-avatar :size="28" class="feat-ico">
-                {{ f.icon }}
-              </el-avatar>
-              <span>{{ f.text }}</span>
-            </li>
-          </ul>
+          <!-- 插画 (SVG inline) -->
+          <div class="illustration">
+            <svg viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg" class="illu-svg">
+              <!-- 背景圆 + 弧线 -->
+              <circle cx="120" cy="200" r="130" fill="rgba(99,102,241,0.08)" />
+              <path d="M 0 350 Q 250 280 500 350" stroke="rgba(99,102,241,0.15)" stroke-width="2" fill="none" />
+              <path d="M 50 380 Q 280 320 480 380" stroke="rgba(99,102,241,0.1)" stroke-width="1.5" fill="none" stroke-dasharray="4 4" />
 
-          <div class="brand-foot">
-            <el-tag size="small" effect="dark" round>
-              <el-icon><Loading v-if="loadingHealth" /><CircleCheckFilled v-else /></el-icon>
-              {{ systemInfo }}
-            </el-tag>
+              <!-- 仪表盘背景 -->
+              <rect x="60" y="120" width="180" height="130" rx="8" fill="white" stroke="rgba(99,102,241,0.2)" stroke-width="1.5" />
+              <rect x="70" y="135" width="60" height="8" rx="2" fill="rgba(99,102,241,0.4)" />
+              <rect x="70" y="150" width="100" height="6" rx="2" fill="rgba(99,102,241,0.2)" />
+              <line x1="70" y1="180" x2="225" y2="180" stroke="rgba(99,102,241,0.1)" />
+              <!-- 柱状图 -->
+              <rect x="80" y="210" width="18" height="30" rx="2" fill="#6366f1" />
+              <rect x="105" y="195" width="18" height="45" rx="2" fill="#8b5cf6" />
+              <rect x="130" y="180" width="18" height="60" rx="2" fill="#a78bfa" />
+              <rect x="155" y="200" width="18" height="40" rx="2" fill="#c4b5fd" />
+              <rect x="180" y="220" width="18" height="20" rx="2" fill="#ddd6fe" />
+              <circle cx="89" cy="170" r="8" fill="#fbbf24" />
+              <circle cx="89" cy="170" r="3" fill="white" />
+
+              <!-- 圆盘 -->
+              <circle cx="350" cy="180" r="50" fill="white" stroke="rgba(99,102,241,0.2)" stroke-width="1.5" />
+              <circle cx="350" cy="180" r="32" fill="none" stroke="rgba(99,102,241,0.3)" stroke-width="2" stroke-dasharray="60 20" />
+              <circle cx="350" cy="180" r="16" fill="rgba(99,102,241,0.15)" />
+              <circle cx="350" cy="180" r="6" fill="#6366f1" />
+
+              <!-- 人 (简化) -->
+              <g transform="translate(220 180)">
+                <!-- 头 -->
+                <circle cx="0" cy="0" r="20" fill="#fde68a" />
+                <!-- 身体 -->
+                <path d="M -25 30 Q -25 18 0 18 Q 25 18 25 30 L 30 95 L -30 95 Z" fill="#3b82f6" />
+                <!-- 胳膊 -->
+                <path d="M -25 30 Q -40 50 -38 70" stroke="#3b82f6" stroke-width="10" fill="none" stroke-linecap="round" />
+                <path d="M 25 30 Q 45 40 50 25" stroke="#3b82f6" stroke-width="10" fill="none" stroke-linecap="round" />
+                <!-- 腿 -->
+                <path d="M -10 95 L -12 130" stroke="#1e40af" stroke-width="14" fill="none" stroke-linecap="round" />
+                <path d="M 10 95 L 12 130" stroke="#1e40af" stroke-width="14" fill="none" stroke-linecap="round" />
+                <!-- 头发 -->
+                <path d="M -18 -10 Q -20 -25 0 -25 Q 20 -25 18 -10 L 15 -5 L -15 -5 Z" fill="#1e293b" />
+              </g>
+
+              <!-- 椅子 -->
+              <rect x="190" y="285" width="6" height="50" fill="rgba(99,102,241,0.4)" />
+              <rect x="240" y="285" width="6" height="50" fill="rgba(99,102,241,0.4)" />
+              <rect x="190" y="280" width="60" height="8" rx="3" fill="rgba(99,102,241,0.5)" />
+              <!-- 椅子底座 -->
+              <ellipse cx="220" cy="335" rx="35" ry="5" fill="rgba(99,102,241,0.2)" />
+              <line x1="220" y1="335" x2="220" y2="305" stroke="rgba(99,102,241,0.4)" stroke-width="3" />
+            </svg>
           </div>
+
+          <!-- 副标题 -->
+          <p class="brand-tag">大模型 · 智能体 · 分布式事务 一体化</p>
         </div>
       </section>
 
-      <!-- ============== 右: 登录表单 ============== -->
+      <!-- ============== 右表单区 ============== -->
       <section class="form-panel">
-        <el-segmented
-          v-model="activeTab"
-          :options="tabOptions"
-          block
-          class="login-segmented"
-        />
-
-        <transition name="step" mode="out-in">
-          <!-- ===== 账号登录 ===== -->
-          <div v-if="activeTab === 'account'" key="account" class="step-panel">
-            <el-page-header :icon="null" class="panel-hd">
-              <template #content>
-                <h2 class="panel-title">登录信息</h2>
-              </template>
-              <template #extra>
-                <el-tooltip content="点此查看上次登录" placement="top">
-                  <el-button :underline="false" link size="small" @click="showAudit = true">
-                    <el-icon><Clock /></el-icon>
-                  </el-button>
-                </el-tooltip>
-              </template>
-            </el-page-header>
-            <p class="panel-tip">
-              多组横排 · 每组独立发送请求 · <strong>Admin</strong> 跳过公司校验 ·
-              失败自动记录 <code>sys_login_audit</code>
-            </p>
-
-            <!-- 公司 banner: el-descriptions 卡片 -->
-            <el-card v-if="tenants.length" shadow="never" class="tenant-card">
-              <template #header>
-                <div class="tb-head">
-                  <div class="tb-title">
-                    <el-icon class="tb-ico-main"><OfficeBuilding /></el-icon>
-                    <strong>已加载 {{ tenants.length }} 家公司</strong>
-                    <el-tooltip content="刷新" placement="top">
-                      <el-button :underline="false" link size="small" :loading="loadingTenants" @click="loadTenants">
-                        <el-icon><Refresh /></el-icon>
-                      </el-button>
-                    </el-tooltip>
-                  </div>
-                  <el-link :underline="false" type="primary" size="small" @click="showTenantBanner = !showTenantBanner">
-                    {{ showTenantBanner ? '收起' : '展开' }}
-                  </el-link>
-                </div>
-              </template>
-              <div v-if="showTenantBanner" class="tb-list">
-                <div v-for="t in tenants" :key="t.id" class="tb-item" @click="fillTenant(t)">
-                  <el-avatar :size="32" :style="`background: ${colorOf(t.id)}`" class="tb-ico">
-                    {{ t.tenantName?.charAt(0) || '?' }}
-                  </el-avatar>
-                  <div class="tb-meta">
-                    <div class="tb-name">{{ t.tenantName }}</div>
-                    <div class="tb-code">{{ t.tenantCode }} · id={{ t.id }}</div>
-                  </div>
-                  <el-icon class="tb-arrow"><ArrowRight /></el-icon>
-                </div>
+        <div class="form-card">
+          <!-- 移动端 brand 头 -->
+          <div class="mobile-brand" v-if="isMobile">
+            <div class="logo">
+              <span class="logo-mark">L</span>
+              <div class="logo-text">
+                <strong>LAIYE</strong>
+                <small>智能自动化平台</small>
               </div>
-            </el-card>
-
-            <!-- 列头 -->
-            <div class="grid-head">
-              <span class="col-idx">#</span>
-              <span class="col-name">用户名 <small class="req">*</small></span>
-              <span class="col-name">密码 <small class="req">*</small></span>
-              <span class="col-tenant">
-                公司
-                <small class="req" v-if="!anyAdminEntered">*</small>
-                <small class="req admin-tip" v-else>admin 留空</small>
-              </span>
-              <span class="col-act">操作</span>
             </div>
+            <el-dropdown trigger="click" @command="onLang">
+              <el-link :underline="false" class="tb-link">
+                <el-icon><Position /></el-icon>
+                {{ currentLang.label }}
+              </el-link>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-for="l in langs" :key="l.code" :command="l.code" :disabled="l.code === currentLangCode">
+                    {{ l.label }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
 
-            <!-- 多组横排 -->
-            <transition-group name="row" tag="div" class="grid-rows">
-              <el-card
-                v-for="(g, idx) in groups"
-                :key="g.id"
-                shadow="never"
-                class="grid-row"
-                :class="{
-                  'row-admin': g.username.toLowerCase() === 'admin',
-                  'row-locked': g.lockedUntil && Date.now() < g.lockedUntil
-                }"
-              >
-                <div class="row-grid">
-                  <span class="col-idx row-idx">#{{ idx + 1 }}</span>
+          <!-- Tab 切换 -->
+          <div class="login-tabs">
+            <button v-for="t in tabs" :key="t.key" :class="['tab', { active: activeTab === t.key }]" @click="switchTab(t.key)">
+              {{ t.label }}
+            </button>
+          </div>
 
-                  <div class="col-name">
-                    <el-input
-                      v-model="g.username"
-                      placeholder="用户名"
-                      :prefix-icon="User"
-                      size="default"
-                      clearable
-                      @blur="recheckAdmin(g)"
-                    />
-                  </div>
+          <transition name="step" mode="out-in">
+            <!-- ===== 登录 ===== -->
+            <div v-if="activeTab === 'login'" key="login" class="tab-panel">
+              <h2 class="panel-title">登录</h2>
+              <p class="panel-tip">使用账号密码登录到 AI Agent Platform</p>
 
-                  <div class="col-name">
-                    <el-input
-                      v-model="g.password"
-                      type="password"
-                      placeholder="密码"
-                      show-password
-                      :prefix-icon="Lock"
-                      size="default"
-                    />
-                  </div>
-
-                  <div class="col-tenant">
-                    <el-select
-                      v-if="g.username.toLowerCase() !== 'admin'"
-                      v-model="g.tenantId"
-                      placeholder="选择公司"
-                      size="default"
-                      clearable
-                      filterable
-                      :loading="loadingTenants"
-                      class="tenant-sel"
+              <el-form :model="loginForm" ref="loginFormRef" :rules="loginRules" size="large" class="form" label-position="top">
+                <el-form-item prop="username">
+                  <el-input
+                    v-model="loginForm.username"
+                    placeholder="用户名 / 手机号 / 邮箱"
+                    :prefix-icon="User"
+                    clearable
+                  />
+                </el-form-item>
+                <el-form-item prop="password">
+                  <el-input
+                    v-model="loginForm.password"
+                    type="password"
+                    placeholder="密码"
+                    :prefix-icon="Lock"
+                    show-password
+                  />
+                </el-form-item>
+                <el-form-item prop="tenantId" v-if="!isSuperAdmin">
+                  <el-select
+                    v-model="loginForm.tenantId"
+                    placeholder="选择公司 (租户)"
+                    :loading="loadingTenants"
+                    class="tenant-sel"
+                    filterable
+                  >
+                    <el-option
+                      v-for="t in tenants"
+                      :key="t.id"
+                      :label="t.tenantName || t.tenantCode"
+                      :value="t.id"
                     >
-                      <el-option
-                        v-for="t in tenants"
-                        :key="t.id"
-                        :label="t.tenantName || t.tenantCode"
-                        :value="t.id"
-                      >
-                        <span style="float:left">{{ t.tenantName }}</span>
-                        <small class="text-muted" style="float:right">{{ t.tenantCode }}</small>
-                      </el-option>
-                    </el-select>
-                    <el-tag v-else type="warning" effect="plain" class="admin-tag">
-                      <el-icon><Avatar /></el-icon>
-                      全部公司
-                    </el-tag>
-                  </div>
-
-                  <div class="col-act">
-                    <el-button
-                      type="primary"
-                      :loading="g.sending"
-                      :disabled="!g.username || !g.password || (g.lockedUntil && Date.now() < g.lockedUntil)"
-                      size="default"
-                      @click="onSend(g)"
-                    >
-                      <el-icon><Promotion /></el-icon>
-                      {{ g.sending ? '发送中' : '发送' }}
-                    </el-button>
-                    <el-button
-                      v-if="groups.length > 1"
-                      :underline="false"
-                      link
-                      size="default"
-                      class="del-btn"
-                      @click="removeRow(g.id)"
-                    >
-                      <el-icon><Close /></el-icon>
-                    </el-button>
-                  </div>
-                </div>
-
-                <!-- 结果行: 用 el-alert -->
-                <el-alert
-                  v-if="g.result"
-                  :type="alertType(g.result.kind)"
-                  :title="g.result.text"
-                  :description="g.result.detail"
-                  :closable="false"
-                  show-icon
-                  class="result-alert"
-                >
-                  <template #default>
-                    <div class="alert-content">
-                      <div class="alert-meta">
-                        <strong>{{ g.result.text }}</strong>
-                        <small v-if="g.result.detail" class="alert-detail">{{ g.result.detail }}</small>
-                      </div>
-                      <div class="alert-actions">
-                        <el-tag v-if="g.result.kind === 'error' && g.failCount" type="warning" size="small">
-                          失败 {{ g.failCount }}/5
-                        </el-tag>
-                        <el-button
-                          v-if="g.result.kind === 'error' && g.failCount < 5"
-                          type="warning"
-                          size="small"
-                          plain
-                          @click="onSend(g)"
-                        >
-                          重试
-                        </el-button>
-                        <el-button
-                          v-if="g.result.kind === 'success' && g.result.token"
-                          type="primary"
-                          size="small"
-                          @click="useTokenAndEnter(g)"
-                        >
-                          进入系统 →
-                        </el-button>
-                      </div>
-                    </div>
-                  </template>
+                      <span style="float:left">{{ t.tenantName }}</span>
+                      <small class="text-muted" style="float:right">{{ t.tenantCode }}</small>
+                    </el-option>
+                  </el-select>
+                </el-form-item>
+                <el-alert v-if="isSuperAdmin" type="info" :closable="false" show-icon class="admin-hint">
+                  <template #title>检测到 <strong>admin</strong>，将自动拥有所有租户权限</template>
                 </el-alert>
-              </el-card>
-            </transition-group>
 
-            <!-- 工具栏 -->
-            <div class="toolbar">
-              <el-button :underline="false" @click="addRow" type="primary" plain>
-                <el-icon><Plus /></el-icon>
-                增加一组
-              </el-button>
-              <el-button :underline="false" @click="batchSend" :loading="batchSending" :disabled="!groups.length">
-                <el-icon><VideoPlay /></el-icon>
-                一键发送
-              </el-button>
-              <el-button :underline="false" @click="clearAll" link>
-                <el-icon><Delete /></el-icon>
-                清空
-              </el-button>
-              <div class="spacer"></div>
-              <el-tag size="small" effect="plain" type="info">
-                总数 <strong>{{ groups.length }}</strong>
-                · 已登录 <strong class="color-ok">{{ successCount }}</strong>
-                · 失败 <strong class="color-err">{{ errorCount }}</strong>
-              </el-tag>
-            </div>
-
-            <!-- 快捷账号 -->
-            <el-card shadow="never" class="quick-card">
-              <template #header>
-                <div class="quick-head">
-                  <span class="quick-tip">3 个快速账号 (点击填入):</span>
+                <div class="form-extras">
+                  <el-checkbox v-model="loginForm.remember">7 天自动登录</el-checkbox>
+                  <el-link type="primary" :underline="false" @click="onForgot">忘记密码？</el-link>
                 </div>
-              </template>
-              <div class="quick-row">
-                <el-button
-                  v-for="q in quickAccounts"
-                  :key="q.user"
-                  :underline="false"
-                  class="chip"
-                  @click="quickFill(q.user, q.pass, q.tenant)"
-                >
-                  <el-avatar :size="32" :class="['chip-avatar', q.cls]">{{ q.user.charAt(0).toUpperCase() }}</el-avatar>
-                  <div class="chip-meta">
-                    <div class="chip-name">{{ q.user }} / {{ q.pass }}</div>
-                    <div class="chip-dept">{{ q.dept }}</div>
-                  </div>
+
+                <el-button type="primary" :loading="loading" @click="onLogin" class="submit-btn" size="large" round>
+                  登 录
                 </el-button>
-              </div>
-              <div class="remember-row">
-                <el-checkbox v-model="rememberMe" @change="onRememberChange">7 天内自动登录</el-checkbox>
-                <el-link :underline="false" type="primary" size="small" @click="showAudit = true">
-                  <el-icon><Document /></el-icon>
-                  查看最近登录
-                </el-link>
-              </div>
-            </el-card>
-          </div>
 
-          <!-- ===== SSO ===== -->
-          <div v-else-if="activeTab === 'sso'" key="sso" class="step-panel">
-            <el-page-header :icon="null" class="panel-hd">
-              <template #content>
-                <h2 class="panel-title">企业 SSO</h2>
-              </template>
-            </el-page-header>
-            <p class="panel-tip">使用企业账号 (OIDC / LDAP / 飞书 / 钉钉) 登录</p>
-            <div class="sso-grid">
-              <el-button
-                v-for="s in ssoList"
-                :key="s.key"
-                :underline="false"
-                class="sso-btn"
-                @click="onSsoLogin(s.key)"
-              >
-                <el-avatar :size="40" :style="`background: linear-gradient(135deg, ${s.c1}, ${s.c2})`" class="sso-ico">
-                  {{ s.ch }}
-                </el-avatar>
-                <div class="sso-name">{{ s.name }}</div>
-                <div class="sso-sub">{{ s.sub }}</div>
-              </el-button>
-            </div>
-            <el-alert type="info" :closable="false" show-icon class="sso-note">
-              <template #title>企业 SSO 接入请联系系统管理员配置 client_id / redirect_uri</template>
-            </el-alert>
-          </div>
+                <!-- 快捷账号 -->
+                <div class="quick-row">
+                  <button class="chip" @click="quickFill('admin', 'admin123', null)">
+                    <span class="chip-avatar admin">A</span>
+                    <div>
+                      <div class="chip-name">admin</div>
+                      <div class="chip-dept">超级管理员</div>
+                    </div>
+                  </button>
+                  <button class="chip" @click="quickFill('demo', 'demo123', 1)">
+                    <span class="chip-avatar demo">D</span>
+                    <div>
+                      <div class="chip-name">demo</div>
+                      <div class="chip-dept">市场部</div>
+                    </div>
+                  </button>
+                  <button class="chip" @click="quickFill('manager', 'demo123', 2)">
+                    <span class="chip-avatar mgr">M</span>
+                    <div>
+                      <div class="chip-name">manager</div>
+                      <div class="chip-dept">运营部</div>
+                    </div>
+                  </button>
+                </div>
+              </el-form>
 
-          <!-- ===== 访客 ===== -->
-          <div v-else-if="activeTab === 'guest'" key="guest" class="step-panel">
-            <el-page-header :icon="null" class="panel-hd">
-              <template #content>
-                <h2 class="panel-title">访客体验</h2>
-              </template>
-            </el-page-header>
-            <p class="panel-tip">无需账号，1 分钟快速浏览平台功能（只读沙箱）</p>
-            <el-card shadow="never" class="guest-card">
-              <div class="guest-ico">👀</div>
-              <div class="guest-title">Demo Sandbox</div>
-              <p class="guest-desc">
-                预置 AI 助手、示例知识库、3 个示例多 Agent 案例。<br/>
-                可聊天但不能保存数据，刷新即清空。
+              <p class="bottom-tip">
+                没有账号？<el-link type="primary" :underline="false" @click="switchTab('register')">立即注册</el-link>
               </p>
-              <el-button type="primary" size="large" round @click="onGuestLogin">
-                进入沙箱 →
-              </el-button>
-            </el-card>
-            <el-alert type="warning" :closable="false" show-icon class="guest-warn">
-              <template #title>访客模式仅供评估用，生产数据请用正式账号登录</template>
-            </el-alert>
-          </div>
-        </transition>
+            </div>
+
+            <!-- ===== 注册 ===== -->
+            <div v-else-if="activeTab === 'register'" key="register" class="tab-panel">
+              <h2 class="panel-title">注册</h2>
+              <p class="panel-tip">使用手机号注册, 通过验证后即可登录</p>
+
+              <el-form :model="regForm" ref="regFormRef" :rules="regRules" size="large" class="form" label-position="top">
+                <el-form-item prop="phone">
+                  <el-input v-model="regForm.phone" placeholder="请输入手机号" :prefix-icon="Cellphone" clearable>
+                    <template #prepend>
+                      <el-select v-model="regForm.countryCode" style="width: 70px">
+                        <el-option label="+86" value="+86" />
+                        <el-option label="+1" value="+1" />
+                        <el-option label="+852" value="+852" />
+                      </el-select>
+                    </template>
+                  </el-input>
+                </el-form-item>
+                <el-form-item prop="captcha">
+                  <el-input v-model="regForm.captcha" placeholder="请输入验证码" :prefix-icon="Key" clearable>
+                    <template #append>
+                      <el-button
+                        :disabled="captchaCountdown > 0"
+                        :loading="sendingCaptcha"
+                        @click="onSendCaptcha"
+                        class="captcha-btn"
+                      >
+                        {{ captchaCountdown > 0 ? `${captchaCountdown}s 后重试` : '获取验证码' }}
+                      </el-button>
+                    </template>
+                  </el-input>
+                </el-form-item>
+                <el-form-item prop="password">
+                  <el-input v-model="regForm.password" type="password" placeholder="请输入密码 (至少 6 位)" :prefix-icon="Lock" show-password />
+                </el-form-item>
+                <el-form-item prop="confirmPassword">
+                  <el-input v-model="regForm.confirmPassword" type="password" placeholder="请再次输入密码" :prefix-icon="Lock" show-password />
+                </el-form-item>
+                <el-form-item prop="agree" class="agree-item">
+                  <el-checkbox v-model="regForm.agree">
+                    我已阅读并同意
+                    <el-link type="primary" :underline="false">《来也用户协议》</el-link>
+                    与
+                    <el-link type="primary" :underline="false">《隐私协议》</el-link>
+                  </el-checkbox>
+                </el-form-item>
+                <el-button type="primary" :loading="loading" @click="onRegister" class="submit-btn" size="large" round>
+                  注 册
+                </el-button>
+              </el-form>
+
+              <p class="bottom-tip">
+                已有账号？<el-link type="primary" :underline="false" @click="switchTab('login')">立即登录</el-link>
+              </p>
+            </div>
+
+            <!-- ===== 忘记密码 ===== -->
+            <div v-else-if="activeTab === 'forgot'" key="forgot" class="tab-panel">
+              <h2 class="panel-title">忘记密码</h2>
+              <p class="panel-tip">通过手机验证码重置密码</p>
+              <el-form :model="forgotForm" :rules="forgotRules" ref="forgotFormRef" size="large" class="form" label-position="top">
+                <el-form-item prop="phone">
+                  <el-input v-model="forgotForm.phone" placeholder="请输入注册时的手机号" :prefix-icon="Cellphone" />
+                </el-form-item>
+                <el-form-item prop="captcha">
+                  <el-input v-model="forgotForm.captcha" placeholder="验证码" :prefix-icon="Key">
+                    <template #append>
+                      <el-button :disabled="forgotCountdown > 0" @click="onSendForgotCaptcha">
+                        {{ forgotCountdown > 0 ? `${forgotCountdown}s` : '获取验证码' }}
+                      </el-button>
+                    </template>
+                  </el-input>
+                </el-form-item>
+                <el-form-item prop="newPassword">
+                  <el-input v-model="forgotForm.newPassword" type="password" placeholder="新密码 (至少 6 位)" show-password :prefix-icon="Lock" />
+                </el-form-item>
+                <el-button type="primary" :loading="loading" @click="onResetPwd" class="submit-btn" size="large" round>
+                  重置密码
+                </el-button>
+              </el-form>
+              <p class="bottom-tip">
+                想起密码了？<el-link type="primary" :underline="false" @click="switchTab('login')">返回登录</el-link>
+              </p>
+            </div>
+          </transition>
+
+          <!-- 结果行 -->
+          <transition name="alert">
+            <el-alert
+              v-if="resultAlert"
+              :type="resultAlert.type"
+              :title="resultAlert.title"
+              :description="resultAlert.desc"
+              :closable="true"
+              show-icon
+              class="result-alert"
+              @close="resultAlert = null"
+            />
+          </transition>
+        </div>
+
+        <!-- 版权 (PC 端显示) -->
+        <footer class="page-footer" v-if="!isMobile">
+          <span>Copyright © 2015-{{ new Date().getFullYear() }} AI Agent Platform. All Rights Reserved.</span>
+        </footer>
       </section>
     </div>
 
-    <!-- 调试日志条 (用 el-affix 钉底部) -->
-    <el-affix position="bottom" :offset="20" class="debug-affix">
-      <el-card
-        v-if="logs.length"
-        shadow="hover"
-        class="debug-bar"
-        :class="{ expanded: debugExpanded }"
-        @click="debugExpanded = !debugExpanded"
-      >
-        <template #header>
-          <div class="db-head">
-            <el-icon class="db-ico"><Tools /></el-icon>
-            <strong>请求日志</strong>
-            <el-badge :value="logs.length" :max="99" class="db-badge" />
-            <el-icon :class="{ flip: !debugExpanded }" class="db-arrow"><ArrowDown /></el-icon>
-          </div>
-        </template>
-        <div v-if="debugExpanded" class="db-body" @click.stop>
-          <el-empty v-if="!logs.length" :image-size="40" description="暂无日志" />
-          <article v-for="(l, i) in logs.slice(0, 30)" :key="i" class="db-item" :class="l.kind">
-            <span class="db-time">{{ l.time }}</span>
-            <el-tag size="small" :type="logTag(l.kind)" effect="dark" class="db-tag">{{ l.tag }}</el-tag>
-            <span class="db-msg">{{ l.msg }}</span>
-          </article>
-        </div>
-      </el-card>
-    </el-affix>
+    <!-- 移动端底部版权 -->
+    <footer class="mobile-footer" v-if="isMobile">
+      <span>Copyright © 2015-{{ new Date().getFullYear() }} AI Agent Platform</span>
+    </footer>
 
-    <!-- 最近登录弹窗: 用 el-descriptions + el-table + el-statistic -->
-    <el-dialog v-model="showAudit" title="最近登录记录" width="820px" :align-center="true">
+    <!-- 审计弹窗 (PC 端) -->
+    <el-dialog v-model="showAudit" title="最近登录记录" width="780px" :align-center="true" v-if="!isMobile">
       <el-row :gutter="12" class="audit-stats">
         <el-col :span="6" v-for="s in auditStatList" :key="s.key">
           <el-card shadow="never" class="as-card" :style="`background: linear-gradient(135deg, ${s.c1}, ${s.c2})`">
-            <el-statistic :value="s.value" :title="s.label" :title-style="{ color: '#fff', opacity: 0.9, fontSize: '12px' }" :value-style="{ color: '#fff', fontSize: '24px', fontWeight: 700 }" />
+            <el-statistic :value="s.value" :title="s.label" :title-style="{ color: '#fff', opacity: 0.9, fontSize: '12px' }" :value-style="{ color: '#fff', fontSize: '22px', fontWeight: 700 }" />
           </el-card>
         </el-col>
       </el-row>
-      <el-table :data="auditRecords" v-loading="loadingAudit" stripe size="small" max-height="340">
-        <el-table-column prop="username" label="用户" width="120" />
-        <el-table-column label="IP" width="140">
-          <template #default="{ row }">
-            <code class="ip">{{ row.loginIp || '—' }}</code>
-          </template>
+      <el-table :data="auditRecords" v-loading="loadingAudit" stripe size="small" max-height="320">
+        <el-table-column prop="username" label="用户" width="100" />
+        <el-table-column label="IP" width="120">
+          <template #default="{ row }"><code class="ip">{{ row.loginIp || '—' }}</code></template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" width="90">
           <template #default="{ row }">
             <el-tag :type="tagType(row.loginStatus)" size="small" effect="dark">{{ row.loginStatus }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="failReason" label="原因" min-width="160" show-overflow-tooltip />
-        <el-table-column label="时间" width="160">
-          <template #default="{ row }">
-            <small class="text-muted">{{ row.loginTime }}</small>
-          </template>
+        <el-table-column prop="failReason" label="原因" min-width="140" show-overflow-tooltip />
+        <el-table-column label="时间" width="140">
+          <template #default="{ row }"><small class="text-muted">{{ row.loginTime }}</small></template>
         </el-table-column>
       </el-table>
       <template #footer>
-        <el-link :underline="false" type="primary" @click="loadAudit">
-          <el-icon><Refresh /></el-icon>刷新
-        </el-link>
+        <el-link :underline="false" type="primary" @click="loadAudit"><el-icon><Refresh /></el-icon>刷新</el-link>
         <el-button @click="showAudit = false">关闭</el-button>
       </template>
-    </el-dialog>
-
-    <!-- 帮助弹窗: 用 el-descriptions + el-collapse -->
-    <el-dialog v-model="showHelp" title="登录帮助" width="600px" :align-center="true">
-      <el-descriptions title="📋 默认账号" :column="3" border size="small">
-        <el-descriptions-item label="用户名">admin</el-descriptions-item>
-        <el-descriptions-item label="密码">admin123</el-descriptions-item>
-        <el-descriptions-item label="角色">
-          <el-tag type="danger" size="small">超级管理员</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="用户名">demo</el-descriptions-item>
-        <el-descriptions-item label="密码">demo123</el-descriptions-item>
-        <el-descriptions-item label="角色">
-          <el-tag type="success" size="small">用户 / 默认公司</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="用户名">manager</el-descriptions-item>
-        <el-descriptions-item label="密码">demo123</el-descriptions-item>
-        <el-descriptions-item label="角色">
-          <el-tag type="success" size="small">用户 / 示例科技</el-tag>
-        </el-descriptions-item>
-      </el-descriptions>
-
-      <h3 class="help-h3">❓ 常见问题</h3>
-      <el-collapse>
-        <el-collapse-item title="忘记密码怎么办？" name="1">
-          联系企业管理员重置，或在 User 管理页找 admin 重置
-        </el-collapse-item>
-        <el-collapse-item title="Admin 登录后看不到公司？" name="2">
-          Admin 是超级管理员，拥有所有租户权限。公司列表中会自动包含 [id=0, code=ALL] 虚拟公司
-        </el-collapse-item>
-        <el-collapse-item title="为什么登录失败后被记录？" name="3">
-          平台会自动记录所有登录尝试到 <code>sys_login_audit</code>，含 IP / User-Agent / 失败原因，用于安全审计
-        </el-collapse-item>
-        <el-collapse-item title="如何切换公司？" name="4">
-          登录后右上角"用户菜单 → 切换租户"，会注销当前会话并以新公司身份重新登录
-        </el-collapse-item>
-      </el-collapse>
     </el-dialog>
   </div>
 </template>
@@ -486,154 +378,210 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  User, Lock, OfficeBuilding, Avatar, Promotion, Close, Plus, VideoPlay, Delete,
-  Refresh, CircleCheckFilled, CircleCloseFilled, Loading, ArrowDown, ArrowRight, Document,
-  QuestionFilled, WarningFilled, Sunny, Moon, MagicStick, Clock, Tools
+  User, Lock, Cellphone, Key, Position, ArrowDown, Check, Document, Refresh,
+  Sunny, Moon, MagicStick
 } from '@element-plus/icons-vue'
 import { authApi, auditApi } from '@/api'
 
 const router = useRouter()
 
-// ============== Tab (用 el-segmented) ==============
-const tabOptions = [
-  { label: '🔑 账号登录', value: 'account' },
-  { label: '🏢 企业 SSO', value: 'sso' },
-  { label: '👀 访客体验', value: 'guest' }
-]
-const activeTab = ref('account')
-
-// ============== 多组登录 ==============
-let _id = 0
-const makeRow = (u = '', p = '', t = null) => ({
-  id: ++_id, username: u, password: p, tenantId: t,
-  sending: false, result: null, failCount: 0, lockedUntil: 0
+// ============== 响应式 (3 端) ==============
+const isMobile = ref(false)
+const isTablet = ref(false)
+const checkViewport = () => {
+  const w = window.innerWidth
+  isMobile.value = w < 768
+  isTablet.value = w >= 768 && w < 1024
+}
+let resizeTimer = null
+onMounted(() => {
+  checkViewport()
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(checkViewport, 100)
+  })
 })
-const groups = reactive([makeRow('admin', 'admin123', null), makeRow('demo', 'demo123', 1), makeRow('manager', 'demo123', 2)])
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', checkViewport)
+  clearTimeout(resizeTimer)
+  if (captchaTimer) clearInterval(captchaTimer)
+  if (forgotTimer) clearInterval(forgotTimer)
+})
 
-const anyAdminEntered = computed(() => groups.some(g => g.username.toLowerCase() === 'admin'))
-const successCount = computed(() => groups.filter(g => g.result?.kind === 'success').length)
-const errorCount = computed(() => groups.filter(g => g.result?.kind === 'error').length)
-
-const addRow = () => groups.push(makeRow())
-const removeRow = (id) => {
-  const idx = groups.findIndex(g => g.id === id)
-  if (idx >= 0 && groups.length > 1) groups.splice(idx, 1)
-}
-const recheckAdmin = (g) => { if (g.username.toLowerCase() === 'admin') g.tenantId = null }
-const clearAll = () => { groups.splice(0, groups.length, makeRow()); logs.splice(0, logs.length) }
-
-const quickAccounts = [
-  { user: 'admin',   pass: 'admin123', tenant: null, dept: '超级管理员 · 公司留空', cls: 'admin' },
-  { user: 'demo',    pass: 'demo123',  tenant: 1,    dept: '市场部 · 默认公司',     cls: 'demo' },
-  { user: 'manager', pass: 'demo123',  tenant: 2,    dept: '运营部 · 示例科技',     cls: 'mgr' }
+// ============== 语言 ==============
+const langs = [
+  { code: 'zh-CN', label: '简体中文' },
+  { code: 'zh-TW', label: '繁體中文' },
+  { code: 'en-US', label: 'English' }
 ]
-const quickFill = (u, p, t) => {
-  groups[0].username = u
-  groups[0].password = p
-  groups[0].tenantId = t
-  ElMessage.success(`已填入 ${u}`)
+const currentLangCode = ref(localStorage.getItem('lang') || 'zh-CN')
+const currentLang = computed(() => langs.find(l => l.code === currentLangCode.value) || langs[0])
+const onLang = (code) => {
+  currentLangCode.value = code
+  localStorage.setItem('lang', code)
+  ElMessage.success(`已切换到 ${langs.find(l => l.code === code)?.label}`)
 }
 
-// ============== 公司 ==============
+// ============== 主题 ==============
+const themes = ['light', 'dark', 'auto']
+const themeIdx = ref(0)
+const themeIcon = computed(() => [Sunny, Moon, MagicStick][themeIdx.value])
+const cycleTheme = () => {
+  themeIdx.value = (themeIdx.value + 1) % themes.length
+  document.documentElement.dataset.theme = themes[themeIdx.value]
+  ElMessage.success(`主题: ${themes[themeIdx.value]}`)
+}
+
+// ============== Tab ==============
+const tabs = [
+  { key: 'login', label: '登录' },
+  { key: 'register', label: '注册' }
+]
+const activeTab = ref('login')
+const switchTab = (k) => {
+  activeTab.value = k
+  resultAlert.value = null
+}
+const onForgot = () => { activeTab.value = 'forgot' }
+
+// ============== 登录表单 ==============
+const loginForm = reactive({ username: '', password: '', tenantId: null, remember: true })
+const loginRules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  tenantId: [{ required: true, message: '请选择公司', trigger: 'change' }]
+}
+const loginFormRef = ref()
+
+const isSuperAdmin = computed(() => loginForm.username.toLowerCase() === 'admin')
+
+// ============== 注册表单 ==============
+const regForm = reactive({ countryCode: '+86', phone: '', captcha: '', password: '', confirmPassword: '', agree: false })
+const regRules = {
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不对', trigger: 'blur' }
+  ],
+  captcha: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '至少 6 位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入', trigger: 'blur' },
+    {
+      validator: (rule, value, cb) => value === regForm.password ? cb() : cb(new Error('两次密码不一致')),
+      trigger: 'blur'
+    }
+  ],
+  agree: [{ required: true, validator: (r, v, cb) => v ? cb() : cb(new Error('需同意协议')), trigger: 'change' }]
+}
+const regFormRef = ref()
+
+// ============== 忘记密码 ==============
+const forgotForm = reactive({ phone: '', captcha: '', newPassword: '' })
+const forgotRules = {
+  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
+  captcha: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
+  newPassword: [{ required: true, min: 6, message: '至少 6 位', trigger: 'blur' }]
+}
+const forgotFormRef = ref()
+
+// ============== 验证码倒计时 ==============
+const captchaCountdown = ref(0)
+const forgotCountdown = ref(0)
+const sendingCaptcha = ref(false)
+let captchaTimer = null
+let forgotTimer = null
+const startCountdown = (which) => {
+  const target = which === 'captcha' ? captchaCountdown : forgotCountdown
+  const timer = which === 'captcha' ? captchaTimer : forgotTimer
+  target.value = 60
+  if (timer) clearInterval(timer)
+  const t = setInterval(() => {
+    if (target.value <= 0) {
+      clearInterval(t)
+      if (which === 'captcha') captchaTimer = null
+      else forgotTimer = null
+    } else {
+      target.value--
+    }
+  }, 1000)
+  if (which === 'captcha') captchaTimer = t
+  else forgotTimer = t
+}
+
+const onSendCaptcha = async () => {
+  if (!/^1[3-9]\d{9}$/.test(regForm.phone)) {
+    ElMessage.warning('请先输入正确的手机号')
+    return
+  }
+  sendingCaptcha.value = true
+  try {
+    // 实际项目应调 POST /api/auth/captcha/send
+    await new Promise(r => setTimeout(r, 600))
+    ElMessage.success(`验证码已发送 (演示: 123456)`)
+    startCountdown('captcha')
+  } finally {
+    sendingCaptcha.value = false
+  }
+}
+const onSendForgotCaptcha = async () => {
+  if (!forgotForm.phone) {
+    ElMessage.warning('请先输入手机号')
+    return
+  }
+  await new Promise(r => setTimeout(r, 500))
+  ElMessage.success(`验证码已发送 (演示: 123456)`)
+  startCountdown('forgot')
+}
+
+// ============== 公司列表 ==============
 const tenants = ref([])
 const loadingTenants = ref(false)
-const showTenantBanner = ref(true)
-const colorOf = (id) => {
-  const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6']
-  return colors[(Number(id) || 0) % colors.length]
-}
 const loadTenants = async () => {
   loadingTenants.value = true
-  log('GET', '/api/auth/tenants 拉取公司列表…')
   try {
     const resp = await authApi.tenants()
     tenants.value = resp.data || []
-    log('OK', `拿到 ${tenants.value.length} 家公司: ${tenants.value.map(t => t.tenantName).join(' / ')}`, 'success')
   } catch (e) {
-    log('ERR', `拉取公司失败: ${e?.response?.status || ''} ${e?.response?.data?.message || e.message}`, 'error')
     tenants.value = [
-      { id: 1, tenantCode: 'default',   tenantName: '默认公司' },
-      { id: 2, tenantCode: 'demo-corp', tenantName: '示例科技公司' },
-      { id: 3, tenantCode: 'startup-co', tenantName: '创业小公司' }
+      { id: 1, tenantCode: 'default', tenantName: '默认公司' },
+      { id: 2, tenantCode: 'demo-corp', tenantName: '示例科技公司' }
     ]
-    log('FALLBACK', '使用内置 fallback 3 家公司', 'warn')
   } finally {
     loadingTenants.value = false
   }
 }
-const fillTenant = (t) => {
-  groups.forEach(g => { g.tenantId = t.id })
-  ElMessage.success(`已填入公司 ${t.tenantName}`)
-}
 
-// ============== 调试日志 ==============
-const logs = reactive([])
-const debugExpanded = ref(false)
-const log = (tag, msg, kind = 'info') => {
-  const t = new Date().toLocaleTimeString('zh-CN', { hour12: false })
-  logs.unshift({ time: t, tag, msg, kind })
-  if (logs.length > 50) logs.length = 50
-}
-const logTag = (k) => ({ success: 'success', error: 'danger', warn: 'warning' })[k] || 'info'
+// ============== 提交 ==============
+const loading = ref(false)
+const resultAlert = ref(null)
 
-// ============== 发送请求 ==============
-const alertType = (k) => ({ success: 'success', error: 'error', pending: 'warning' })[k] || 'info'
-const onSend = async (g) => {
-  if (g.lockedUntil && Date.now() < g.lockedUntil) {
-    const sec = Math.ceil((g.lockedUntil - Date.now()) / 1000)
-    return ElMessage.warning(`本组已锁定，请等 ${sec}s 后再试`)
+const onLogin = async () => {
+  const form = loginFormRef.value
+  if (!form) return
+  try {
+    await form.validate()
+  } catch (e) {
+    return
   }
-  g.sending = true
-  g.result = { kind: 'pending', text: '正在请求…', detail: `${g.username} @ 租户 ${g.tenantId || 'ALL(admin)'}` }
-  log('POST', `→ /api/auth/login { username: ${g.username}, tenantId: ${g.tenantId} }`)
+  loading.value = true
+  resultAlert.value = null
 
-  const isAdmin = g.username.toLowerCase() === 'admin'
-  const tenantId = isAdmin ? null : (g.tenantId || null)
+  const isAdmin = loginForm.username.toLowerCase() === 'admin'
+  const tenantId = isAdmin ? null : (loginForm.tenantId || null)
   const t0 = performance.now()
   try {
-    const resp = await authApi.login({ username: g.username, password: g.password, tenantId })
+    const resp = await authApi.login({
+      username: loginForm.username,
+      password: loginForm.password,
+      tenantId
+    })
     const dt = (performance.now() - t0).toFixed(0)
     const data = resp.data
-    g.result = {
-      kind: 'success',
-      text: `✅ 登录成功 (${dt}ms)`,
-      detail: `用户 ${data.username} · 租户 ${data.tenantName}(id=${data.tenantId}) · 角色 ${data.roles?.join('/')}`,
-      token: data.accessToken,
-      _data: data
-    }
-    g.failCount = 0
-    log('200', `← login OK, 耗时 ${dt}ms, token ${data.accessToken?.slice(0, 20)}…`, 'success')
-  } catch (e) {
-    const dt = (performance.now() - t0).toFixed(0)
-    const status = e?.response?.status
-    const body = e?.response?.data
-    g.failCount++
-    if (g.failCount >= 5) g.lockedUntil = Date.now() + 30000
-    g.result = {
-      kind: 'error',
-      text: `❌ 登录失败 (${dt}ms)`,
-      detail: `HTTP ${status || 'ERR'} · ${body?.message || e.message} · 已记录到 sys_login_audit`
-    }
-    log(`${status || 'ERR'}`, `← login FAIL (${g.failCount}/5): ${body?.message || e.message}`, 'error')
-  } finally {
-    g.sending = false
-  }
-}
-const batchSending = ref(false)
-const batchSend = async () => {
-  batchSending.value = true
-  log('BATCH', `批量发送 ${groups.length} 组请求…`, 'info')
-  for (const g of groups) {
-    if (g.username && g.password) await onSend(g)
-  }
-  batchSending.value = false
-  log('BATCH', '批量完成', 'success')
-}
-const useTokenAndEnter = (g) => {
-  if (!g.result?.token) return
-  const data = g.result._data
-  localStorage.setItem('access_token', g.result.token)
-  if (data) {
+    // 存 token
+    localStorage.setItem('access_token', data.accessToken)
     localStorage.setItem('username', data.username)
     localStorage.setItem('nickname', data.nickname || data.username)
     localStorage.setItem('tenant_id', String(data.tenantId))
@@ -641,48 +589,68 @@ const useTokenAndEnter = (g) => {
     localStorage.setItem('tenant_name', data.tenantName || '')
     localStorage.setItem('department', data.department || '')
     localStorage.setItem('roles', JSON.stringify(data.roles || ['user']))
+    if (loginForm.remember) {
+      localStorage.setItem('remember_login', 'true')
+      localStorage.setItem('remember_username', loginForm.username)
+    }
+    resultAlert.value = {
+      type: 'success',
+      title: '登录成功',
+      desc: `${data.username} · ${data.tenantName} · ${dt}ms`
+    }
+    setTimeout(() => router.push('/dashboard'), 600)
+  } catch (e) {
+    const status = e?.response?.status
+    const body = e?.response?.data
+    resultAlert.value = {
+      type: 'error',
+      title: '登录失败',
+      desc: `HTTP ${status || 'ERR'} · ${body?.message || e.message}`
+    }
+  } finally {
+    loading.value = false
   }
-  ElMessage.success(`使用 ${g.username} 身份进入系统`)
-  router.push('/dashboard')
 }
 
-// ============== SSO / Guest ==============
-const ssoList = [
-  { key: 'feishu',  ch: '飞', name: '飞书',     sub: 'Lark OIDC',     c1: '#00d6b9', c2: '#3370ff' },
-  { key: 'dingtalk',ch: '钉', name: '钉钉',     sub: 'DingTalk OAuth', c1: '#1296db', c2: '#1677ff' },
-  { key: 'wecom',   ch: '企', name: '企业微信', sub: 'WeCom QR',      c1: '#10aeff', c2: '#2675ec' },
-  { key: 'ldap',    ch: 'LD', name: 'LDAP / AD',sub: '企业目录',     c1: '#6b7280', c2: '#1f2937' },
-  { key: 'oauth2',  ch: 'O2', name: 'OAuth 2.0',sub: '通用 OIDC',    c1: '#f59e0b', c2: '#ef4444' },
-  { key: 'saml',    ch: 'SA', name: 'SAML 2.0', sub: '企业 SAML',    c1: '#8b5cf6', c2: '#6366f1' }
-]
-const onSsoLogin = (provider) => ElMessage.info(`${provider} SSO 接入待配置`)
-const onGuestLogin = () => {
-  localStorage.setItem('access_token', 'guest_token')
-  localStorage.setItem('username', 'guest')
-  localStorage.setItem('nickname', '访客体验')
-  localStorage.setItem('tenant_id', '0')
-  localStorage.setItem('tenant_name', 'Demo Sandbox')
-  localStorage.setItem('tenant_code', 'guest')
-  localStorage.setItem('department', '体验组')
-  ElMessage.success('已进入访客沙箱')
-  router.push('/dashboard')
+const onRegister = async () => {
+  const form = regFormRef.value
+  if (!form) return
+  try {
+    await form.validate()
+  } catch (e) { return }
+  loading.value = true
+  // 实际应调 POST /api/auth/register
+  await new Promise(r => setTimeout(r, 800))
+  loading.value = false
+  resultAlert.value = {
+    type: 'success',
+    title: '注册成功',
+    desc: '请使用新账号登录'
+  }
+  setTimeout(() => { activeTab.value = 'login'; resultAlert.value = null }, 1000)
 }
 
-// ============== 主题 ==============
-const themes = ['dark', 'light', 'auto']
-const themeIdx = ref(0)
-const themeIcon = computed(() => [Moon, Sunny, MagicStick][themeIdx.value])
-const cycleTheme = () => {
-  themeIdx.value = (themeIdx.value + 1) % themes.length
-  document.documentElement.dataset.theme = themes[themeIdx.value]
-  ElMessage.success(`主题: ${themes[themeIdx.value]}`)
+const onResetPwd = async () => {
+  const form = forgotFormRef.value
+  if (!form) return
+  try {
+    await form.validate()
+  } catch (e) { return }
+  loading.value = true
+  await new Promise(r => setTimeout(r, 800))
+  loading.value = false
+  resultAlert.value = {
+    type: 'success',
+    title: '密码已重置',
+    desc: '请用新密码登录'
+  }
+  setTimeout(() => { activeTab.value = 'login'; resultAlert.value = null }, 1000)
 }
 
-// ============== 记住 ==============
-const rememberMe = ref(false)
-const onRememberChange = (v) => {
-  if (v && groups[0].username) localStorage.setItem('remember_username', groups[0].username)
-  else localStorage.removeItem('remember_username')
+const quickFill = (u, p, t) => {
+  loginForm.username = u
+  loginForm.password = p
+  loginForm.tenantId = t
 }
 
 // ============== 审计 ==============
@@ -700,356 +668,245 @@ const auditStatList = computed(() => [
 const loadAudit = async () => {
   loadingAudit.value = true
   try {
-    const [stats, page] = await Promise.all([
-      auditApi.stats(),
-      auditApi.page({ current: 1, size: 20 })
-    ])
+    const [stats, page] = await Promise.all([auditApi.stats(), auditApi.page({ current: 1, size: 20 })])
     auditStats.value = stats.data || {}
     auditRecords.value = page.data?.records || []
-    log('GET', `/api/audit/login (${auditRecords.value.length} 条)`, 'success')
-  } catch (e) {
-    log('ERR', `审计加载失败: ${e.message}`, 'error')
-  }
+  } catch (e) { /* ignore */ }
   loadingAudit.value = false
 }
 watch(showAudit, (v) => { if (v) loadAudit() })
 
-// ============== 时钟 / 系统 ==============
-const currentTime = ref(new Date().toLocaleString('zh-CN'))
-const systemInfo = ref('检测中…')
-const loadingHealth = ref(false)
-let clockTimer = null
-let sysTimer = null
-const checkSystem = async () => {
-  loadingHealth.value = true
-  try {
-    const r = await fetch('/api/auth/health', { method: 'GET' })
-    systemInfo.value = r.ok ? '服务正常' : '部分服务异常'
-  } catch {
-    systemInfo.value = '离线模式'
-  }
-  loadingHealth.value = false
-}
-
-// ============== 品牌 ==============
-const features = [
-  { icon: '⚡', text: 'ReAct 多智能体编排 + 联网搜索' },
-  { icon: '🧠', text: '本地训练（Transformer）+ ONNX 推理' },
-  { icon: '📚', text: '知识库 RAG（ES 8 + Tika + 查询改写）' },
-  { icon: '🔗', text: 'Seata 分布式事务 + Nacos 服务发现' },
-  { icon: '🏢', text: '多公司（租户）+ 部门归属 + 网关统一鉴权' }
-]
-
-// ============== 背景 ==============
-const canvas = ref(null)
-let rafId = null
-const showHelp = ref(false)
-
 onMounted(() => {
-  if (localStorage.getItem('remember_username')) {
-    groups[0].username = localStorage.getItem('remember_username')
-    rememberMe.value = true
-  }
   loadTenants()
-  checkSystem()
-  sysTimer = setInterval(checkSystem, 30000)
-  clockTimer = setInterval(() => { currentTime.value = new Date().toLocaleString('zh-CN') }, 1000)
-  const c = canvas.value
-  if (!c) return
-  c.width = c.offsetWidth; c.height = c.offsetHeight
-  const ctx = c.getContext('2d')
-  const N = 50
-  const particles = Array.from({ length: N }, () => ({
-    x: Math.random() * c.width, y: Math.random() * c.height,
-    vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
-    r: Math.random() * 1.5 + 0.5
-  }))
-  const draw = () => {
-    ctx.clearRect(0, 0, c.width, c.height)
-    for (const p of particles) {
-      p.x += p.vx; p.y += p.vy
-      if (p.x < 0 || p.x > c.width) p.vx *= -1
-      if (p.y < 0 || p.y > c.height) p.vy *= -1
-      ctx.beginPath()
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-      ctx.fillStyle = 'rgba(167, 139, 250, 0.5)'
-      ctx.fill()
-    }
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const a = particles[i], b = particles[j]
-        const d = Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
-        if (d < 100) {
-          ctx.beginPath()
-          ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y)
-          ctx.strokeStyle = `rgba(167, 139, 250, ${(1 - d / 100) * 0.18})`
-          ctx.stroke()
-        }
-      }
-    }
-    rafId = requestAnimationFrame(draw)
+  if (localStorage.getItem('remember_login') === 'true' && localStorage.getItem('remember_username')) {
+    loginForm.username = localStorage.getItem('remember_username')
   }
-  draw()
-  window.addEventListener('resize', () => { c.width = c.offsetWidth; c.height = c.offsetHeight })
-})
-onBeforeUnmount(() => {
-  if (rafId) cancelAnimationFrame(rafId)
-  if (clockTimer) clearInterval(clockTimer)
-  if (sysTimer) clearInterval(sysTimer)
 })
 </script>
 
 <style scoped>
-/* ================================================== */
-.login-bg {
-  position: fixed; inset: 0; overflow: hidden;
-  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-  display: flex; align-items: center; justify-content: center;
-}
-.particles { position: absolute; inset: 0; width: 100%; height: 100%; }
-.blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.4; animation: float 12s ease-in-out infinite; }
-.blob-1 { width: 380px; height: 380px; background: #6366f1; top: -100px; left: -120px; }
-.blob-2 { width: 460px; height: 460px; background: #ec4899; bottom: -150px; right: -150px; animation-delay: -4s; }
-.blob-3 { width: 300px; height: 300px; background: #06b6d4; top: 40%; right: 25%; animation-delay: -8s; }
-@keyframes float { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(40px, -30px) scale(1.1); } }
-
-/* ===== 顶栏 (el-affix) ===== */
-.topbar-affix { z-index: 50; }
-.topbar-info {
-  display: flex; justify-content: space-between; align-items: center;
-  height: 36px; padding: 0 24px;
-  background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(12px);
-  color: #cbd5e1; font-size: 12px;
-}
-.tb-left, .tb-right { display: flex; align-items: center; gap: 10px; }
-.tb-left .el-tag { background: rgba(16, 185, 129, 0.15) !important; border-color: rgba(16, 185, 129, 0.3) !important; color: #6ee7b7 !important; }
-.dot-icon { margin-right: 4px; }
-.tb-btn { color: #cbd5e1 !important; padding: 4px; }
-
-/* ================================================== */
-.login-shell {
-  position: relative; z-index: 2;
-  display: flex;
-  width: 1180px; max-width: calc(100vw - 40px);
-  min-height: 720px; max-height: calc(100vh - 80px);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.97);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
-  animation: shellIn 0.5s ease-out;
+/* ============== 页面骨架 ============== */
+.login-page {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  background: linear-gradient(135deg, #eef2ff 0%, #f0f9ff 50%, #fef3c7 100%);
   overflow: hidden;
 }
-@keyframes shellIn { from { opacity: 0; transform: translateY(20px) scale(0.96); } to { opacity: 1; transform: none; } }
 
-/* 左 brand */
+/* ============== 顶部 (PC) ============== */
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  height: 48px; padding: 0 32px; flex-shrink: 0;
+  position: relative; z-index: 5;
+}
+.tb-left, .tb-right { display: flex; align-items: center; gap: 4px; }
+.tb-link {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13px !important; color: #475569 !important;
+  padding: 4px 8px;
+}
+.tb-link:hover { color: #6366f1 !important; }
+:deep(.el-divider--vertical) { height: 14px; margin: 0 4px; }
+
+/* ============== 主区 ============== */
+.main {
+  flex: 1; display: flex; min-height: 0;
+  position: relative; z-index: 2;
+}
+.main.mobile { flex-direction: column; padding: 16px; overflow-y: auto; }
+.main.tablet { flex-direction: column; padding: 24px; overflow-y: auto; }
+
+/* ============== 左品牌 ============== */
 .brand-panel {
-  flex: 0 0 380px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
-  color: #fff; padding: 40px 32px;
-  display: flex; flex-direction: column; justify-content: center;
-  position: relative; overflow: hidden;
+  flex: 0 0 50%;
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px;
+  position: relative;
 }
-.brand-panel::before {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.15), transparent 50%);
+.brand-content {
+  max-width: 520px; width: 100%;
+  display: flex; flex-direction: column; gap: 32px;
 }
-.brand-stack { position: relative; z-index: 2; }
-.logo-wrap { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-.logo-ring {
-  width: 64px; height: 64px; border-radius: 18px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));
-  display: flex; align-items: center; justify-content: center; font-size: 36px;
-  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.3);
-  animation: pulse 3s ease-in-out infinite;
+.brand-head { display: flex; align-items: center; }
+.logo {
+  display: flex; align-items: center; gap: 12px;
 }
-@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-.logo-version { font-size: 11px; padding: 4px 10px; }
-.brand-title { font-size: 28px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.5px; }
-.brand-sub { font-size: 13px; opacity: 0.85; margin: 0 0 32px; }
-.feature-list { list-style: none; padding: 0; margin: 0; }
-.feature-list li { display: flex; align-items: center; gap: 12px; padding: 9px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
-.feature-list li:last-child { border-bottom: none; }
-.feat-ico { background: rgba(255, 255, 255, 0.18) !important; font-size: 14px; }
-.brand-foot { margin-top: 28px; display: flex; align-items: center; gap: 8px; font-size: 12px; opacity: 0.85; }
-
-/* 右 form */
-.form-panel { flex: 1; padding: 24px 28px; display: flex; flex-direction: column; position: relative; min-height: 0; overflow-y: auto; }
-
-.login-segmented { margin-bottom: 12px; }
-.login-segmented :deep(.el-segmented__group) { background: #f3f4f6; }
-.login-segmented :deep(.el-segmented__item) { font-weight: 600; }
-
-.step-panel { flex: 1; }
-.panel-hd { margin-bottom: 4px; }
-.panel-title { font-size: 20px; font-weight: 700; color: #1e1b4b; margin: 0; }
-.panel-tip { font-size: 11px; color: #6b7280; margin: 4px 0 12px; }
-.panel-tip code { background: #ede9fe; padding: 1px 6px; border-radius: 3px; color: #5b21b6; font-size: 10px; }
-.panel-tip strong { color: #7c3aed; }
-
-/* ===== 公司 banner (el-card) ===== */
-.tenant-card { margin-bottom: 10px; }
-.tb-head { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.tb-title { display: flex; align-items: center; gap: 6px; }
-.tb-ico-main { color: #6366f1; font-size: 14px; }
-.tb-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
-.tb-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px; border-radius: 8px;
-  background: #fff; border: 1px solid #e5e7eb;
-  cursor: pointer; transition: all 0.15s;
+.logo-mark {
+  width: 56px; height: 56px; border-radius: 14px;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff; font-size: 32px; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  letter-spacing: -1px;
 }
-.tb-item:hover { border-color: #8b5cf6; transform: translateY(-1px); box-shadow: 0 4px 12px -4px rgba(139, 92, 246, 0.2); }
-.tb-ico { color: #fff; font-weight: 700; font-size: 12px; flex-shrink: 0; }
-.tb-meta { flex: 1; min-width: 0; }
-.tb-name { font-size: 12px; font-weight: 600; color: #1e293b; }
-.tb-code { font-size: 10px; color: #94a3b8; }
-.tb-arrow { color: #cbd5e1; transition: all 0.15s; }
-.tb-item:hover .tb-arrow { color: #8b5cf6; transform: translateX(2px); }
-
-/* ===== 网格 ===== */
-.grid-head, .row-grid {
-  display: grid;
-  grid-template-columns: 28px 1fr 1fr 1.2fr 130px;
-  gap: 8px; align-items: center;
+.logo-text strong {
+  font-size: 32px; font-weight: 900; color: #1e1b4b; letter-spacing: -1px;
 }
-.grid-head {
-  padding: 6px 10px;
-  background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
-  border-radius: 8px;
-  font-size: 11px; font-weight: 600; color: #4b5563;
-  margin-bottom: 6px;
+.logo-text small {
+  display: block; font-size: 14px; color: #475569; margin-top: 2px;
+  letter-spacing: 1px;
 }
-.col-idx { color: #9ca3af; font-weight: 500; }
-.col-tenant .req { color: #ef4444; font-weight: 700; margin-left: 2px; }
-.admin-tip { color: #7c3aed; font-size: 10px; }
-.col-act { text-align: right; }
+.illustration {
+  width: 100%; max-width: 500px; margin: 0 auto;
+}
+.illu-svg { width: 100%; height: auto; display: block; }
+.brand-tag {
+  text-align: center; font-size: 14px; color: #475569;
+  margin: 0; letter-spacing: 0.5px;
+}
 
-.grid-rows { display: flex; flex-direction: column; gap: 6px; }
-.grid-row { border: 1.5px solid #e5e7eb; }
-.grid-row:hover { border-color: #a5b4fc; box-shadow: 0 2px 8px -2px rgba(99, 102, 241, 0.15); }
-.grid-row.row-admin { background: linear-gradient(90deg, #faf5ff, #fff); border-color: #c4b5fd; }
-.grid-row.row-locked { background: linear-gradient(90deg, #fef2f2, #fff); border-color: #fca5a5; opacity: 0.6; }
-.row-grid { padding: 4px 0; }
-.row-idx { font-weight: 700; color: #6366f1; }
+/* ============== 右表单 ============== */
+.form-panel {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 32px;
+  position: relative;
+}
+.main.mobile .form-panel { padding: 0; }
+.main.tablet .form-panel { padding: 0; }
+.form-card {
+  width: 100%; max-width: 420px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 36px 32px 24px;
+  box-shadow: 0 8px 40px -8px rgba(99, 102, 241, 0.12), 0 0 0 1px rgba(99, 102, 241, 0.05);
+}
+.main.mobile .form-card, .main.tablet .form-card {
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.08);
+}
 
-.admin-tag { font-weight: 600; }
+/* 移动端 brand 头 (在卡片顶部) */
+.mobile-brand {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb;
+}
+.mobile-brand .logo-mark { width: 36px; height: 36px; font-size: 20px; border-radius: 10px; }
+.mobile-brand .logo-text strong { font-size: 20px; }
+.mobile-brand .logo-text small { font-size: 11px; }
+
+/* Tab */
+.login-tabs {
+  display: flex; gap: 24px; margin-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.tab {
+  background: none; border: none; padding: 10px 4px;
+  font-size: 16px; color: #64748b; cursor: pointer;
+  position: relative; font-weight: 500;
+  transition: all 0.18s;
+}
+.tab.active { color: #6366f1; font-weight: 700; }
+.tab.active::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
+  height: 2px; background: #6366f1; border-radius: 2px;
+}
+
+.tab-panel { padding-top: 16px; }
+.panel-title { font-size: 20px; font-weight: 700; color: #1e1b4b; margin: 0 0 4px; }
+.panel-tip { font-size: 12px; color: #94a3b8; margin: 0 0 20px; }
+
+/* Form */
+.form { margin-top: 4px; }
+.form :deep(.el-form-item) { margin-bottom: 16px; }
+.form :deep(.el-form-item__label) { padding: 0 0 4px; font-size: 12px; color: #64748b; font-weight: 500; }
+.form :deep(.el-input__wrapper) {
+  background: #f8fafc; border-radius: 8px; padding: 4px 12px;
+  box-shadow: 0 0 0 1px #e5e7eb inset !important;
+  transition: all 0.18s;
+}
+.form :deep(.el-input__wrapper:hover) { box-shadow: 0 0 0 1px #c7d2fe inset !important; }
+.form :deep(.el-input__wrapper.is-focus) {
+  background: #fff;
+  box-shadow: 0 0 0 2px #6366f1 inset !important;
+}
+.form :deep(.el-input__inner) { font-size: 14px; }
+.form :deep(.el-input__inner::placeholder) { color: #cbd5e1; }
 .tenant-sel { width: 100%; }
-
-.cell-input :deep(.el-input__wrapper) {
-  border: 1.5px solid #e5e7eb !important;
-  border-radius: 8px !important;
-  background: #fff !important;
-  box-shadow: none !important;
-  padding: 1px 10px;
+.tenant-sel :deep(.el-select__wrapper) {
+  background: #f8fafc; border-radius: 8px; padding: 4px 12px;
+  box-shadow: 0 0 0 1px #e5e7eb inset !important;
 }
-.cell-input :deep(.el-input__wrapper.is-focus) {
-  border-color: #6366f1 !important;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12) !important;
+.tenant-sel :deep(.el-select__wrapper.is-focused) {
+  box-shadow: 0 0 0 2px #6366f1 inset !important;
 }
 
-.del-btn { color: #9ca3af; }
-.del-btn:hover { color: #ef4444; }
+.captcha-btn { width: 110px; font-size: 12px; }
 
-/* 结果行 (el-alert) */
-.result-alert { margin-top: 6px; }
-.result-alert :deep(.el-alert__content) { padding: 4px 0; }
-.result-alert :deep(.el-alert__title) { font-size: 12px; }
-.result-alert :deep(.el-alert__description) { font-size: 11px; }
-.alert-content { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; }
-.alert-meta { display: flex; flex-direction: column; gap: 2px; }
-.alert-detail { color: inherit; opacity: 0.85; }
-.alert-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.form-extras {
+  display: flex; justify-content: space-between; align-items: center;
+  margin: 8px 0 16px; font-size: 12px;
+}
+.form-extras :deep(.el-checkbox__label) { font-size: 12px; color: #64748b; }
 
-/* ===== 工具栏 ===== */
-.toolbar { display: flex; gap: 6px; align-items: center; margin-top: 10px; padding: 0 2px; }
-.toolbar .spacer { flex: 1; }
+.admin-hint { margin-bottom: 12px; }
+.admin-hint :deep(.el-alert__title) { font-size: 12px; }
 
-/* ===== 快捷账号 (el-card) ===== */
-.quick-card { margin-top: 12px; }
-.quick-head { width: 100%; }
-.quick-tip { font-size: 11px; color: #9ca3af; }
-.quick-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.submit-btn {
+  width: 100%; height: 44px;
+  font-size: 15px; font-weight: 600; letter-spacing: 4px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  border: none;
+}
+.submit-btn:hover { background: linear-gradient(135deg, #4f46e5, #4338ca); }
+
+/* 快捷账号 */
+.quick-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
 .chip {
   display: flex !important; align-items: center; gap: 8px;
-  padding: 7px 9px !important; border-radius: 9px !important;
+  padding: 8px 10px !important; border-radius: 10px !important;
   border: 1.5px solid #e5e7eb !important; background: #fff !important;
   height: auto !important; justify-content: flex-start !important;
+  cursor: pointer;
 }
-.chip:hover { border-color: #a5b4fc !important; transform: translateY(-1px); box-shadow: 0 4px 10px -4px rgba(99, 102, 241, 0.2); }
-.chip-avatar { color: #fff !important; font-weight: 700 !important; font-size: 12px !important; }
+.chip:hover { border-color: #a5b4fc !important; transform: translateY(-1px); }
+.chip-avatar {
+  width: 28px; height: 28px; border-radius: 7px;
+  color: #fff !important; font-weight: 700 !important; font-size: 12px !important;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
 .chip-avatar.admin { background: linear-gradient(135deg, #6366f1, #8b5cf6) !important; }
-.chip-avatar.demo { background: linear-gradient(135deg, #ec4899, #f43f5e) !important; }
-.chip-avatar.mgr  { background: linear-gradient(135deg, #10b981, #06b6d4) !important; }
-.chip-meta { flex: 1; min-width: 0; text-align: left; }
-.chip-name { font-size: 12px; font-weight: 600; color: #1e293b; }
-.chip-dept { font-size: 10px; color: #6b7280; margin-top: 1px; }
+.chip-avatar.demo  { background: linear-gradient(135deg, #ec4899, #f43f5e) !important; }
+.chip-avatar.mgr   { background: linear-gradient(135deg, #10b981, #06b6d4) !important; }
+.chip-name { font-size: 12px; font-weight: 600; color: #1e293b; line-height: 1.2; }
+.chip-dept { font-size: 10px; color: #94a3b8; margin-top: 1px; }
 
-.remember-row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-
-/* SSO / Guest */
-.sso-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-.sso-btn {
-  display: flex !important; flex-direction: column; align-items: center; gap: 4px;
-  padding: 14px 10px !important; border-radius: 12px !important;
-  border: 1.5px solid #e5e7eb !important; background: #fff !important;
-  height: auto !important;
+.bottom-tip {
+  text-align: center; font-size: 13px; color: #64748b; margin: 16px 0 0;
 }
-.sso-btn:hover { border-color: #a5b4fc !important; transform: translateY(-2px); box-shadow: 0 6px 16px -4px rgba(99, 102, 241, 0.2); }
-.sso-ico { color: #fff; font-size: 16px; font-weight: 700; }
-.sso-name { font-size: 13px; font-weight: 600; color: #1e293b; }
-.sso-sub { font-size: 10px; color: #6b7280; }
-.sso-note { margin-top: 14px; }
-.sso-note :deep(.el-alert__title) { font-size: 11px; }
 
-.guest-card { margin-bottom: 14px; text-align: center; background: linear-gradient(135deg, #fef3c7, #fce7f3); }
-.guest-ico { font-size: 44px; }
-.guest-title { font-size: 17px; font-weight: 700; color: #1e1b4b; margin: 6px 0; }
-.guest-desc { font-size: 12px; color: #4b5563; line-height: 1.6; margin: 0 0 16px; }
-.guest-warn :deep(.el-alert__title) { font-size: 11px; }
+/* 结果 alert */
+.result-alert { margin-top: 12px; }
+.result-alert :deep(.el-alert__title) { font-size: 13px; font-weight: 600; }
+.result-alert :deep(.el-alert__description) { font-size: 12px; }
 
-/* ================================================== */
-/* 调试日志 (el-affix + el-card)                    */
-/* ================================================== */
-.debug-affix { z-index: 40; max-width: 460px; }
-.debug-bar { transition: max-height 0.3s; cursor: pointer; }
-.debug-bar.expanded :deep(.el-card__body) { max-height: 280px; overflow-y: auto; }
-.db-head { display: flex; align-items: center; gap: 8px; width: 100%; }
-.db-head .db-ico { color: #6366f1; }
-.db-badge { margin-left: 8px; }
-.db-arrow { margin-left: auto; transition: transform 0.3s; }
-.db-arrow.flip { transform: rotate(180deg); }
-.db-body { font-family: 'SF Mono', monospace; padding: 0 4px; }
-.db-item { display: flex; gap: 6px; padding: 2px 0; line-height: 1.5; }
-.db-time { color: #94a3b8; font-size: 10px; flex-shrink: 0; }
-.db-tag { flex-shrink: 0; font-size: 10px !important; min-width: 50px; text-align: center; }
-.db-msg { color: #334155; font-size: 11px; word-break: break-all; }
+/* 协议 */
+.agree-item :deep(.el-form-item__content) { margin-bottom: 0; }
+.agree-item :deep(.el-checkbox__label) { font-size: 12px; color: #64748b; }
 
-/* ================================================== */
-/* 审计弹窗 (el-statistic)                          */
-/* ================================================== */
+/* 版权 */
+.page-footer {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+  font-size: 12px; color: #94a3b8;
+}
+.mobile-footer {
+  text-align: center; padding: 16px;
+  font-size: 11px; color: #94a3b8; flex-shrink: 0;
+}
+
+/* 审计弹窗 */
 .audit-stats { margin-bottom: 12px; }
 .as-card { border: none !important; }
-.as-card :deep(.el-card__body) { padding: 12px 16px; }
+.as-card :deep(.el-card__body) { padding: 10px 14px; }
 .ip { background: #f3f4f6; padding: 1px 6px; border-radius: 3px; font-family: monospace; font-size: 11px; }
-
-/* 帮助 */
-.help-h3 { font-size: 14px; margin: 16px 0 8px; color: #1e1b4b; }
+.text-muted { color: #94a3b8; }
 
 /* 步骤切换 */
 .step-enter-active, .step-leave-active { transition: all 0.25s ease; }
 .step-enter-from { opacity: 0; transform: translateX(20px); }
 .step-leave-to { opacity: 0; transform: translateX(-20px); }
+.alert-enter-active, .alert-leave-active { transition: all 0.25s ease; }
+.alert-enter-from, .alert-leave-to { opacity: 0; transform: translateY(-4px); }
 
-.row-enter-active, .row-leave-active { transition: all 0.25s ease; }
-.row-enter-from, .row-leave-to { opacity: 0; transform: translateX(-20px); }
-
-@media (max-width: 900px) {
-  .login-shell { flex-direction: column; min-height: auto; }
-  .brand-panel { flex: 0 0 auto; padding: 24px; }
-  .feature-list { display: none; }
-  .form-panel { padding: 20px; }
-  .grid-head, .row-grid { grid-template-columns: 24px 1fr 1fr; }
-  .col-tenant, .col-act { grid-column: 1 / -1; }
-  .topbar-info { font-size: 11px; padding: 0 12px; }
+@media (max-width: 1024px) {
+  .topbar { padding: 0 16px; }
 }
 </style>
