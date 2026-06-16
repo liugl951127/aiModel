@@ -7,7 +7,7 @@
       <div class="logo-wrap" @click="goHome">
         <div class="logo-mark">L</div>
         <div v-if="!collapsed" class="logo-text">
-          <div class="logo-title">LAIYE</div>
+          <div class="logo-title">LIUGL</div>
           <div class="logo-sub">AI Agent Platform</div>
         </div>
       </div>

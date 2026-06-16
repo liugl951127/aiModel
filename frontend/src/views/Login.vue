@@ -43,7 +43,7 @@
             <div class="logo">
               <span class="logo-mark">L</span>
               <div class="logo-text">
-                <strong>LAIYE</strong>
+                <strong>LIUGL</strong>
                 <small>智能自动化平台</small>
               </div>
             </div>
@@ -116,7 +116,7 @@
             <div class="logo">
               <span class="logo-mark">L</span>
               <div class="logo-text">
-                <strong>LAIYE</strong>
+                <strong>LIUGL</strong>
                 <small>智能自动化平台</small>
               </div>
             </div>
