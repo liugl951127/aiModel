@@ -31,4 +31,12 @@ public class TenantService {
                 .eq(SysTenant::getTenantCode, code)
                 .last("limit 1"));
     }
+
+    /**
+     * 按主键 ID 查租户.
+     */
+    public SysTenant getById(Long id) {
+        if (id == null) return null;
+        return tenantMapper.selectById(id);
+    }
 }

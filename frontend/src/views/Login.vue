@@ -256,6 +256,25 @@
                     </template>
                   </el-input>
                 </el-form-item>
+                <el-form-item prop="company">
+                  <el-select
+                    v-model="regForm.tenantId"
+                    placeholder="选择要注册的公司"
+                    :loading="loadingTenants"
+                    filterable
+                    class="tenant-sel"
+                  >
+                    <el-option
+                      v-for="t in regTenants"
+                      :key="t.id"
+                      :label="t.tenantName"
+                      :value="t.id"
+                    >
+                      <span style="float:left">{{ t.tenantName }}</span>
+                      <small class="text-muted" style="float:right">{{ t.tenantCode }}</small>
+                    </el-option>
+                  </el-select>
+                </el-form-item>
                 <el-form-item prop="captcha">
                   <el-input v-model="regForm.captcha" placeholder="请输入验证码" :prefix-icon="Key" clearable>
                     <template #append>
@@ -491,12 +510,13 @@ const loginFormRef = ref()
 const isSuperAdmin = computed(() => loginForm.username.toLowerCase() === 'admin')
 
 // ============== 注册表单 ==============
-const regForm = reactive({ countryCode: '+86', phone: '', captcha: '', password: '', confirmPassword: '', agree: false })
+const regForm = reactive({ countryCode: '+86', phone: '', tenantId: null, captcha: '', password: '', confirmPassword: '', agree: false })
 const regRules = {
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不对', trigger: 'blur' }
   ],
+  tenantId: [{ required: true, message: '请选择公司', trigger: 'change' }],
   captcha: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -573,17 +593,21 @@ const onSendForgotCaptcha = async () => {
 
 // ============== 公司列表 ==============
 const tenants = ref([])
+const regTenants = ref([])  // 注册可用公司 (过滤掉已停用)
 const loadingTenants = ref(false)
 const loadTenants = async () => {
   loadingTenants.value = true
   try {
     const resp = await authApi.tenants()
     tenants.value = resp.data || []
+    regTenants.value = (resp.data || []).filter(t => t.status !== 0)
   } catch (e) {
-    tenants.value = [
-      { id: 1, tenantCode: 'default', tenantName: '默认公司' },
-      { id: 2, tenantCode: 'demo-corp', tenantName: '示例科技公司' }
+    const fallback = [
+      { id: 1, tenantCode: 'default', tenantName: '默认公司', status: 1 },
+      { id: 2, tenantCode: 'demo-corp', tenantName: '示例科技公司', status: 1 }
     ]
+    tenants.value = fallback
+    regTenants.value = fallback
   } finally {
     loadingTenants.value = false
   }
@@ -656,15 +680,34 @@ const onRegister = async () => {
     await form.validate()
   } catch (e) { return }
   loading.value = true
-  // 实际应调 POST /api/auth/register
-  await new Promise(r => setTimeout(r, 800))
-  loading.value = false
-  resultAlert.value = {
-    type: 'success',
-    title: '注册成功',
-    desc: '请使用新账号登录'
+  resultAlert.value = null
+  try {
+    const resp = await authApi.register({
+      countryCode: regForm.countryCode,
+      phone: regForm.phone,
+      captcha: regForm.captcha,
+      password: regForm.password,
+      tenantId: regForm.tenantId
+    }, {
+      headers: devPlainMode.value ? { 'X-Dev-Plain-Password': 'true' } : {}
+    })
+    resultAlert.value = {
+      type: 'success',
+      title: '注册成功',
+      desc: resp.data?.message || '请使用新账号登录'
+    }
+    setTimeout(() => { activeTab.value = 'login'; resultAlert.value = null }, 1200)
+  } catch (e) {
+    const status = e?.response?.status
+    const body = e?.response?.data
+    resultAlert.value = {
+      type: 'error',
+      title: '注册失败',
+      desc: `HTTP ${status || 'ERR'} · ${body?.message || e.message}`
+    }
+  } finally {
+    loading.value = false
   }
-  setTimeout(() => { activeTab.value = 'login'; resultAlert.value = null }, 1000)
 }
 
 const onResetPwd = async () => {

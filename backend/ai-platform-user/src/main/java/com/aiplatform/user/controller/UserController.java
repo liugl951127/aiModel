@@ -23,6 +23,39 @@ public class UserController {
         return Result.success(userService.getByUsername(username));
     }
 
+    /**
+     * feign 端点: 接收 Map 创建用户 (用于 auth-service 注册流程, 避免依赖实体序列化).
+     * 返回 Map { id, username, tenantId } 方便 caller 使用.
+     */
+    @PostMapping("/feign/create")
+    public Result<java.util.Map<String, Object>> feignCreate(@RequestBody java.util.Map<String, Object> body) {
+        SysUser user = new SysUser();
+        user.setUsername((String) body.get("username"));
+        user.setPassword((String) body.get("password"));
+        user.setNickname((String) body.get("nickname"));
+        user.setPhone((String) body.get("phone"));
+        user.setEmail((String) body.get("email"));
+        user.setDepartment((String) body.get("department"));
+        Object status = body.get("status");
+        user.setStatus(status == null ? 1 : Integer.parseInt(status.toString()));
+        SysUser created = userService.create(user);
+        // 绑定公司
+        Object tenantIdObj = body.get("tenantId");
+        if (tenantIdObj != null) {
+            Long tenantId = Long.parseLong(tenantIdObj.toString());
+            try {
+                userService.bindTenant(created.getId(), tenantId);
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(UserController.class).warn("绑定公司失败: userId={}, tenantId={}, err={}", created.getId(), tenantId, e.getMessage());
+            }
+        }
+        java.util.Map<String, Object> ret = new java.util.HashMap<>();
+        ret.put("id", created.getId());
+        ret.put("username", created.getUsername());
+        ret.put("tenantId", tenantIdObj);
+        return Result.success(ret);
+    }
+
     @GetMapping("/page")
     public PageResult<SysUser> page(PageQuery query) {
         return userService.page(query);

@@ -15,6 +15,17 @@ public class TenantServiceFallback implements FallbackFactory<TenantServiceClien
     @Override
     public TenantServiceClient create(Throwable cause) {
         log.warn("[FEIGN] TenantServiceClient fallback: {}", cause.getMessage());
-        return username -> Result.success(List.of());
+        return new TenantServiceClient() {
+            @Override
+            public Result<List<Map<String, Object>>> listByUsername(String username) {
+                return Result.success(List.of());
+            }
+
+            @Override
+            public Result<Map<String, Object>> byId(Long id) {
+                log.warn("[FEIGN] byId({}) fallback", id);
+                return Result.success(null);
+            }
+        };
     }
 }

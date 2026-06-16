@@ -229,4 +229,104 @@ public class AuthService {
         }
         return access;
     }
+
+    /**
+     * 注册新用户.
+     * <ol>
+     *   <li>校验手机号未被注册 (通过 user-service feign)</li>
+     *   <li>校验公司 (tenant) 存在且 status=1</li>
+     *   <li>校验验证码 (演示版固定 123456)</li>
+     *   <li>BCrypt 加密密码</li>
+     *   <li>调用 user-service 创建用户 (feign 写 sys_user + sys_user_tenant)</li>
+     * </ol>
+     */
+    public com.aiplatform.auth.dto.RegisterResponse register(
+            com.aiplatform.auth.dto.RegisterRequest req, String ip, String userAgent, boolean devPlainHeader) {
+
+        // 1) 校验验证码 (演示版)
+        if (!"123456".equals(req.getCaptcha())) {
+            recordAudit(req.getPhone(), null, req.getTenantId(), ip, userAgent, "FAILED", "验证码错误");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "验证码错误");
+        }
+
+        // 2) 校验公司 (调用 user-service feign)
+        com.aiplatform.common.result.Result<java.util.Map<String, Object>> tenantResp;
+        try {
+            tenantResp = tenantServiceClient.byId(req.getTenantId());
+        } catch (Exception e) {
+            log.error("调用 user-service 查 tenant 失败: {}", e.getMessage());
+            recordAudit(req.getPhone(), null, req.getTenantId(), ip, userAgent, "FAILED", "租户服务不可用");
+            throw new BusinessException(ResultCode.FAIL, "租户服务不可用: " + e.getMessage());
+        }
+        if (tenantResp == null || tenantResp.getData() == null) {
+            recordAudit(req.getPhone(), null, req.getTenantId(), ip, userAgent, "FAILED", "公司不存在");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "公司不存在");
+        }
+        Object status = tenantResp.getData().get("status");
+        if (status != null && "0".equals(String.valueOf(status))) {
+            recordAudit(req.getPhone(), null, req.getTenantId(), ip, userAgent, "FAILED", "公司已停用");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该公司已停用, 不可注册");
+        }
+
+        // 3) 校验手机号唯一 (user-service feign)
+        com.aiplatform.common.result.Result<java.util.Map<String, Object>> exists;
+        try {
+            exists = userServiceClient.getByUsername(req.getPhone());
+        } catch (Exception e) {
+            log.error("调用 user-service 查 byUsername 失败: {}", e.getMessage());
+            recordAudit(req.getPhone(), null, req.getTenantId(), ip, userAgent, "FAILED", "用户服务不可用");
+            throw new BusinessException(ResultCode.FAIL, "用户服务不可用: " + e.getMessage());
+        }
+        if (exists != null && exists.getData() != null) {
+            recordAudit(req.getPhone(), null, req.getTenantId(), ip, userAgent, "FAILED", "手机号已注册");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该手机号已注册");
+        }
+
+        // 4) 加密密码 (dev 模式明文)
+        String stored = useDevPlain(devPlainHeader)
+                ? req.getPassword()
+                : passwordEncoder.encode(req.getPassword());
+
+        // 5) 调 user-service 创建用户
+        java.util.Map<String, Object> createBody = new java.util.HashMap<>();
+        createBody.put("username", req.getPhone());
+        createBody.put("password", stored);
+        createBody.put("nickname", "新用户" + req.getPhone().substring(7));
+        createBody.put("phone", req.getPhone());
+        createBody.put("email", null);
+        createBody.put("department", req.getDepartment());
+        createBody.put("tenantId", req.getTenantId());
+        createBody.put("status", 1);
+
+        com.aiplatform.common.result.Result<java.util.Map<String, Object>> createResp;
+        try {
+            createResp = userServiceClient.create(createBody);
+        } catch (Exception e) {
+            log.error("调用 user-service 创建用户失败: {}", e.getMessage());
+            recordAudit(req.getPhone(), null, req.getTenantId(), ip, userAgent, "FAILED", "创建用户失败");
+            throw new BusinessException(ResultCode.FAIL, "创建用户失败: " + e.getMessage());
+        }
+        if (createResp == null || createResp.getCode() == null || createResp.getCode() != 0) {
+            String msg = createResp != null && createResp.getMessage() != null
+                    ? createResp.getMessage() : "未知错误";
+            recordAudit(req.getPhone(), null, req.getTenantId(), ip, userAgent, "FAILED", "创建用户失败: " + msg);
+            throw new BusinessException(ResultCode.FAIL, "创建用户失败: " + msg);
+        }
+
+        Object newUserId = createResp.getData() != null ? createResp.getData().get("id") : null;
+        recordAudit(req.getPhone(),
+                newUserId instanceof Number ? ((Number) newUserId).longValue() : null,
+                req.getTenantId(), ip, userAgent, "REGISTER_OK", "注册成功");
+
+        com.aiplatform.auth.dto.RegisterResponse resp = new com.aiplatform.auth.dto.RegisterResponse();
+        resp.setUserId(newUserId instanceof Number ? ((Number) newUserId).longValue() : null);
+        resp.setUsername(req.getPhone());
+        resp.setTenantId(req.getTenantId());
+        resp.setMessage("注册成功, 请登录");
+        return resp;
+    }
+
+    private boolean useDevPlain(boolean headerFlag) {
+        return headerFlag && isDevModePlainPassword();
+    }
 }

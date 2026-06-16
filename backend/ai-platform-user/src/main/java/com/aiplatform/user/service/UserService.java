@@ -23,7 +23,23 @@ import java.util.Map;
 public class UserService {
 
     private final SysUserMapper userMapper;
+    private final com.aiplatform.user.mapper.SysUserTenantMapper userTenantMapper;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    /**
+     * 绑定用户到公司 (写 sys_user_tenant 中间表).
+     * 静默跳过重复绑定.
+     */
+    public void bindTenant(Long userId, Long tenantId) {
+        com.aiplatform.user.entity.SysUserTenant rel = new com.aiplatform.user.entity.SysUserTenant();
+        rel.setUserId(userId);
+        rel.setTenantId(tenantId);
+        try {
+            userTenantMapper.insert(rel);
+        } catch (org.springframework.dao.DuplicateKeyException ignore) {
+            // 已存在, 跳过
+        }
+    }
 
     public Map<String, Object> getByUsername(String username) {
         SysUser user = userMapper.selectOne(new LambdaQueryWrapper<SysUser>()

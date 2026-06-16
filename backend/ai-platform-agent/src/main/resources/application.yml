@@ -20,8 +20,9 @@ spring:
       client:
         config:
           default:
-            connect-timeout: 3000
-            read-timeout: 8000
+            connect-timeout: 10000
+            read-timeout: 30000
+      retryer: 0
       # 不扫描 classpath 上的 @FeignClient interface，只扫 @EnableFeignClients(basePackages)
       # 避免多服务 jar 互引时 FeignClientSpecification bean 冲突
     nacos:

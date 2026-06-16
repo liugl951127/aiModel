@@ -2,6 +2,8 @@ package com.aiplatform.auth.controller;
 
 import com.aiplatform.auth.dto.LoginRequest;
 import com.aiplatform.auth.dto.LoginResponse;
+import com.aiplatform.auth.dto.RegisterRequest;
+import com.aiplatform.auth.dto.RegisterResponse;
 import com.aiplatform.auth.service.AuthService;
 import com.aiplatform.auth.service.TenantDirectory;
 import com.aiplatform.common.result.Result;
@@ -61,6 +63,14 @@ public class AuthController {
                 "status", "UP",
                 "ts", System.currentTimeMillis()
         ));
+    }
+
+    @PostMapping("/register")
+    public Result<RegisterResponse> register(@RequestBody @Valid RegisterRequest request,
+                                              @RequestHeader(value = "X-Real-IP", required = false) String realIp,
+                                              @RequestHeader(value = "User-Agent", required = false) String userAgent,
+                                              @RequestHeader(value = "X-Dev-Plain-Password", required = false) String devPlain) {
+        return Result.success(authService.register(request, realIp, userAgent, "true".equalsIgnoreCase(devPlain)));
     }
 
     @PostMapping("/logout")

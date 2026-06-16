@@ -77,6 +77,23 @@ public class TenantController {
     }
 
     /**
+     * Feign 端点：按 ID 查租户详情.
+     */
+    @GetMapping("/feign/{id}")
+    public Result<Map<String, Object>> feignById(@PathVariable Long id) {
+        SysTenant t = tenantService.getById(id);
+        if (t == null) {
+            return Result.success(null);
+        }
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("id", t.getId());
+        map.put("tenantCode", t.getTenantCode());
+        map.put("tenantName", t.getTenantName());
+        map.put("status", t.getStatus());
+        return Result.success(map);
+    }
+
+    /**
      * Feign 端点：按用户名返回他所属的所有公司（租户）。
      */
     @GetMapping("/feign/by-username")

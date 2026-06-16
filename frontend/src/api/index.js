@@ -2,6 +2,7 @@ import request from '@/utils/request'
 
 export const authApi = {
   login: (data, config) => request.post('/api/auth/login', data, config),
+  register: (data, config) => request.post('/api/auth/register', data, config),
   logout: () => request.post('/api/auth/logout'),
   refresh: (refreshToken) => request.post('/api/auth/refresh', null, { params: { refreshToken } }),
   /** 登录前置：拉用户信息 + 可选公司。 */

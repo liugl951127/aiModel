@@ -15,6 +15,16 @@ public class UserServiceFallback implements FallbackFactory<UserServiceClient> {
     @Override
     public UserServiceClient create(Throwable cause) {
         log.error("[FEIGN] user-service fallback: {}", cause.getMessage());
-        return username -> Result.fail(ResultCode.FAIL.getCode(), "用户服务不可用: " + cause.getMessage());
+        return new UserServiceClient() {
+            @Override
+            public Result<Map<String, Object>> getByUsername(String username) {
+                return Result.fail(ResultCode.FAIL.getCode(), "用户服务不可用: " + cause.getMessage());
+            }
+
+            @Override
+            public Result<Map<String, Object>> create(Map<String, Object> body) {
+                return Result.fail(ResultCode.FAIL.getCode(), "用户服务不可用: " + cause.getMessage());
+            }
+        };
     }
 }
