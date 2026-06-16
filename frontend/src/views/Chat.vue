@@ -43,7 +43,7 @@ import { ElMessage } from 'element-plus'
 import { agentApi, userApi } from '@/api'
 
 const route = useRoute()
-const agentId = Number(route.params.agentId)
+const agentId = Number(route.params.agentId) || 1
 const agentName = ref('智能体')
 const sessionId = ref(crypto.randomUUID().replace(/-/g, ''))
 const messages = ref([])

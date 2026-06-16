@@ -1,44 +1,66 @@
 <template>
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="logo-wrap">
+    <!-- ============================================ -->
+    <!-- 侧栏                                       -->
+    <!-- ============================================ -->
+    <aside class="sidebar" :class="{ collapsed }">
+      <div class="logo-wrap" @click="goHome">
         <div class="logo-mark">🤖</div>
-        <div class="logo-text">
+        <div v-if="!collapsed" class="logo-text">
           <div class="logo-title">AI Agent</div>
-          <div class="logo-sub">Platform</div>
+          <div class="logo-sub">Platform · v1</div>
         </div>
       </div>
+
       <el-menu
         class="side-menu"
         :default-active="$route.path"
+        :collapse="collapsed"
         router
         background-color="transparent"
         text-color="#cbd5e1"
         active-text-color="#fff"
+        unique-opened
       >
         <el-menu-item index="/dashboard">
-          <el-icon><DataLine /></el-icon><span>工作台</span>
+          <el-icon><DataLine /></el-icon>
+          <template #title>工作台</template>
+        </el-menu-item>
+        <el-menu-item index="/workflow">
+          <el-icon><Connection /></el-icon>
+          <template #title>工作流编排</template>
         </el-menu-item>
         <el-menu-item index="/models">
-          <el-icon><Cpu /></el-icon><span>大模型</span>
+          <el-icon><Cpu /></el-icon>
+          <template #title>大模型</template>
         </el-menu-item>
         <el-menu-item index="/datasets">
-          <el-icon><Files /></el-icon><span>数据集</span>
+          <el-icon><Files /></el-icon>
+          <template #title>数据集</template>
         </el-menu-item>
         <el-menu-item index="/train">
-          <el-icon><VideoPlay /></el-icon><span>训练任务</span>
+          <el-icon><VideoPlay /></el-icon>
+          <template #title>训练任务</template>
         </el-menu-item>
         <el-menu-item index="/agents">
-          <el-icon><UserFilled /></el-icon><span>智能体</span>
+          <el-icon><UserFilled /></el-icon>
+          <template #title>智能体</template>
         </el-menu-item>
         <el-menu-item index="/tools">
-          <el-icon><Tools /></el-icon><span>工具</span>
+          <el-icon><Tools /></el-icon>
+          <template #title>工具</template>
         </el-menu-item>
         <el-menu-item index="/knowledge">
-          <el-icon><Reading /></el-icon><span>知识库</span>
+          <el-icon><Reading /></el-icon>
+          <template #title>知识库</template>
         </el-menu-item>
         <el-menu-item index="/inference">
-          <el-icon><ChatDotRound /></el-icon><span>推理测试</span>
+          <el-icon><ChatDotRound /></el-icon>
+          <template #title>推理测试</template>
+        </el-menu-item>
+        <el-menu-item index="/chat">
+          <el-icon><ChatDotRound /></el-icon>
+          <template #title>智能对话</template>
         </el-menu-item>
         <el-sub-menu index="/system">
           <template #title><el-icon><Setting /></el-icon><span>系统</span></template>
@@ -46,153 +68,507 @@
           <el-menu-item index="/tenants">租户</el-menu-item>
         </el-sub-menu>
       </el-menu>
-      <div class="sidebar-foot">
-        <div class="tenant-card">
+
+      <div class="sidebar-foot" v-if="!collapsed">
+        <div class="tenant-card" @click="showTenantSwitch = true">
           <div class="t-ico">🏢</div>
           <div class="t-info">
             <div class="t-name">{{ tenantName || '默认租户' }}</div>
-            <div class="t-code">{{ tenantCode }}</div>
+            <div class="t-code">{{ tenantCode || '—' }}</div>
           </div>
+          <el-icon class="t-swap"><Refresh /></el-icon>
         </div>
       </div>
     </aside>
 
+    <!-- ============================================ -->
+    <!-- 主区                                       -->
+    <!-- ============================================ -->
     <main class="main">
+      <!-- 顶栏 -->
       <header class="topbar">
-        <div class="page-title">{{ $route.meta.title || 'AI Platform' }}</div>
+        <div class="topbar-left">
+          <el-button :underline="false" text @click="collapsed = !collapsed" class="collapse-btn">
+            <el-icon :size="20"><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
+          </el-button>
+          <el-breadcrumb separator="/" class="crumb">
+            <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item>{{ $route.meta?.title || $route.name }}</el-breadcrumb-item>
+          </el-breadcrumb>
+        </div>
+
+        <div class="topbar-center">
+          <el-input
+            v-model="searchKey"
+            placeholder="搜索菜单 / API / 智能体…"
+            :prefix-icon="Search"
+            clearable
+            class="global-search"
+            @keyup.enter="onSearch"
+          />
+          <div v-if="searchResults.length" class="search-popover">
+            <div
+              v-for="r in searchResults"
+              :key="r.path"
+              class="search-item"
+              @click="goTo(r.path)"
+            >
+              <el-icon><component :is="r.icon" /></el-icon>
+              <div class="si-meta">
+                <div class="si-title">{{ r.name }}</div>
+                <div class="si-desc">{{ r.desc }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="topbar-right">
-          <el-tooltip :content="`部门：${department || '未设置'}`" placement="bottom">
-            <div class="dept-badge">
-              <el-icon><OfficeBuilding /></el-icon>
-              <span>{{ department || '未设置部门' }}</span>
+          <!-- 实时事件钟 -->
+          <el-tooltip content="实时事件流" placement="bottom">
+            <div class="live-dot-wrap" @click="showTicker = !showTicker">
+              <div class="live-dot" :class="{ active: liveCount > 0 }"></div>
+              <span v-if="liveCount > 0" class="live-badge">{{ liveCount > 99 ? '99+' : liveCount }}</span>
             </div>
           </el-tooltip>
-          <div class="user-chip" @click="openProfile = true">
-            <el-avatar :size="32" :src="avatar" class="chip-avatar">
-              {{ (nickname || username).charAt(0) }}
-            </el-avatar>
-            <span class="chip-name">{{ nickname || username }}</span>
-          </div>
-          <el-button text :icon="SwitchButton" @click="logout" circle />
+
+          <!-- 主题切换 -->
+          <el-tooltip content="主题" placement="bottom">
+            <el-button :underline="false" text @click="cycleTheme">
+              <el-icon :size="20"><component :is="themeIcon" /></el-icon>
+            </el-button>
+          </el-tooltip>
+
+          <!-- 租户标签（admin 多租户时显示） -->
+          <el-tag v-if="roles.includes('SUPER_ADMIN')" type="warning" size="small" class="role-tag">
+            🔑 超管
+          </el-tag>
+
+          <!-- 用户菜单 -->
+          <el-dropdown trigger="click" @command="onUserMenu">
+            <div class="user-chip">
+              <el-avatar :size="32" class="user-avatar">{{ avatarLetter }}</el-avatar>
+              <div class="user-meta">
+                <div class="user-name">{{ nickname || username }}</div>
+                <div class="user-dept">{{ department || '未设置部门' }}</div>
+              </div>
+              <el-icon><CaretBottom /></el-icon>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item disabled>
+                  <div class="ud-info">
+                    <strong>{{ nickname || username }}</strong>
+                    <div class="muted">{{ roles.join(' · ') }}</div>
+                  </div>
+                </el-dropdown-item>
+                <el-dropdown-item command="tenants">
+                  <el-icon><OfficeBuilding /></el-icon>切换租户
+                </el-dropdown-item>
+                <el-dropdown-item command="profile">
+                  <el-icon><User /></el-icon>个人中心
+                </el-dropdown-item>
+                <el-dropdown-item command="swagger" divided>
+                  <el-icon><Document /></el-icon>API 文档 (Swagger)
+                </el-dropdown-item>
+                <el-dropdown-item command="logout" divided>
+                  <el-icon><SwitchButton /></el-icon>退出登录
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </header>
+
+      <!-- 内容 -->
       <section class="content">
-        <router-view v-slot="{ Component }">
-          <transition name="page-fade" mode="out-in">
-            <component :is="Component" />
+        <router-view v-slot="{ Component, route }">
+          <transition name="fade-page" mode="out-in">
+            <component :is="Component" :key="route.fullPath" />
           </transition>
         </router-view>
       </section>
     </main>
 
-    <!-- 浮动实时活动条 -->
-    <LiveTickerBar />
+    <!-- 实时事件条 -->
+    <LiveTickerBar v-model:visible="showTicker" />
+
+    <!-- 租户切换弹窗 -->
+    <el-dialog v-model="showTenantSwitch" title="切换租户" width="420px" align-center>
+      <el-radio-group v-model="pendingTenantId" class="tenant-radio">
+        <el-radio-button
+          v-for="t in availableTenants"
+          :key="t.id"
+          :value="t.id"
+          :disabled="t.id === Number(tenantId)"
+        >
+          {{ t.tenantName || t.tenantCode }}
+          <small v-if="t.id === Number(tenantId)" class="cur">当前</small>
+        </el-radio-button>
+      </el-radio-group>
+      <template #footer>
+        <el-button @click="showTenantSwitch = false">取消</el-button>
+        <el-button type="primary" @click="confirmSwitchTenant" :disabled="pendingTenantId === Number(tenantId)">
+          切换
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { OfficeBuilding, SwitchButton } from '@element-plus/icons-vue'
-import { authApi } from '@/api'
+import {
+  DataLine, Cpu, Files, VideoPlay, UserFilled, Tools, Reading, ChatDotRound, Setting,
+  Connection, Refresh, Search, Fold, Expand, CaretBottom, User, SwitchButton,
+  OfficeBuilding, Document, Sunny, Moon, MagicStick
+} from '@element-plus/icons-vue'
 import LiveTickerBar from '@/components/LiveTickerBar.vue'
+import { useGlobalBus } from '@/composables/useGlobalBus'
 
 const router = useRouter()
-const username = computed(() => localStorage.getItem('username') || 'guest')
-const nickname = computed(() => localStorage.getItem('nickname') || '')
-const avatar = computed(() => localStorage.getItem('avatar') || '')
-const department = computed(() => localStorage.getItem('department') || '')
-const tenantName = computed(() => localStorage.getItem('tenant_name') || '')
-const tenantCode = computed(() => localStorage.getItem('tenant_code') || 'default')
+const route = useRoute()
+const bus = useGlobalBus()
 
-const logout = async () => {
+// ============== 用户/租户 ==============
+const username = ref(localStorage.getItem('username') || '')
+const nickname = ref(localStorage.getItem('nickname') || '')
+const tenantId = ref(localStorage.getItem('tenant_id') || '1')
+const tenantCode = ref(localStorage.getItem('tenant_code') || '')
+const tenantName = ref(localStorage.getItem('tenant_name') || '')
+const department = ref(localStorage.getItem('department') || '')
+const roles = ref(JSON.parse(localStorage.getItem('roles') || '["user"]'))
+
+const avatarLetter = computed(() =>
+  (nickname.value || username.value || '?').charAt(0).toUpperCase()
+)
+
+// ============== 侧栏折叠 ==============
+const collapsed = ref(false)
+
+// ============== 全局搜索 ==============
+const searchKey = ref('')
+const searchResults = computed(() => {
+  const k = searchKey.value.trim().toLowerCase()
+  if (!k) return []
+  return allMenus.filter(m => m.name.toLowerCase().includes(k) || m.desc.toLowerCase().includes(k)).slice(0, 8)
+})
+const allMenus = [
+  { path: '/dashboard', name: '工作台', icon: 'DataLine', desc: '平台概览 + 实时活动' },
+  { path: '/workflow', name: '工作流编排', icon: 'Connection', desc: '拖拽编排业务流' },
+  { path: '/models', name: '大模型', icon: 'Cpu', desc: '模型注册 + 版本管理' },
+  { path: '/datasets', name: '数据集', icon: 'Files', desc: '语料上传 + 切片' },
+  { path: '/train', name: '训练任务', icon: 'VideoPlay', desc: 'Transformer 训练 + SSE 实时' },
+  { path: '/agents', name: '智能体', icon: 'UserFilled', desc: 'ReAct 智能体' },
+  { path: '/tools', name: '工具', icon: 'Tools', desc: '工具注册中心' },
+  { path: '/knowledge', name: '知识库', icon: 'Reading', desc: 'RAG 检索增强' },
+  { path: '/inference', name: '推理测试', icon: 'ChatDotRound', desc: 'ONNX 推理' },
+  { path: '/chat', name: '智能对话', icon: 'ChatDotRound', desc: '多智能体会话' },
+  { path: '/users', name: '用户管理', icon: 'UserFilled', desc: '用户 + 角色' },
+  { path: '/tenants', name: '租户管理', icon: 'OfficeBuilding', desc: '多公司隔离' }
+]
+const onSearch = () => {
+  if (searchResults.value.length > 0) {
+    goTo(searchResults.value[0].path)
+  }
+}
+const goTo = (p) => {
+  searchKey.value = ''
+  router.push(p)
+}
+const goHome = () => router.push('/dashboard')
+
+// ============== 主题 ==============
+const themes = ['light', 'dark', 'auto']
+const themeIdx = ref(1)  // 默认 dark
+const themeIcon = computed(() => {
+  return [Sunny, Moon, MagicStick][themeIdx.value]
+})
+const cycleTheme = () => {
+  themeIdx.value = (themeIdx.value + 1) % themes.length
+  document.documentElement.dataset.theme = themes[themeIdx.value]
+  bus.emit('theme:change', themes[themeIdx.value])
+  ElMessage.success(`主题切换: ${themes[themeIdx.value]}`)
+}
+
+// ============== 实时事件 ==============
+const showTicker = ref(false)
+const liveCount = ref(0)
+const onLive = (e) => {
+  liveCount.value++
+  setTimeout(() => { if (liveCount.value > 0) liveCount.value-- }, 3000)
+}
+
+// ============== 租户切换 ==============
+const showTenantSwitch = ref(false)
+const availableTenants = ref([])
+const pendingTenantId = ref(null)
+const loadTenants = () => {
   try {
-    await ElMessageBox.confirm('确定退出当前会话？', '提示', { type: 'warning' })
-  } catch { return }
-  try { await authApi.logout() } catch (e) { /* ignore */ }
-  localStorage.clear()
-  ElMessage.success('已退出登录')
+    const raw = localStorage.getItem('tenants')
+    if (raw) {
+      availableTenants.value = JSON.parse(raw)
+      return
+    }
+  } catch (e) { /* ignore */ }
+  // fallback: 3 家示例
+  availableTenants.value = [
+    { id: 1, tenantCode: 'default', tenantName: '默认公司' },
+    { id: 2, tenantCode: 'demo-corp', tenantName: '示例科技公司' },
+    { id: 3, tenantCode: 'startup-co', tenantName: '创业小公司' }
+  ]
+}
+const confirmSwitchTenant = async () => {
+  // 切换租户需要重新登录 — 直接跳到 login 携带目标
+  await ElMessageBox.confirm(
+    `切换租户会注销当前会话并以新租户身份重新登录。确定切换？`,
+    '切换租户',
+    { type: 'warning' }
+  )
+  localStorage.setItem('pending_tenant_id', String(pendingTenantId.value))
+  localStorage.removeItem('access_token')
   router.push('/login')
 }
+
+// ============== 用户菜单 ==============
+const onUserMenu = (cmd) => {
+  if (cmd === 'logout') {
+    ElMessageBox.confirm('确定退出登录？', '提示', { type: 'warning' }).then(() => {
+      localStorage.clear()
+      router.push('/login')
+    }).catch(() => {})
+  } else if (cmd === 'tenants') {
+    showTenantSwitch.value = true
+  } else if (cmd === 'profile') {
+    ElMessage.info('个人中心待开发')
+  } else if (cmd === 'swagger') {
+    window.open('/doc.html', '_blank')
+  }
+}
+
+// ============== Bus 监听 ==============
+let _off1, _off2
+onMounted(() => {
+  loadTenants()
+  document.documentElement.dataset.theme = themes[themeIdx.value]
+  _off1 = bus.on('live:event', onLive)
+  _off2 = bus.on('user:update', () => {
+    nickname.value = localStorage.getItem('nickname') || ''
+    department.value = localStorage.getItem('department') || ''
+  })
+})
 </script>
 
 <style scoped>
-.app-shell { display: flex; height: 100vh; overflow: hidden; background: #f1f5f9; }
+/* ============================================ */
+/* 全局壳                                       */
+/* ============================================ */
+.app-shell {
+  display: flex;
+  width: 100vw; height: 100vh;
+  background: var(--bg-app, #f5f7fa);
+  overflow: hidden;
+}
 
+/* ============================================ */
+/* 侧栏                                         */
+/* ============================================ */
 .sidebar {
-  width: 230px; flex-shrink: 0;
-  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  width: 220px;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  color: #cbd5e1;
   display: flex; flex-direction: column;
+  flex-shrink: 0;
+  transition: width 0.25s;
   position: relative;
+  z-index: 10;
 }
-.sidebar::after {
-  content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(99, 102, 241, 0.4), transparent);
-}
+.sidebar.collapsed { width: 64px; }
+
 .logo-wrap {
-  display: flex; align-items: center; gap: 10px;
-  padding: 18px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; gap: 12px;
+  padding: 18px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .logo-mark {
-  width: 40px; height: 40px; border-radius: 10px;
+  width: 36px; height: 36px; border-radius: 10px;
   background: linear-gradient(135deg, #6366f1, #ec4899);
   display: flex; align-items: center; justify-content: center;
-  font-size: 22px; box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.5);
+  font-size: 20px; flex-shrink: 0;
 }
-.logo-title { color: #fff; font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
-.logo-sub { color: #94a3b8; font-size: 11px; margin-top: 1px; }
-.side-menu { flex: 1; border-right: none; padding: 8px 0; }
-.side-menu :deep(.el-menu-item),
-.side-menu :deep(.el-sub-menu__title) { height: 42px; line-height: 42px; margin: 2px 8px; border-radius: 8px; }
-.side-menu :deep(.el-menu-item:hover) { background: rgba(99, 102, 241, 0.15) !important; }
+.logo-text { display: flex; flex-direction: column; }
+.logo-title { font-size: 15px; font-weight: 700; color: #fff; }
+.logo-sub { font-size: 10px; color: #94a3b8; letter-spacing: 1px; }
+
+.side-menu { flex: 1; border-right: none; padding: 8px; overflow-y: auto; }
+.side-menu :deep(.el-menu-item), .side-menu :deep(.el-sub-menu__title) {
+  border-radius: 8px; margin: 2px 0; height: 40px; line-height: 40px;
+}
+.side-menu :deep(.el-menu-item:hover),
+.side-menu :deep(.el-sub-menu__title:hover) { background: rgba(255, 255, 255, 0.06) !important; }
 .side-menu :deep(.el-menu-item.is-active) {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6) !important;
+  color: #fff !important;
   box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.5);
 }
-.sidebar-foot { padding: 12px; border-top: 1px solid rgba(255,255,255,0.06); }
-.tenant-card {
-  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
-  background: rgba(99, 102, 241, 0.1); border-radius: 10px;
-}
-.t-ico {
-  width: 32px; height: 32px; border-radius: 8px;
-  background: linear-gradient(135deg, #06b6d4, #6366f1);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-}
-.t-name { color: #fff; font-size: 12px; font-weight: 600; }
-.t-code { color: #94a3b8; font-size: 10px; margin-top: 1px; font-family: monospace; }
 
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.sidebar-foot { padding: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.tenant-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer; transition: all 0.18s;
+}
+.tenant-card:hover { background: rgba(99, 102, 241, 0.15); border-color: #6366f1; }
+.t-ico { font-size: 22px; }
+.t-info { flex: 1; min-width: 0; }
+.t-name { font-size: 12px; font-weight: 600; color: #fff; }
+.t-code { font-size: 10px; color: #94a3b8; }
+.t-swap { color: #94a3b8; font-size: 14px; }
+
+/* ============================================ */
+/* 主区                                         */
+/* ============================================ */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* ===== 顶栏 ===== */
 .topbar {
-  height: 60px; padding: 0 24px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid #e2e8f0;
-  display: flex; align-items: center; justify-content: space-between;
-  position: sticky; top: 0; z-index: 10;
+  height: 56px;
+  background: var(--bg-top, #fff);
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  display: flex; align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 5;
 }
-.page-title { font-size: 16px; font-weight: 700; color: #1e293b; }
-.topbar-right { display: flex; align-items: center; gap: 16px; }
-.dept-badge {
-  display: flex; align-items: center; gap: 6px;
-  padding: 6px 12px; border-radius: 999px;
-  background: linear-gradient(135deg, #ede9fe, #dbeafe);
-  color: #6d28d9; font-size: 12px; font-weight: 500;
+.topbar-left { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+.collapse-btn { padding: 6px; }
+.crumb { font-size: 13px; }
+
+.topbar-center {
+  flex: 1; max-width: 480px; position: relative; margin: 0 auto;
 }
+.global-search :deep(.el-input__wrapper) {
+  background: var(--bg-search, #f3f4f6);
+  border-radius: 10px;
+  box-shadow: none !important;
+  padding: 2px 12px;
+}
+.search-popover {
+  position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px;
+  background: #fff; border-radius: 10px; box-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.15);
+  padding: 6px; max-height: 400px; overflow-y: auto; z-index: 10;
+  border: 1px solid #e5e7eb;
+}
+.search-item {
+  display: flex; gap: 10px; align-items: center;
+  padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  transition: background 0.15s;
+}
+.search-item:hover { background: #f3f4f6; }
+.search-item .el-icon { color: #6366f1; }
+.si-meta { flex: 1; min-width: 0; }
+.si-title { font-size: 13px; font-weight: 600; color: #1e293b; }
+.si-desc { font-size: 11px; color: #94a3b8; }
+
+.topbar-right { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.live-dot-wrap {
+  position: relative; width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; cursor: pointer; transition: background 0.15s;
+}
+.live-dot-wrap:hover { background: #f3f4f6; }
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #cbd5e1; transition: all 0.3s;
+}
+.live-dot.active { background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); } 50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.1); } }
+.live-badge {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: #ef4444; color: #fff; font-size: 10px; font-weight: 700;
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+}
+.role-tag { font-weight: 600; }
+
 .user-chip {
   display: flex; align-items: center; gap: 8px;
-  padding: 4px 10px 4px 4px; border-radius: 999px;
-  background: #f1f5f9; cursor: pointer; transition: background 0.18s;
+  padding: 4px 10px 4px 4px; border-radius: 24px;
+  cursor: pointer; transition: background 0.15s;
 }
-.user-chip:hover { background: #e2e8f0; }
-.chip-avatar { background: linear-gradient(135deg, #6366f1, #ec4899); color: #fff; font-weight: 600; }
-.chip-name { font-size: 13px; color: #1e293b; font-weight: 500; }
+.user-chip:hover { background: #f3f4f6; }
+.user-avatar {
+  background: linear-gradient(135deg, #6366f1, #ec4899);
+  color: #fff; font-weight: 700; font-size: 13px;
+}
+.user-meta { display: flex; flex-direction: column; line-height: 1.2; }
+.user-name { font-size: 12px; font-weight: 600; color: #1e293b; }
+.user-dept { font-size: 10px; color: #94a3b8; }
 
-.content { flex: 1; overflow: auto; padding: 20px 24px; }
+.ud-info { padding: 4px 0; line-height: 1.4; }
+.ud-info .muted { font-size: 11px; color: #94a3b8; }
 
-.page-fade-enter-active, .page-fade-leave-active { transition: all 0.22s ease; }
-.page-fade-enter-from { opacity: 0; transform: translateY(8px); }
-.page-fade-leave-to { opacity: 0; transform: translateY(-8px); }
+.tenant-radio { display: flex; flex-direction: column; gap: 8px; }
+.tenant-radio :deep(.el-radio-button) { width: 100%; }
+.tenant-radio :deep(.el-radio-button__inner) { width: 100%; }
+.cur { margin-left: 4px; color: #6366f1; font-size: 10px; }
+
+/* ===== 内容 ===== */
+.content { flex: 1; overflow: auto; padding: 16px 20px; }
+.fade-page-enter-active, .fade-page-leave-active { transition: all 0.18s ease; }
+.fade-page-enter-from, .fade-page-leave-to { opacity: 0; transform: translateY(4px); }
+
+/* ============================================ */
+/* 主题                                         */
+/* ============================================ */
+:root[data-theme='dark'] {
+  --bg-app: #0b1020;
+  --bg-top: #111827;
+  --border: #1f2937;
+  --bg-search: #1f2937;
+}
+:root[data-theme='light'] {
+  --bg-app: #f5f7fa;
+  --bg-top: #ffffff;
+  --border: #e5e7eb;
+  --bg-search: #f3f4f6;
+}
+:root[data-theme='auto'] {
+  --bg-app: #f5f7fa;
+  --bg-top: #ffffff;
+  --border: #e5e7eb;
+  --bg-search: #f3f4f6;
+}
+
+/* 暗色下内容区也要变 */
+:root[data-theme='dark'] .content { color: #e2e8f0; }
+:root[data-theme='dark'] .content :deep(.el-card) {
+  background: #111827;
+  border-color: #1f2937;
+  color: #e2e8f0;
+}
+:root[data-theme='dark'] .content :deep(.el-card__header) {
+  border-bottom-color: #1f2937;
+  color: #e2e8f0;
+}
+:root[data-theme='dark'] .content :deep(.el-table) {
+  background: #111827; color: #e2e8f0;
+}
+:root[data-theme='dark'] .content :deep(.el-table tr) {
+  background: #111827; color: #e2e8f0;
+}
+:root[data-theme='dark'] .content :deep(.el-table--enable-row-hover .el-table__body tr:hover > td) {
+  background: #1f2937 !important;
+}
+:root[data-theme='dark'] .content :deep(.el-input__wrapper),
+:root[data-theme='dark'] .content :deep(.el-textarea__inner) {
+  background: #1f2937; color: #e2e8f0;
+}
+:root[data-theme='dark'] .content :deep(.el-empty__description p) { color: #94a3b8; }
 </style>

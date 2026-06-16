@@ -1,45 +1,122 @@
 <template>
   <transition name="bar">
-    <div v-if="messages.length" class="ticker-bar" @click="expanded = !expanded">
-      <div class="ticker-icon" :class="{ pulse: !!latest }">
-        <el-icon><BellFilled /></el-icon>
-        <span v-if="unread" class="badge">{{ unread }}</span>
-      </div>
-      <div class="ticker-main" :class="{ expanded }">
-        <div class="ticker-row" v-for="m in shown" :key="m.id">
-          <span class="t-tag" :class="m.type">{{ tagOf(m.type) }}</span>
-          <span class="t-text">{{ m.text }}</span>
-          <span class="t-time">{{ m.timeAgo }}</span>
+    <aside v-if="visible" class="ticker-drawer">
+      <header class="td-head">
+        <div class="td-title">
+          <span class="td-dot" :class="{ active: messages.length }"></span>
+          <strong>实时活动</strong>
+          <el-tag size="small" type="success" v-if="messages.length">{{ messages.length }}</el-tag>
         </div>
-        <div v-if="messages.length > 1" class="ticker-more">
-          {{ expanded ? '收起' : `还有 ${messages.length - 1} 条…` }}
+        <div class="td-actions">
+          <el-tooltip content="清空" placement="top">
+            <el-button :underline="false" text size="small" @click="messages = []">
+              <el-icon><Delete /></el-icon>
+            </el-button>
+          </el-tooltip>
+          <el-button :underline="false" text size="small" @click="visible = false">
+            <el-icon><Close /></el-icon>
+          </el-button>
         </div>
+      </header>
+
+      <!-- 过滤栏 -->
+      <div class="td-filter">
+        <el-radio-group v-model="filterType" size="small">
+          <el-radio-button value="all">全部</el-radio-button>
+          <el-radio-button value="train">训练</el-radio-button>
+          <el-radio-button value="agent">智能体</el-radio-button>
+          <el-radio-button value="kb">知识库</el-radio-button>
+          <el-radio-button value="wf">工作流</el-radio-button>
+          <el-radio-button value="sys">系统</el-radio-button>
+        </el-radio-group>
       </div>
-    </div>
+
+      <!-- 消息列表 -->
+      <div class="td-body" v-if="filtered.length">
+        <article
+          v-for="m in filtered"
+          :key="m.id"
+          class="td-item"
+          :class="m.type"
+        >
+          <div class="td-ico">
+            <el-icon :size="14"><component :is="iconOf(m.type)" /></el-icon>
+          </div>
+          <div class="td-meta">
+            <div class="td-text">
+              <span class="td-tag" :class="m.type">{{ tagOf(m.type) }}</span>
+              {{ m.text }}
+            </div>
+            <div class="td-sub">
+              <span v-if="m.actor">@{{ m.actor }}</span>
+              <span v-if="m.actor" class="dot">·</span>
+              <span>{{ m.timeAgo }}</span>
+              <span v-if="m.action" class="dot">·</span>
+              <el-link v-if="m.action" type="primary" :underline="false" size="small" @click="m.action && m.action.handler && m.action.handler()">
+                {{ m.action.label }}
+              </el-link>
+            </div>
+          </div>
+        </article>
+      </div>
+      <div v-else class="td-empty">
+        <el-empty description="暂无活动" :image-size="80" />
+      </div>
+
+      <footer class="td-foot">
+        <el-button :underline="false" text size="small" @click="clearAll">
+          <el-icon><Refresh /></el-icon>
+          重新拉取
+        </el-button>
+        <span class="muted">最近 100 条</span>
+      </footer>
+    </aside>
   </transition>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { BellFilled } from '@element-plus/icons-vue'
+import {
+  BellFilled, VideoPlay, UserFilled, Reading, Connection, Setting,
+  Delete, Close, Refresh
+} from '@element-plus/icons-vue'
+import { useGlobalBus } from '@/composables/useGlobalBus'
 
-/**
- * 实时活动条：右下角浮动小条，订阅全局 SSE 活动流，展示最新的训练任务 / 智能体
- * 调用 / 知识库更新 / 工作流执行等事件。点击展开/收起。
- *
- * <p>事件源 {@code GET /api/activity/stream} 是后端预留的统一 SSE 端点（暂未实现，
- * 现在 fallback 到本地 EventBus 推送 — 各页面 emit 事件到这里）。</p>
- */
+const props = defineProps({ visible: Boolean })
+const emit = defineEmits(['update:visible'])
+
+const visible = computed({
+  get: () => props.visible,
+  set: v => emit('update:visible', v)
+})
+
+const bus = useGlobalBus()
 const messages = ref([])
-const expanded = ref(false)
-let timer = null
+const filterType = ref('all')
 
 const tagOf = (t) => ({ train: '训练', agent: '智能体', kb: '知识库', wf: '工作流', sys: '系统' })[t] || '事件'
-const shown = computed(() => expanded.value ? messages.value : messages.value.slice(0, 1))
-const unread = computed(() => Math.min(messages.value.length, 9))
-const latest = computed(() => messages.value[0])
+const iconOf = (t) => ({ train: VideoPlay, agent: UserFilled, kb: Reading, wf: Connection, sys: Setting })[t] || BellFilled
 
-// 时间相对显示
+const filtered = computed(() =>
+  filterType.value === 'all' ? messages.value : messages.value.filter(m => m.type === filterType.value)
+)
+
+const push = (m) => {
+  messages.value.unshift({
+    id: m.id || Math.random().toString(36).slice(2),
+    type: m.type || 'sys',
+    text: m.text || JSON.stringify(m),
+    actor: m.actor,
+    action: m.action,
+    ts: m.ts || Date.now(),
+    timeAgo: '刚刚'
+  })
+  if (messages.value.length > 100) messages.value.length = 100
+  refresh()
+  // 通知顶栏
+  bus.emit('live:event', m)
+}
+
 const refresh = () => {
   const now = Date.now()
   for (const m of messages.value) {
@@ -50,87 +127,123 @@ const refresh = () => {
   }
 }
 
-const push = (m) => {
-  messages.value.unshift({
-    id: m.id || Math.random().toString(36).slice(2),
-    type: m.type || 'sys',
-    text: m.text || JSON.stringify(m),
-    ts: m.ts || Date.now(),
-    timeAgo: '刚刚'
-  })
-  if (messages.value.length > 30) messages.value.length = 30
-  refresh()
+let timer = null
+let _off1, _off2, _off3, _off4, _off5
+
+const clearAll = () => {
+  messages.value = []
+  // 重新拉取活动
+  push({ type: 'sys', text: '活动流已重置' })
 }
 
-// 暴露给外部手动 push
-window.__ticker = window.__ticker || push
-
 onMounted(() => {
-  // 试连 SSE（如果后端实现了）
+  // 订阅所有 bus 事件
+  _off1 = bus.on('train:event', (e) => push({ type: 'train', text: e.text, actor: e.actor, action: e.action }))
+  _off2 = bus.on('agent:event', (e) => push({ type: 'agent', text: e.text, actor: e.actor, action: e.action }))
+  _off3 = bus.on('kb:event', (e) => push({ type: 'kb', text: e.text, actor: e.actor, action: e.action }))
+  _off4 = bus.on('wf:event', (e) => push({ type: 'wf', text: e.text, actor: e.actor, action: e.action }))
+  _off5 = bus.on('sys:event', (e) => push({ type: 'sys', text: e.text, actor: e.actor, action: e.action }))
+
+  // 试连后端 SSE (预留)
   try {
     if (typeof EventSource !== 'undefined') {
-      const es = new EventSource('/api/activity/stream')
+      const es = new EventSource('/api/activity/stream', { withCredentials: true })
       es.addEventListener('message', (e) => {
-        try { push(JSON.parse(e.data)) } catch { push({ text: e.data }) }
+        try { push(JSON.parse(e.data)) } catch { push({ type: 'sys', text: e.data }) }
       })
       es.onerror = () => es.close()
     }
   } catch { /* ignore */ }
+
   timer = setInterval(refresh, 5000)
 })
-onBeforeUnmount(() => { if (timer) clearInterval(timer) })
+
+onBeforeUnmount(() => {
+  if (timer) clearInterval(timer)
+  _off1 && _off1(); _off2 && _off2(); _off3 && _off3(); _off4 && _off4(); _off5 && _off5()
+})
 </script>
 
 <style scoped>
-.ticker-bar {
-  position: fixed; right: 18px; bottom: 18px; z-index: 100;
-  display: flex; align-items: flex-start; gap: 10px;
-  max-width: 380px; padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.97);
-  backdrop-filter: blur(12px);
-  border-radius: 14px;
-  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(99, 102, 241, 0.1);
-  cursor: pointer; user-select: none;
-  transition: all 0.22s;
+.ticker-drawer {
+  position: fixed; right: 0; top: 56px; bottom: 0; width: 360px;
+  background: var(--bg-top, #fff);
+  border-left: 1px solid var(--border, #e5e7eb);
+  box-shadow: -10px 0 30px -8px rgba(0, 0, 0, 0.15);
+  z-index: 50;
+  display: flex; flex-direction: column;
 }
-.ticker-bar:hover { transform: translateY(-2px); box-shadow: 0 14px 40px -8px rgba(99, 102, 241, 0.3); }
-.ticker-icon {
-  width: 36px; height: 36px; border-radius: 10px;
-  background: linear-gradient(135deg, #6366f1, #ec4899);
-  color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  font-size: 18px; position: relative;
-}
-.ticker-icon.pulse::before {
-  content: ''; position: absolute; inset: -2px; border-radius: 12px;
-  background: linear-gradient(135deg, #6366f1, #ec4899);
-  z-index: -1; opacity: 0.5; animation: ringPulse 1.5s ease-out infinite;
-}
-@keyframes ringPulse { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(1.4); opacity: 0; } }
-.badge {
-  position: absolute; top: -4px; right: -4px;
-  background: #ef4444; color: #fff; font-size: 10px; font-weight: 700;
-  width: 18px; height: 18px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  border: 2px solid #fff;
-}
-.ticker-main { flex: 1; min-width: 0; }
-.ticker-main.expanded { max-height: 320px; overflow-y: auto; }
-.ticker-row {
-  display: flex; align-items: center; gap: 6px; padding: 3px 0;
-  font-size: 12px; color: #334155;
-}
-.t-tag {
-  font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 600; flex-shrink: 0;
-}
-.t-tag.train { background: #dbeafe; color: #1d4ed8; }
-.t-tag.agent { background: #ede9fe; color: #6d28d9; }
-.t-tag.kb { background: #d1fae5; color: #047857; }
-.t-tag.wf { background: #fed7aa; color: #c2410c; }
-.t-tag.sys { background: #e5e7eb; color: #4b5563; }
-.t-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.t-time { font-size: 10px; color: #94a3b8; flex-shrink: 0; }
-.ticker-more { font-size: 10px; color: #6366f1; text-align: right; padding-top: 2px; }
 
-.bar-enter-active, .bar-leave-active { transition: all 0.3s ease; }
+.td-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  flex-shrink: 0;
+}
+.td-title { display: flex; align-items: center; gap: 8px; }
+.td-title strong { font-size: 15px; color: #1e293b; }
+.td-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #cbd5e1;
+}
+.td-dot.active { background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); } 50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.1); } }
+.td-actions { display: flex; gap: 2px; }
+
+.td-filter { padding: 10px 16px; border-bottom: 1px solid var(--border, #e5e7eb); flex-shrink: 0; }
+.td-filter :deep(.el-radio-button__inner) { padding: 5px 8px; font-size: 11px; }
+
+.td-body { flex: 1; overflow-y: auto; padding: 8px 0; }
+.td-empty { flex: 1; display: flex; align-items: center; justify-content: center; }
+
+.td-item {
+  display: flex; gap: 10px; padding: 10px 16px;
+  border-left: 3px solid transparent;
+  transition: background 0.12s;
+  cursor: default;
+}
+.td-item:hover { background: rgba(99, 102, 241, 0.04); }
+.td-item.train { border-left-color: #3b82f6; }
+.td-item.agent { border-left-color: #8b5cf6; }
+.td-item.kb { border-left-color: #10b981; }
+.td-item.wf { border-left-color: #f97316; }
+.td-item.sys { border-left-color: #64748b; }
+
+.td-ico {
+  width: 26px; height: 26px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; flex-shrink: 0;
+}
+.td-item.train .td-ico { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+.td-item.agent .td-ico { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+.td-item.kb .td-ico { background: linear-gradient(135deg, #10b981, #047857); }
+.td-item.wf .td-ico { background: linear-gradient(135deg, #f97316, #c2410c); }
+.td-item.sys .td-ico { background: linear-gradient(135deg, #64748b, #334155); }
+
+.td-meta { flex: 1; min-width: 0; }
+.td-text { font-size: 12px; color: #1e293b; line-height: 1.5; word-break: break-word; }
+.td-tag {
+  font-size: 10px; padding: 0 5px; border-radius: 3px; font-weight: 600;
+  margin-right: 4px; vertical-align: 1px;
+}
+.td-tag.train { background: #dbeafe; color: #1d4ed8; }
+.td-tag.agent { background: #ede9fe; color: #6d28d9; }
+.td-tag.kb { background: #d1fae5; color: #047857; }
+.td-tag.wf { background: #fed7aa; color: #c2410c; }
+.td-tag.sys { background: #e5e7eb; color: #4b5563; }
+
+.td-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.td-sub .dot { color: #cbd5e1; }
+
+.td-foot {
+  padding: 8px 16px;
+  border-top: 1px solid var(--border, #e5e7eb);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; color: #94a3b8;
+  flex-shrink: 0;
+}
+.muted { color: #94a3b8; }
+
+.bar-enter-active, .bar-leave-active { transition: all 0.25s ease; }
 .bar-enter-from, .bar-leave-to { opacity: 0; transform: translateX(40px); }
 </style>

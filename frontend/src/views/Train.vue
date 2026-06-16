@@ -147,6 +147,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { trainerApi } from '@/api'
+import { useGlobalBus } from '@/composables/useGlobalBus'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -180,6 +181,7 @@ const audit = reactive({ factualSupport: 0, citationCoverage: 0, repetition: 0, 
 const latestHall = ref(0)
 const logBox = ref(null)
 let es = null
+const bus = useGlobalBus()
 
 async function loadModels () {
   try {
@@ -247,10 +249,12 @@ function openStream () {
     if (kind === 'sample' && data.sample) {
       samples.value.unshift({ step: data.step, text: data.sample, ts: new Date().toLocaleTimeString() })
       if (samples.value.length > 20) samples.value.length = 20
+      bus.emit('train:event', { text: `Step ${data.step} 生成样本: ${data.sample.slice(0, 30)}…`, actor: 'trainer' })
     }
     if (kind === 'done') {
       running.value = false
       connected.value = false
+      bus.emit('train:event', { text: '训练任务完成', actor: 'trainer' })
     }
   }
   es.addEventListener('step', handler('step'))
