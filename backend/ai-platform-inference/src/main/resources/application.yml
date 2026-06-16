@@ -6,6 +6,8 @@ spring:
     name: ai-platform-inference
   main:
     allow-bean-definition-overriding: true
+  config:
+    import: "nacos:ai-platform-inference.yaml"
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 

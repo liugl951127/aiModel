@@ -3,6 +3,8 @@ spring:
     name: ai-platform-workflow
   main:
     allow-bean-definition-overriding: true
+  config:
+    import: "nacos:ai-platform-workflow.yaml"
   profiles:
     active: dev
   cloud:

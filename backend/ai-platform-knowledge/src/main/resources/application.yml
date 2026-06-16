@@ -6,6 +6,8 @@ spring:
     name: ai-platform-knowledge
   main:
     allow-bean-definition-overriding: true
+  config:
+    import: "nacos:ai-platform-knowledge.yaml"
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
