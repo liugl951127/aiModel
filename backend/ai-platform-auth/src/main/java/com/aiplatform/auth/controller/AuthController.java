@@ -50,6 +50,18 @@ public class AuthController {
         return Result.success(authService.preview(username));
     }
 
+    /**
+     * 健康检查 (公开, 不需 token). 前端 dashboard / login 用来判断 auth 服务是否在线.
+     */
+    @GetMapping("/health")
+    public Result<Map<String, Object>> health() {
+        return Result.success(java.util.Map.of(
+                "service", "ai-platform-auth",
+                "status", "UP",
+                "ts", System.currentTimeMillis()
+        ));
+    }
+
     @PostMapping("/logout")
     public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String auth) {
         String token = auth == null ? null : (auth.startsWith("Bearer ") ? auth.substring(7) : auth);
