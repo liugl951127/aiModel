@@ -85,7 +85,7 @@ public class TenantController {
             return Result.success(List.of());
         }
         SysUser user = userMapper.selectOne(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername, username).last("limit 1));
+                .eq(SysUser::getUsername, username).last("limit 1"));
         if (user == null) {
             return Result.success(List.of());
         }
@@ -124,12 +124,12 @@ public class TenantController {
             }
             // admin 看所有
             if ("admin".equalsIgnoreCase(user.getUsername())) {
-                for (SysTenant t : all) {
-                    if (out.stream().noneMatch(x -> ((Number) x.get("id")).longValue() == t.getId())) {
+                for (SysTenant at : all) {
+                    if (out.stream().noneMatch(x -> ((Number) x.get("id")).longValue() == at.getId())) {
                         Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("id", t.getId());
-                        m.put("tenantCode", t.getTenantCode());
-                        m.put("tenantName", t.getTenantName());
+                        m.put("id", at.getId());
+                        m.put("tenantCode", at.getTenantCode());
+                        m.put("tenantName", at.getTenantName());
                         m.put("role", "super");
                         m.put("isDefault", 0);
                         m.put("department", user.getDepartment());
@@ -147,7 +147,7 @@ public class TenantController {
         Long total = tenantMapper.selectCount(null);
         Long active = tenantMapper.selectCount(new LambdaQueryWrapper<SysTenant>().eq(SysTenant::getStatus, 1));
         Long userCount = userTenantMapper.selectCount(null);
-        return Result.of(Map.of("total", total, "active", active, "userBindings", userCount));
+        return Result.success(Map.of("total", total, "active", active, "userBindings", userCount));
     }
 
     /** 一个公司下所有用户 */
