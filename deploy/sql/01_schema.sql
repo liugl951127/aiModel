@@ -39,6 +39,7 @@ CREATE TABLE sys_user (
     phone           VARCHAR(32),
     avatar          VARCHAR(255),
     department      VARCHAR(64)  COMMENT '部门（员工所属部门，如"研发部"/"市场部"）',
+    is_super_admin  TINYINT      DEFAULT 0  COMMENT '是否超管 (1=超管，拥有所有租户权限)。 AuthService 默认 username=admin 判定，业务可改读本字段。',
     status          INT          DEFAULT 1,
     last_login_ip   VARCHAR(64),
     last_login_time DATETIME,
@@ -48,7 +49,9 @@ CREATE TABLE sys_user (
     update_time     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted         INT          DEFAULT 0,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_username (username, tenant_id)
+    UNIQUE KEY uk_username (username, tenant_id),
+    KEY idx_department (department),
+    KEY idx_is_super (is_super_admin)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户';
 
 DROP TABLE IF EXISTS sys_role;
@@ -66,6 +69,60 @@ CREATE TABLE sys_role (
     deleted         INT          DEFAULT 0,
     PRIMARY KEY (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '角色';
+
+-- 用户-公司 多对多关联 (一个用户可属于多家公司 / 一家公司可有多个用户)
+DROP TABLE IF EXISTS sys_user_tenant;
+CREATE TABLE sys_user_tenant (
+    id              BIGINT       NOT NULL,
+    user_id         BIGINT       NOT NULL COMMENT 'sys_user.id',
+    tenant_id       BIGINT       NOT NULL COMMENT 'sys_tenant.id',
+    role_in_tenant  VARCHAR(32)  DEFAULT 'member' COMMENT '在该公司的角色: owner/admin/member/guest',
+    is_default      TINYINT      DEFAULT 0 COMMENT '是否默认公司 (1=是, 0=否)',
+    create_time     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user_tenant (user_id, tenant_id),
+    KEY idx_tenant (tenant_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户-公司 关联';
+
+-- 用户-角色 多对多关联
+DROP TABLE IF EXISTS sys_user_role;
+CREATE TABLE sys_user_role (
+    id              BIGINT       NOT NULL,
+    user_id         BIGINT       NOT NULL,
+    role_id         BIGINT       NOT NULL,
+    tenant_id       BIGINT       NOT NULL DEFAULT 1 COMMENT '角色在该租户下有效',
+    create_time     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user_role_tenant (user_id, role_id, tenant_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户-角色 关联';
+
+-- 角色-菜单 多对多关联
+DROP TABLE IF EXISTS sys_role_menu;
+CREATE TABLE sys_role_menu (
+    id              BIGINT       NOT NULL,
+    role_id         BIGINT       NOT NULL,
+    menu_id         BIGINT       NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_role_menu (role_id, menu_id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '角色-菜单 关联';
+
+-- 登录审计 (记录谁/什么时间/什么 IP 登录过, 用于安全审计)
+DROP TABLE IF EXISTS sys_login_audit;
+CREATE TABLE sys_login_audit (
+    id              BIGINT       NOT NULL,
+    username        VARCHAR(64)  NOT NULL,
+    tenant_id       BIGINT,
+    user_id         BIGINT,
+    login_ip        VARCHAR(64),
+    user_agent      VARCHAR(255),
+    login_status    VARCHAR(16)  COMMENT 'SUCCESS / FAILED / LOCKED',
+    fail_reason     VARCHAR(255),
+    login_time      DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_username (username),
+    KEY idx_time (login_time)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '登录审计';
 
 DROP TABLE IF EXISTS sys_menu;
 CREATE TABLE sys_menu (

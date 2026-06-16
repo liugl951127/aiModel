@@ -5,9 +5,10 @@ USE ai_platform;
 INSERT INTO sys_tenant (id, tenant_code, tenant_name, contact_name, contact_email, status, plan_code, max_users)
 VALUES (1, 'default', '默认租户', 'Admin', 'admin@example.com', 1, 'enterprise', 999);
 
--- Default admin user (password: admin123, BCrypt encoded)
-INSERT INTO sys_user (id, tenant_id, username, password, nickname, email, status)
-VALUES (1, 1, 'admin', '$2a$10$N8u6WqNQb3FgxT0vbgM5OOqPjtNGrV3vO/k2Gzj4vF1E6V6ZqJfpa', '管理员', 'admin@example.com', 1, '技术部');
+-- Default admin user (password: admin123, BCrypt encoded, $2a$ 10 rounds)
+-- is_super_admin=1: 超级管理员，拥有所有租户权限
+INSERT INTO sys_user (id, tenant_id, username, password, nickname, email, status, department, is_super_admin)
+VALUES (1, 1, 'admin', '$2a$10$4tMHnM6bsrADgZJyK3vI5.z99DvtP6xhQoPAjuayBmGvtdj4Z8zeO', '管理员', 'admin@example.com', 1, '技术部', 1);
 
 -- Default agent
 INSERT INTO agent_agent (id, tenant_id, agent_code, agent_name, agent_type, description, system_prompt, tools, model_code, temperature, max_steps, status)
@@ -31,5 +32,24 @@ INSERT INTO sys_tenant (id, tenant_code, tenant_name, contact_name, contact_emai
 
 -- 示例用户（password: demo123 BCrypt 编码）
 INSERT INTO sys_user (id, tenant_id, username, password, nickname, email, status, department) VALUES
-    (2, 1, 'demo',   '$2a$10$N8u6WqNQb3FgxT0vbgM5OOqPjtNGrV3vO/k2Gzj4vF1E6V6ZqJfpa', '演示账号', 'demo@example.com',   1, '市场部'),
-    (3, 2, 'manager','$2a$10$N8u6WqNQb3FgxT0vbgM5OOqPjtNGrV3vO/k2Gzj4vF1E6V6ZqJfpa', '王经理',   'manager@example.com', 1, '运营部');
+    (2, 1, 'demo',    '$2a$10$lv5zH33opqzLp4PadeWIseuOGUzRs6Rj6O48PiV/SfKisSMFT0r.y', '演示账号', 'demo@example.com',   1, '市场部'),
+    (3, 2, 'manager', '$2a$10$lv5zH33opqzLp4PadeWIseuOGUzRs6Rj6O48PiV/SfKisSMFT0r.y', '王经理',   'manager@example.com', 1, '运营部');
+
+-- 用户-公司 关联
+-- admin: 属于 3 家公司, default 为默认
+-- demo: 属于默认公司, 是 member
+-- manager: 属于示例科技公司, 是 owner
+INSERT INTO sys_user_tenant (id, user_id, tenant_id, role_in_tenant, is_default) VALUES
+    (1, 1, 1, 'owner', 1),
+    (2, 1, 2, 'admin', 0),
+    (3, 1, 3, 'admin', 0),
+    (4, 2, 1, 'member', 1),
+    (5, 3, 2, 'owner', 1);
+
+-- 用户-角色 关联
+-- admin: PLATFORM_ADMIN (超管) + user
+-- demo/manager: user
+INSERT INTO sys_user_role (id, user_id, role_id, tenant_id) VALUES
+    (1, 1, 1, 1),
+    (2, 2, 1, 1),
+    (3, 3, 1, 2);
