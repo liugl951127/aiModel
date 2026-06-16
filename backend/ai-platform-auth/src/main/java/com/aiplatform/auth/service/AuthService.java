@@ -2,6 +2,7 @@ package com.aiplatform.auth.service;
 
 import com.aiplatform.auth.dto.LoginRequest;
 import com.aiplatform.auth.dto.LoginResponse;
+import com.aiplatform.auth.feign.SystemAuditClient;
 import com.aiplatform.auth.feign.TenantServiceClient;
 import com.aiplatform.auth.feign.UserServiceClient;
 import com.aiplatform.common.constant.CommonConstants;
@@ -29,6 +30,7 @@ public class AuthService {
     private final RedisUtils redisUtils;
     private final UserServiceClient userServiceClient;
     private final TenantServiceClient tenantServiceClient;
+    private final SystemAuditClient systemAuditClient;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /**
@@ -69,8 +71,13 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest req) {
+        return login(req, null, null);
+    }
+
+    public LoginResponse login(LoginRequest req, String ip, String userAgent) {
         Result<Map<String, Object>> resp = userServiceClient.getByUsername(req.getUsername());
         if (resp == null || resp.getCode() == null || resp.getCode() != ResultCode.SUCCESS.getCode()) {
+            recordAudit(req.getUsername(), null, null, ip, userAgent, "FAILED", "用户不存在");
             throw new BusinessException(ResultCode.USER_PASSWORD_ERROR);
         }
         Map<String, Object> user = resp.getData();
@@ -80,10 +87,12 @@ public class AuthService {
 
         Integer status = (Integer) user.get("status");
         if (status != null && status == 0) {
+            recordAudit(req.getUsername(), ((Number) user.get("id")).longValue(), null, ip, userAgent, "LOCKED", "账号已停用");
             throw new BusinessException(ResultCode.USER_DISABLED);
         }
         String stored = (String) user.get("password");
         if (stored == null || !passwordEncoder.matches(req.getPassword(), stored)) {
+            recordAudit(req.getUsername(), ((Number) user.get("id")).longValue(), null, ip, userAgent, "FAILED", "密码错误");
             throw new BusinessException(ResultCode.USER_PASSWORD_ERROR);
         }
 
@@ -134,6 +143,8 @@ public class AuthService {
         String refreshToken = UUID.randomUUID().toString().replace("-", "");
         redisUtils.set("refresh:" + refreshToken, accessToken, 7 * 24 * 3600);
 
+        recordAudit(username, userId, tenantId, ip, userAgent, "SUCCESS", null);
+
         return LoginResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -151,6 +162,22 @@ public class AuthService {
                 .tenantCode(tenantCode)
                 .tenantName(tenantName)
                 .build();
+    }
+
+    private void recordAudit(String username, Long userId, Long tenantId, String ip, String userAgent, String status, String reason) {
+        try {
+            java.util.Map<String, Object> body = new java.util.HashMap<>();
+            body.put("username", username);
+            body.put("userId", userId);
+            body.put("tenantId", tenantId);
+            body.put("ip", ip);
+            body.put("userAgent", userAgent);
+            body.put("status", status);
+            body.put("reason", reason);
+            systemAuditClient.record(body);
+        } catch (Exception e) {
+            log.warn("记录登录审计失败: {}", e.getMessage());
+        }
     }
 
     public void logout(String token) {

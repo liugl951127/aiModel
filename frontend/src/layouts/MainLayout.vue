@@ -30,6 +30,14 @@
           <el-icon><Connection /></el-icon>
           <template #title>工作流编排</template>
         </el-menu-item>
+        <el-menu-item index="/workflow-list">
+          <el-icon><Tickets /></el-icon>
+          <template #title>工作流管理</template>
+        </el-menu-item>
+        <el-menu-item index="/model-versions">
+          <el-icon><Box /></el-icon>
+          <template #title>模型版本</template>
+        </el-menu-item>
         <el-menu-item index="/models">
           <el-icon><Cpu /></el-icon>
           <template #title>大模型</template>
@@ -66,6 +74,9 @@
           <template #title><el-icon><Setting /></el-icon><span>系统</span></template>
           <el-menu-item index="/users">用户</el-menu-item>
           <el-menu-item index="/tenants">租户</el-menu-item>
+          <el-menu-item index="/roles">角色</el-menu-item>
+          <el-menu-item index="/menus">菜单</el-menu-item>
+          <el-menu-item index="/audit">审计</el-menu-item>
         </el-sub-menu>
       </el-menu>
 
@@ -222,7 +233,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   DataLine, Cpu, Files, VideoPlay, UserFilled, Tools, Reading, ChatDotRound, Setting,
   Connection, Refresh, Search, Fold, Expand, CaretBottom, User, SwitchButton,
-  OfficeBuilding, Document, Sunny, Moon, MagicStick
+  OfficeBuilding, Document, Sunny, Moon, MagicStick, Tickets, Box
 } from '@element-plus/icons-vue'
 import LiveTickerBar from '@/components/LiveTickerBar.vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
@@ -257,6 +268,8 @@ const searchResults = computed(() => {
 const allMenus = [
   { path: '/dashboard', name: '工作台', icon: 'DataLine', desc: '平台概览 + 实时活动' },
   { path: '/workflow', name: '工作流编排', icon: 'Connection', desc: '拖拽编排业务流' },
+  { path: '/workflow-list', name: '工作流管理', icon: 'Tickets', desc: '已保存工作流 + 复制' },
+  { path: '/model-versions', name: '模型版本', icon: 'Box', desc: '多版本 + 激活 + 对比' },
   { path: '/models', name: '大模型', icon: 'Cpu', desc: '模型注册 + 版本管理' },
   { path: '/datasets', name: '数据集', icon: 'Files', desc: '语料上传 + 切片' },
   { path: '/train', name: '训练任务', icon: 'VideoPlay', desc: 'Transformer 训练 + SSE 实时' },
@@ -265,8 +278,11 @@ const allMenus = [
   { path: '/knowledge', name: '知识库', icon: 'Reading', desc: 'RAG 检索增强' },
   { path: '/inference', name: '推理测试', icon: 'ChatDotRound', desc: 'ONNX 推理' },
   { path: '/chat', name: '智能对话', icon: 'ChatDotRound', desc: '多智能体会话' },
-  { path: '/users', name: '用户管理', icon: 'UserFilled', desc: '用户 + 角色' },
-  { path: '/tenants', name: '租户管理', icon: 'OfficeBuilding', desc: '多公司隔离' }
+  { path: '/users', name: '用户管理', icon: 'UserFilled', desc: '用户 + 重置密码 + 启停' },
+  { path: '/tenants', name: '租户管理', icon: 'OfficeBuilding', desc: '多公司隔离' },
+  { path: '/roles', name: '角色管理', icon: 'UserFilled', desc: '角色 + 用户绑定 + 菜单权限' },
+  { path: '/menus', name: '菜单管理', icon: 'Setting', desc: '菜单树维护' },
+  { path: '/audit', name: '登录审计', icon: 'Document', desc: 'sys_login_audit' }
 ]
 const onSearch = () => {
   if (searchResults.value.length > 0) {

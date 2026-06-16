@@ -95,4 +95,48 @@ public class UserService {
     public void delete(Long id) {
         userMapper.deleteById(id);
     }
+
+    /** 重置密码返 123456 */
+    public String resetPassword(Long id) {
+        String pwd = "123456";
+        SysUser u = new SysUser();
+        u.setId(id);
+        u.setPassword(passwordEncoder.encode(pwd));
+        userMapper.updateById(u);
+        return pwd;
+    }
+
+    /** 自己改密码 */
+    public void changePassword(Long id, String oldPwd, String newPwd) {
+        if (oldPwd == null || newPwd == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "新旧密码必填");
+        }
+        SysUser u = userMapper.selectById(id);
+        if (u == null) throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        if (!passwordEncoder.matches(oldPwd, u.getPassword())) {
+            throw new BusinessException(ResultCode.USER_PASSWORD_ERROR, "原密码错误");
+        }
+        SysUser update = new SysUser();
+        update.setId(id);
+        update.setPassword(passwordEncoder.encode(newPwd));
+        userMapper.updateById(update);
+    }
+
+    /** 启停 */
+    public void changeStatus(Long id, Integer status) {
+        SysUser u = new SysUser();
+        u.setId(id);
+        u.setStatus(status);
+        userMapper.updateById(u);
+    }
+
+    /** 统计: 总数 / 启用 / 停用 / 本月新增 */
+    public Map<String, Object> stats() {
+        Long total = userMapper.selectCount(null);
+        Long active = userMapper.selectCount(new LambdaQueryWrapper<SysUser>().eq(SysUser::getStatus, 1));
+        Long inactive = userMapper.selectCount(new LambdaQueryWrapper<SysUser>().eq(SysUser::getStatus, 0));
+        java.time.LocalDateTime monthStart = java.time.LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+        Long thisMonth = userMapper.selectCount(new LambdaQueryWrapper<SysUser>().ge(SysUser::getCreateTime, monthStart));
+        return Map.of("total", total, "active", active, "inactive", inactive, "thisMonth", thisMonth);
+    }
 }

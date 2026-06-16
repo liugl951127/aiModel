@@ -33,8 +33,10 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public Result<LoginResponse> login(@RequestBody @Valid LoginRequest request) {
-        return Result.success(authService.login(request));
+    public Result<LoginResponse> login(@RequestBody @Valid LoginRequest request,
+                                       @RequestHeader(value = "X-Real-IP", required = false) String realIp,
+                                       @RequestHeader(value = "User-Agent", required = false) String userAgent) {
+        return Result.success(authService.login(request, realIp, userAgent));
     }
 
     /**

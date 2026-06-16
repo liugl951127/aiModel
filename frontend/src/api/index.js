@@ -15,13 +15,23 @@ export const userApi = {
   page: (params) => request.get('/api/user/page', { params }),
   create: (data) => request.post('/api/user', data),
   update: (data) => request.put('/api/user', data),
-  remove: (id) => request.delete(`/api/user/${id}`)
+  remove: (id) => request.delete(`/api/user/${id}`),
+  resetPassword: (id) => request.post(`/api/user/${id}/reset-password`),
+  changePassword: (id, body) => request.post(`/api/user/${id}/change-password`, body),
+  changeStatus: (id, status) => request.post(`/api/user/${id}/status/${status}`),
+  stats: () => request.get('/api/user/stats')
 }
 
 export const tenantApi = {
   list: () => request.get('/api/tenant/list'),
+  page: (params) => request.get('/api/tenant/page', { params }),
   get: (code) => request.get(`/api/tenant/${code}`),
-  create: (data) => request.post('/api/tenant', data)
+  create: (data) => request.post('/api/tenant', data),
+  update: (data) => request.put('/api/tenant', data),
+  remove: (id) => request.delete(`/api/tenant/${id}`),
+  changeStatus: (id, status) => request.post(`/api/tenant/${id}/status/${status}`),
+  stats: () => request.get('/api/tenant/stats'),
+  listUsers: (id) => request.get(`/api/tenant/${id}/users`)
 }
 
 export const modelApi = {
@@ -31,7 +41,12 @@ export const modelApi = {
   create: (data) => request.post('/api/model', data),
   update: (data) => request.put('/api/model', data),
   remove: (id) => request.delete(`/api/model/${id}`),
-  export: (id) => request.post(`/api/model/export/${id}`)
+  export: (id) => request.post(`/api/model/export/${id}`),
+  versions: (modelCode) => request.get(`/api/model/versions/${modelCode}`),
+  activate: (id) => request.post(`/api/model/${id}/activate`),
+  compare: (a, b) => request.get('/api/model/compare', { params: { a, b } }),
+  stats: () => request.get('/api/model/stats'),
+  newVersion: (modelCode, data) => request.post(`/api/model/${modelCode}/new-version`, data)
 }
 
 export const datasetApi = {
@@ -101,6 +116,48 @@ export const trainerApi = {
   // SSE 事件流
   streamUrl: (id) => `/api/trainer/job/${id}/stream`,
   health: () => request.get('/api/trainer/health')
+}
+
+// ---------- 角色 / 菜单 / 审计 ----------
+export const roleApi = {
+  list: () => request.get('/api/role/list'),
+  page: (params) => request.get('/api/role/page', { params }),
+  create: (data) => request.post('/api/role', data),
+  update: (data) => request.put('/api/role', data),
+  remove: (id) => request.delete(`/api/role/${id}`),
+  changeStatus: (id, status) => request.post(`/api/role/${id}/status/${status}`),
+  stats: () => request.get('/api/role/stats'),
+  assign: (data) => request.post('/api/role/assign', data),
+  byUser: (userId, tenantId) => request.get(`/api/role/by-user/${userId}`, { params: { tenantId } }),
+  userIds: (roleId) => request.get(`/api/role/${roleId}/users`)
+}
+
+export const menuApi = {
+  list: () => request.get('/api/menu/list'),
+  tree: () => request.get('/api/menu/tree'),
+  create: (data) => request.post('/api/menu', data),
+  update: (data) => request.put('/api/menu', data),
+  remove: (id) => request.delete(`/api/menu/${id}`),
+  byRole: (roleId) => request.get(`/api/menu/by-role/${roleId}`),
+  assign: (data) => request.post('/api/menu/assign', data)
+}
+
+export const auditApi = {
+  page: (params) => request.get('/api/audit/login/page', { params }),
+  stats: () => request.get('/api/audit/login/stats'),
+  trend: (days = 7) => request.get('/api/audit/login/trend', { params: { days } })
+}
+
+export const workflowApi = {
+  listSpecs: () => request.get('/api/workflow/spec/list'),
+  getSpec: (id) => request.get(`/api/workflow/spec/${id}`),
+  saveSpec: (data) => request.post('/api/workflow/spec', data),
+  removeSpec: (id) => request.delete(`/api/workflow/spec/${id}`),
+  duplicate: (id) => request.post(`/api/workflow/spec/${id}/duplicate`),
+  listRuns: () => request.get('/api/workflow/runs'),
+  getRun: (id) => request.get(`/api/workflow/run/${id}`),
+  run: (data) => request.post('/api/workflow/run', data),
+  template: () => request.get('/api/workflow/templates/train-eval-deploy')
 }
 
 // ---------- 知识库流程编排 ----------

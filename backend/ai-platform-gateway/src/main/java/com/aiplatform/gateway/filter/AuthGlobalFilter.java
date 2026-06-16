@@ -39,6 +39,7 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             "/api/auth/preview",
             "/api/auth/tenants",
             "/api/tenant/feign/by-username",
+            "/api/audit/login/feign/",
             "/api/public/",
             "/actuator/",
             "/v3/api-docs",

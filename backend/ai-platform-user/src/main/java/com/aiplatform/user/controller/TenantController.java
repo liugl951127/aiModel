@@ -3,8 +3,10 @@ package com.aiplatform.user.controller;
 import com.aiplatform.common.result.Result;
 import com.aiplatform.user.entity.SysTenant;
 import com.aiplatform.user.entity.SysUser;
+import com.aiplatform.user.entity.SysUserTenant;
 import com.aiplatform.user.mapper.SysTenantMapper;
 import com.aiplatform.user.mapper.SysUserMapper;
+import com.aiplatform.user.mapper.SysUserTenantMapper;
 import com.aiplatform.user.service.TenantService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +24,24 @@ public class TenantController {
     private final TenantService tenantService;
     private final SysUserMapper userMapper;
     private final SysTenantMapper tenantMapper;
+    private final SysUserTenantMapper userTenantMapper;
 
     @GetMapping("/list")
     public Result<List<SysTenant>> list() {
         return Result.success(tenantService.listAll());
+    }
+
+    @GetMapping("/page")
+    public Result<com.baomidou.mybatisplus.core.metadata.IPage<SysTenant>> page(
+            @RequestParam(defaultValue = "1") int current,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword) {
+        LambdaQueryWrapper<SysTenant> q = new LambdaQueryWrapper<>();
+        if (keyword != null && !keyword.isBlank()) {
+            q.like(SysTenant::getTenantCode, keyword).or().like(SysTenant::getTenantName, keyword);
+        }
+        q.orderByAsc(SysTenant::getId);
+        return Result.success(tenantMapper.selectPage(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(current, size), q));
     }
 
     @GetMapping("/{code}")
@@ -38,11 +54,30 @@ public class TenantController {
         return Result.success(tenantService.create(tenant));
     }
 
+    @PutMapping
+    public Result<SysTenant> update(@RequestBody SysTenant tenant) {
+        tenantMapper.updateById(tenant);
+        return Result.success(tenantMapper.selectById(tenant.getId()));
+    }
+
+    @DeleteMapping("/{id}")
+    public Result<Void> delete(@PathVariable Long id) {
+        tenantMapper.deleteById(id);
+        userTenantMapper.delete(new LambdaQueryWrapper<SysUserTenant>().eq(SysUserTenant::getTenantId, id));
+        return Result.success();
+    }
+
+    @PostMapping("/{id}/status/{status}")
+    public Result<Void> changeStatus(@PathVariable Long id, @PathVariable Integer status) {
+        SysTenant t = new SysTenant();
+        t.setId(id);
+        t.setStatus(status);
+        tenantMapper.updateById(t);
+        return Result.success();
+    }
+
     /**
      * Feign 端点：按用户名返回他所属的所有公司（租户）。
-     *
-     * <p>登录前置调用，结果含 {@code id / tenantCode / tenantName / role / department}。
-     * 一个用户可以属于多个公司（咨询/外包等场景），前端弹出公司选择器。</p>
      */
     @GetMapping("/feign/by-username")
     public Result<List<Map<String, Object>>> listByUsername(@RequestParam String username) {
@@ -50,24 +85,87 @@ public class TenantController {
             return Result.success(List.of());
         }
         SysUser user = userMapper.selectOne(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername, username).last("limit 1"));
+                .eq(SysUser::getUsername, username).last("limit 1));
         if (user == null) {
             return Result.success(List.of());
         }
-        // 该用户默认 tenant_id 是主公司；同时从 sys_tenant 表拉所有 active 的，
-        // 让用户可以切换"体验"其它公司（只对 admin 角色开放）
+        // 优先从 sys_user_tenant 拿 (多对多)，没有就 fallback 到主公司
+        List<SysUserTenant> uts = userTenantMapper.selectList(
+                new LambdaQueryWrapper<SysUserTenant>().eq(SysUserTenant::getUserId, user.getId()));
         List<SysTenant> all = tenantMapper.selectList(
                 new LambdaQueryWrapper<SysTenant>().eq(SysTenant::getStatus, 1)
                         .orderByAsc(SysTenant::getId));
-        // 主公司排第一
         List<Map<String, Object>> out = new java.util.ArrayList<>();
-        for (SysTenant t : all) {
+        if (!uts.isEmpty()) {
+            for (SysUserTenant ut : uts) {
+                SysTenant t = tenantMapper.selectById(ut.getTenantId());
+                if (t == null) continue;
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", t.getId());
+                m.put("tenantCode", t.getTenantCode());
+                m.put("tenantName", t.getTenantName());
+                m.put("role", ut.getRoleInTenant());
+                m.put("isDefault", ut.getIsDefault());
+                m.put("department", user.getDepartment());
+                out.add(m);
+            }
+        } else {
+            // fallback: 主公司
+            SysTenant t = tenantMapper.selectById(user.getTenantId());
+            if (t != null) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", t.getId());
+                m.put("tenantCode", t.getTenantCode());
+                m.put("tenantName", t.getTenantName());
+                m.put("role", "owner");
+                m.put("isDefault", 1);
+                m.put("department", user.getDepartment());
+                out.add(m);
+            }
+            // admin 看所有
+            if ("admin".equalsIgnoreCase(user.getUsername())) {
+                for (SysTenant t : all) {
+                    if (out.stream().noneMatch(x -> ((Number) x.get("id")).longValue() == t.getId())) {
+                        Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("id", t.getId());
+                        m.put("tenantCode", t.getTenantCode());
+                        m.put("tenantName", t.getTenantName());
+                        m.put("role", "super");
+                        m.put("isDefault", 0);
+                        m.put("department", user.getDepartment());
+                        out.add(m);
+                    }
+                }
+            }
+        }
+        return Result.success(out);
+    }
+
+    /** 租户统计 */
+    @GetMapping("/stats")
+    public Result<Map<String, Object>> stats() {
+        Long total = tenantMapper.selectCount(null);
+        Long active = tenantMapper.selectCount(new LambdaQueryWrapper<SysTenant>().eq(SysTenant::getStatus, 1));
+        Long userCount = userTenantMapper.selectCount(null);
+        return Result.of(Map.of("total", total, "active", active, "userBindings", userCount));
+    }
+
+    /** 一个公司下所有用户 */
+    @GetMapping("/{id}/users")
+    public Result<List<Map<String, Object>>> listUsers(@PathVariable Long id) {
+        List<SysUserTenant> uts = userTenantMapper.selectList(
+                new LambdaQueryWrapper<SysUserTenant>().eq(SysUserTenant::getTenantId, id));
+        List<Map<String, Object>> out = new java.util.ArrayList<>();
+        for (SysUserTenant ut : uts) {
+            SysUser u = userMapper.selectById(ut.getUserId());
+            if (u == null) continue;
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id", t.getId());
-            m.put("tenantCode", t.getTenantCode());
-            m.put("tenantName", t.getTenantName());
-            m.put("role", t.getId().equals(user.getTenantId()) ? "owner" : "guest");
-            m.put("department", user.getDepartment());
+            m.put("userId", u.getId());
+            m.put("username", u.getUsername());
+            m.put("nickname", u.getNickname());
+            m.put("department", u.getDepartment());
+            m.put("roleInTenant", ut.getRoleInTenant());
+            m.put("isDefault", ut.getIsDefault());
             out.add(m);
         }
         return Result.success(out);
