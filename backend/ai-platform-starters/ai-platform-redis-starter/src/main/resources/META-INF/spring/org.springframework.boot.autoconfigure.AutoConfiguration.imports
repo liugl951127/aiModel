@@ -1,1 +1,2 @@
+com.aiplatform.redis.autoconfigure.RedissonConfig
 com.aiplatform.redis.autoconfigure.DistributedAutoConfiguration
