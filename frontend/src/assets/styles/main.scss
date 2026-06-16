@@ -1,6 +1,6 @@
 // ============================================================
 // 全局基础样式
-// 包含: 字体 / 重置 / 滚动条 / 响应式工具类 / Element Plus 主题
+// 字体小一号 / 紧凑 / 现代化
 // ============================================================
 
 @use './element-theme.scss';
@@ -12,11 +12,29 @@
   --bg: var(--bg-app, #f5f7fa);
   --sidebar-bg: #0f172a;
   --sidebar-active: #6366f1;
-  --radius-base: 8px;
-  --radius-lg: 12px;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 12px 30px -8px rgba(0, 0, 0, 0.15);
+  --radius-base: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px -2px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px -6px rgba(0, 0, 0, 0.12);
+
+  // 字号梯度 (参考 Notion 风格, 紧凑精致)
+  --fs-xs: 11px;     // caption / 标签
+  --fs-sm: 12px;     // 副文本
+  --fs-base: 13px;   // 正文 (默认)
+  --fs-md: 14px;     // 标题 / 强调
+  --fs-lg: 16px;     // 大标题
+  --fs-xl: 20px;     // 页面标题
+  --fs-2xl: 26px;    // hero 数字
+
+  // 紧凑间距
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
 }
 
 html, body, #app {
@@ -26,6 +44,8 @@ html, body, #app {
     "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--text-primary, #1e293b);
+  font-size: var(--fs-base);
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.25s, color 0.25s;
@@ -36,69 +56,132 @@ html, body, #app {
 a { color: var(--el-color-primary); text-decoration: none; }
 a:hover { color: var(--el-color-primary-light-3); }
 
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  letter-spacing: -0.01em;
+}
+h1 { font-size: var(--fs-xl); }
+h2 { font-size: var(--fs-lg); }
+h3 { font-size: var(--fs-md); }
+h4 { font-size: var(--fs-base); }
+p  { margin: 0 0 var(--sp-2); line-height: 1.65; }
+
+code, pre {
+  font-family: "SF Mono", "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+}
+code {
+  background: rgba(99, 102, 241, 0.08);
+  color: #4f46e5;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
 // ============================================================
 // 滚动条
 // ============================================================
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-strong, #cbd5e1);
-  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 3px;
   transition: background 0.2s;
 }
-::-webkit-scrollbar-thumb:hover { background: var(--text-secondary, #94a3b8); }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.7); }
 
 // Firefox
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
 }
 
 // ============================================================
 // 工具类
 // ============================================================
-.page-container { padding: 16px; }
+.page-container { padding: var(--sp-4); }
 .card-header {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
 }
 .flex { display: flex; }
 .flex-1 { flex: 1; }
-.gap-4 { gap: 4px; }
-.gap-8 { gap: 8px; }
-.gap-12 { gap: 12px; }
-.mt-4 { margin-top: 4px; }
-.mt-8 { margin-top: 8px; }
-.mt-12 { margin-top: 12px; }
-.mt-16 { margin-top: 16px; }
-.text-muted { color: var(--text-secondary, #94a3b8); }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: var(--sp-1); }
+.gap-4 { gap: var(--sp-1); }
+.gap-6 { gap: 6px; }
+.gap-8 { gap: var(--sp-2); }
+.gap-12 { gap: var(--sp-3); }
+.gap-16 { gap: var(--sp-4); }
+.mt-4 { margin-top: var(--sp-1); }
+.mt-8 { margin-top: var(--sp-2); }
+.mt-12 { margin-top: var(--sp-3); }
+.mt-16 { margin-top: var(--sp-4); }
+.mt-20 { margin-top: var(--sp-5); }
+.text-muted { color: var(--text-secondary, #64748b); }
 .text-primary { color: var(--text-primary, #1e293b); }
 .text-center { text-align: center; }
-.text-sm { font-size: 12px; }
-.text-xs { font-size: 11px; }
-.text-bold { font-weight: 700; }
+.text-xs { font-size: var(--fs-xs); }
+.text-sm { font-size: var(--fs-sm); }
+.text-md { font-size: var(--fs-md); }
+.text-lg { font-size: var(--fs-lg); }
+.text-bold { font-weight: 600; }
 
 // ============================================================
-// Element Plus 全局调整
+// Element Plus 全局调整 (紧凑化)
 // ============================================================
 
 // 链接不带下划线
-.el-link { text-decoration: none !important; }
+.el-link { text-decoration: none !important; font-size: var(--fs-sm); }
 
-// Button 紧凑
+// Button 紧凑 + 小一号
 .el-button {
   font-weight: 500;
-  & + .el-button { margin-left: 0; }
+  font-size: var(--fs-sm);
+  padding: 5px 12px;
 }
-.el-button + .el-button { margin-left: 8px; }
+.el-button + .el-button { margin-left: var(--sp-2); }
+.el-button.is-large { font-size: var(--fs-md); padding: 10px 20px; }
+.el-button.is-small { font-size: var(--fs-xs); padding: 3px 8px; }
 
-// Card padding
+// Card padding 减小
 .el-card { box-sizing: border-box; }
+.el-card__body { padding: var(--sp-3) var(--sp-4); }
+.el-card__header { padding: var(--sp-2) var(--sp-4); }
+
+// Table 紧凑
+.el-table { font-size: var(--fs-sm); }
+.el-table th.el-table__cell { padding: 6px 0; font-weight: 600; }
+.el-table td.el-table__cell { padding: 6px 0; }
+
+// Dialog 紧凑
+.el-dialog__header { padding: var(--sp-3) var(--sp-4); }
+.el-dialog__body { padding: var(--sp-4); }
+.el-dialog__footer { padding: var(--sp-3) var(--sp-4); }
+
+// Drawer 紧凑
+.el-drawer__header { padding: var(--sp-3) var(--sp-4); margin-bottom: 0; }
+.el-drawer__body { padding: var(--sp-4); }
+
+// Form 紧凑
+.el-form-item { margin-bottom: var(--sp-3); }
+.el-form-item__label { font-size: var(--fs-sm); line-height: 1.4; padding-bottom: 2px; }
+.el-form-item__error { padding-top: 0; font-size: var(--fs-xs); }
+
+// Input 紧凑
+.el-input__wrapper { padding: 2px 10px; }
+.el-input__inner { font-size: var(--fs-sm); }
+.el-textarea__inner { font-size: var(--fs-sm); }
 
 // 全局 Element Plus 弹窗 z-index 最高
 .el-overlay { z-index: 3000 !important; }
 .el-message { z-index: 5000 !important; }
 .el-notification { z-index: 5000 !important; }
+
+// Tag 紧凑
+.el-tag { font-size: var(--fs-xs); padding: 0 6px; height: 20px; line-height: 18px; }
 
 // 滚动容器统一
 .scroll-y { overflow-y: auto; max-height: 100%; }
@@ -107,11 +190,11 @@ a:hover { color: var(--el-color-primary-light-3); }
 .empty-tip {
   padding: 40px 0; text-align: center;
   color: var(--text-secondary, #94a3b8);
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 // 分隔
-.divider-h { height: 1px; background: var(--border, #e5e7eb); margin: 12px 0; }
+.divider-h { height: 1px; background: var(--border, #e5e7eb); margin: var(--sp-3) 0; }
 
 // 状态色
 .color-ok { color: var(--el-color-success); }
@@ -125,10 +208,36 @@ a:hover { color: var(--el-color-primary-light-3); }
 .focusable:hover { transform: translateY(-1px); }
 
 // ============================================================
+// 路由切换 fade 过渡 (无感跳转)
+// ============================================================
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+// ============================================================
 // 主题过渡 (避免切换时颜色突变)
 // ============================================================
 * {
   transition-property: background-color, border-color, color;
   transition-duration: 0.18s;
   transition-timing-function: ease;
+}
+
+// ============================================================
+// 暗色主题 (data-theme="dark")
+// ============================================================
+:root[data-theme="dark"] {
+  --bg: #0f172a;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --border: #334155;
+  --border-strong: #475569;
 }

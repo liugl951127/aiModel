@@ -193,11 +193,16 @@
         </header>
       </el-affix>
 
+      <!-- 顶部进度条 (路由切换时显示, 无感过渡) -->
+      <div class="route-progress" :class="{ active: isNavigating }"></div>
+
       <!-- 内容 -->
       <section class="content">
         <router-view v-slot="{ Component, route }">
           <transition name="fade-page" mode="out-in">
-            <component :is="Component" :key="route.fullPath" />
+            <keep-alive :include="cachedViews">
+              <component :is="Component" :key="route.fullPath" />
+            </keep-alive>
           </transition>
         </router-view>
       </section>
@@ -242,6 +247,22 @@ import LiveTickerBar from '@/components/LiveTickerBar.vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
 
 const router = useRouter()
+const isNavigating = ref(false)
+const cachedViews = ['Dashboard', 'Workflow', 'WorkflowList', 'KnowledgePipeline', 'Train', 'Agent', 'Chat']
+
+// 路由切换进度条
+let navTimer = null
+router.beforeEach((to, from, next) => {
+  if (to.path !== from.path) {
+    isNavigating.value = true
+    clearTimeout(navTimer)
+    navTimer = setTimeout(() => { isNavigating.value = false }, 300)
+  }
+  next()
+})
+router.afterEach(() => {
+  setTimeout(() => { isNavigating.value = false }, 100)
+})
 const route = useRoute()
 const bus = useGlobalBus()
 
@@ -548,7 +569,25 @@ onMounted(() => {
 .cur { margin-left: 4px; color: #6366f1; font-size: 10px; }
 
 /* ===== 内容 ===== */
-.content { flex: 1; overflow: auto; padding: 24px 28px; }
+/* 路由切换顶部进度条 */
+.route-progress {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 2px; z-index: 9999;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  pointer-events: none;
+}
+.route-progress.active { transform: translateX(0); }
+
+/* 页面切换 fade (无白屏) */
+.fade-page-enter-active, .fade-page-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-page-enter-from { opacity: 0; }
+.fade-page-leave-to { opacity: 0; }
+
+.content { flex: 1; overflow: auto; padding: 20px 24px; }
 .fade-page-enter-active, .fade-page-leave-active { transition: all 0.18s ease; }
 .fade-page-enter-from, .fade-page-leave-to { opacity: 0; transform: translateY(4px); }
 

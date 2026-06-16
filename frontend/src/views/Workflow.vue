@@ -6,6 +6,30 @@
         <p class="muted">把 12 个 API 模块（模型 / 训练 / 智能体 / 知识库 / 工作流 / 推理）自由组合成可执行流程</p>
       </div>
       <div class="wf-head-actions">
+        <el-button-group>
+          <el-tooltip content="撤销 (Ctrl+Z)" placement="bottom">
+            <el-button @click="undo" :disabled="historyIdx < 0">
+              <el-icon><Back /></el-icon>
+            </el-button>
+          </el-tooltip>
+          <el-tooltip content="重做 (Ctrl+Y)" placement="bottom">
+            <el-button @click="redo" :disabled="historyIdx >= history.length - 1">
+              <el-icon><RefreshRight /></el-icon>
+            </el-button>
+          </el-tooltip>
+        </el-button-group>
+        <el-button-group>
+          <el-tooltip content="全选 (Ctrl+A)" placement="bottom">
+            <el-button @click="selectAll"><el-icon><Check /></el-icon></el-button>
+          </el-tooltip>
+          <el-tooltip content="删除选中 (DEL)" placement="bottom">
+            <el-button @click="deleteSelected" :disabled="selectedIds.length === 0" type="danger" plain>
+              <el-icon><Delete /></el-icon>
+              <span v-if="selectedIds.length > 0" class="del-count">{{ selectedIds.length }}</span>
+            </el-button>
+          </el-tooltip>
+        </el-button-group>
+        <span v-if="selectedIds.length" class="sel-info">已选 {{ selectedIds.length }} 节点</span>
         <el-button :underline="false" @click="showGuide = true">
           <el-icon><QuestionFilled /></el-icon>
           使用说明
@@ -172,7 +196,27 @@
       </aside>
 
       <!-- ============ 画布 ============ -->
-      <section class="canvas" @drop="onDrop($event)" @dragover.prevent @dragenter.prevent>
+      <section
+        class="canvas"
+        @drop="onDrop($event)"
+        @dragover.prevent
+        @dragenter.prevent
+        @mousedown="onCanvasMouseDown"
+        @mousemove="onCanvasMouseMove"
+        @mouseup="onCanvasMouseUp"
+        @click="onCanvasClick"
+      >
+        <!-- 框选矩形 -->
+        <div
+          v-if="selectionRect"
+          class="selection-rect"
+          :style="{
+            left: Math.min(selectionRect.x1, selectionRect.x2) + 'px',
+            top: Math.min(selectionRect.y1, selectionRect.y2) + 'px',
+            width: Math.abs(selectionRect.x2 - selectionRect.x1) + 'px',
+            height: Math.abs(selectionRect.y2 - selectionRect.y1) + 'px'
+          }"
+        />
         <div v-if="!nodes.length" class="canvas-empty">
           <el-icon :size="48" color="#cbd5e1"><Plus /></el-icon>
           <h3>拖入节点开始编排</h3>
@@ -216,9 +260,10 @@
           v-for="(n, i) in nodes"
           :key="n.id"
           class="wf-node"
-          :class="{ running: currentNode === n.id, done: doneSet.has(n.id) }"
+          :class="{ running: currentNode === n.id, done: doneSet.has(n.id), selected: isSelected(n.id) }"
           :style="{ left: n.x + 'px', top: n.y + 'px' }"
-          @mousedown="onNodeMouseDown($event, n)"
+          @mousedown.stop="onNodeMouseDown($event, n)"
+          @click.stop="selectedIds = [n.id]"
         >
           <div class="wn-head" :style="`background: ${n.c1}`">
             <el-icon><component :is="n.icon" /></el-icon>
@@ -277,12 +322,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  QuestionFilled, DataAnalysis,
+  QuestionFilled, DataAnalysis, Back, RefreshRight,
   Cpu, Files, VideoPlay, UserFilled, Tools, Reading, ChatDotRound, Connection,
   Reading as ReadingIcon, OfficeBuilding, Promotion, Delete, Plus, MagicStick, Folder, Download,
+  FolderOpened, Brush, ScaleToOriginal, Coin, Key, Search, SetUp, Refresh, Upload, User, DataLine,
   Loading, CircleCheckFilled, CircleCloseFilled, Close, Document
 } from '@element-plus/icons-vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
@@ -362,76 +408,327 @@ const caseStudies = [
 
 const palette = [
   {
-    group: '模型 / 数据', icon: '🧠', c1: '#6366f1',
+    group: '数据准备', icon: '📥', c1: '#0ea5e9',
     nodes: [
-      {
-        id: 'model_list',   name: '列出模型',     icon: Cpu,     desc: 'GET /api/model',   api: () => modelApi.list(),
+      { id: 'dataset_list', name: '数据集列表',   icon: Files,   desc: 'GET /api/dataset', api: () => datasetApi.list(),
+        config: { format: 'jsonl' },
         tips: [
-          { k: '接口', v: 'GET /api/model' },
-          { k: '返回', v: 'SysModel[]: id/name/stage/version' },
-          { k: '场景', v: '工作流起点; 选可用模型' },
-          { k: '注意', v: '需 token; stage 过滤 PRETRAINED/STAGING/PROD' }
+          { k: '接口', v: 'GET /api/dataset' },
+          { k: 'format', v: '过滤 jsonl/json/csv/parquet' },
+          { k: '返回', v: 'Dataset[]: id/name/size/format' }
         ]
       },
-      { id: 'dataset_list', name: '列出数据集',   icon: Files,   desc: 'GET /api/dataset', api: () => datasetApi.list() }
+      { id: 'data_loader', name: '数据加载',     icon: FolderOpened, desc: '读 jsonl/json/csv', inputs: ['in'],
+        config: { path: '/data/corpus.jsonl', limit: 1000 },
+        tips: [
+          { k: 'path', v: '文件绝对路径或 http(s) URL' },
+          { k: 'limit', v: '最多读 N 行' },
+          { k: '输出', v: '{rows: Array, total}' }
+        ]
+      },
+      { id: 'data_clean', name: '文本清洗',     icon: Brush,  desc: '去噪/去HTML/正则',
+        config: { rules: '去除HTML/URL/邮箱', minLen: 10 },
+        tips: [
+          { k: 'rules', v: '自定义正则规则集' },
+          { k: 'minLen', v: '过滤短于 N 字符的样本' }
+        ]
+      },
+      { id: 'data_split', name: '数据划分',     icon: ScaleToOriginal, desc: 'train/val/test 切分',
+        config: { train: 0.8, val: 0.1, test: 0.1, seed: 42 },
+        tips: [
+          { k: 'train/val/test', v: '比例, 和=1' },
+          { k: 'seed', v: '随机种子, 保证可复现' }
+        ]
+      }
+    ]
+  },
+  {
+    group: '预处理', icon: '✂️', c1: '#f97316',
+    nodes: [
+      { id: 'chunker', name: '文档切片',     icon: Files,  desc: 'sliding window', inputs: ['in'],
+        config: { chunkSize: 256, overlap: 32, by: 'sentence' },
+        tips: [
+          { k: 'chunkSize', v: '每片 token, 128-512' },
+          { k: 'overlap', v: '重叠, 10-20%' },
+          { k: 'by', v: 'sentence/paragraph/token' }
+        ]
+      },
+      { id: 'tokenize', name: '分词编码',     icon: Key,   desc: 'tokenize + 编码',
+        config: { tokenizer: 'bpe', maxLen: 2048 },
+        tips: [
+          { k: 'tokenizer', v: 'bpe/unigram/wordpiece' },
+          { k: 'maxLen', v: '最大长度, 超长截断' }
+        ]
+      }
+    ]
+  },
+  {
+    group: 'Embedding / 索引', icon: '🧬', c1: '#10b981',
+    nodes: [
+      { id: 'embed', name: '向量化',     icon: Connection, desc: 'BGE/OpenAI/text2vec', inputs: ['in'], outputs: ['out'],
+        config: { model: 'BAAI/bge-small-zh-v1.5', dim: 512, batchSize: 32 },
+        tips: [
+          { k: 'model', v: 'BAAI/bge-*, text2vec, OpenAI' },
+          { k: 'dim', v: '维度: bge 512/768, OpenAI 1536/3072' },
+          { k: 'batchSize', v: '16-64' }
+        ]
+      },
+      { id: 'vector_index', name: '向量索引',   icon: Coin, desc: 'Milvus/ES/Chroma',
+        config: { backend: 'milvus', collection: 'vec_v1', metric: 'cosine' },
+        tips: [
+          { k: 'backend', v: 'milvus/elasticsearch/chroma' },
+          { k: 'metric', v: 'cosine/l2/ip' }
+        ]
+      },
+      { id: 'kb_search',    name: '知识库查询',   icon: Reading,    desc: 'POST /api/knowledge/search-enhanced', inputs: ['in'], outputs: ['out'],
+        config: { query: '什么是 Seata', topK: 3, rerank: true }, api: (cfg) => knowledgeApi.enhancedSearch({ query: cfg.query, topK: 3 }),
+        tips: [
+          { k: 'query', v: '查询文本; 支持 {{input}}' },
+          { k: 'topK', v: '返回条数, 3-10' },
+          { k: 'rerank', v: 'true 启用精排' },
+          { k: '特性', v: '自动 query rewrite + rerank' }
+        ]
+      },
+      { id: 'kb_index', name: '入库索引',   icon: Coin, desc: '添加文档到 KB',
+        config: { kbId: 1, source: '/data/docs/' },
+        tips: [
+          { k: 'kbId', v: '知识库 ID' },
+          { k: 'source', v: '文档路径/URL' }
+        ]
+      }
     ]
   },
   {
     group: '训练', icon: '⚡', c1: '#f59e0b',
     nodes: [
       { id: 'train_start',  name: '开始训练',     icon: VideoPlay, desc: 'POST /api/trainer/job', inputs: ['in'], outputs: ['out'],
-        config: { corpus: '/opt/corpus/sample.txt', epochs: 10 }, api: (cfg) => trainApi.start({ corpus: cfg.corpus, epochs: cfg.epochs }) }
+        config: { corpus: '/opt/corpus/sample.txt', epochs: 10, batchSize: 32, lr: '2e-4' },
+        api: (cfg) => trainApi.start({ corpus: cfg.corpus, epochs: cfg.epochs }),
+        tips: [
+          { k: 'corpus', v: '训练语料路径' },
+          { k: 'epochs', v: '5-50' },
+          { k: 'batchSize', v: '32 默认, 大模型 8-16' },
+          { k: 'lr', v: 'LoRA 2e-4, 全参 1e-5' },
+          { k: '后端', v: 'ai-platform-trainer DJL + SSE' }
+        ]
+      },
+      { id: 'lora_train', name: 'LoRA 微调',   icon: DataLine, desc: 'PEFT LoRA 训练',
+        config: { baseModel: 'llama-3-8b', rank: 16, alpha: 32, dropout: 0.05, targetModules: 'q,k,v,o' },
+        tips: [
+          { k: 'rank', v: '4-64, 默认 16' },
+          { k: 'alpha', v: '通常 = 2*rank' },
+          { k: 'targetModules', v: 'q/k/v/o/gate/up/down' }
+        ]
+      },
+      { id: 'dpo_train', name: 'DPO 训练',     icon: DataAnalysis, desc: '直接偏好优化',
+        config: { beta: 0.1, refModel: 'base' },
+        tips: [
+          { k: 'beta', v: 'KL 系数, 0.1-0.5' }
+        ]
+      }
     ]
   },
   {
     group: '智能体', icon: '🤖', c1: '#8b5cf6',
     nodes: [
-      { id: 'agent_list',   name: '列出智能体',   icon: UserFilled, desc: 'GET /api/agent' },
+      { id: 'agent_list',   name: '列出智能体',   icon: UserFilled, desc: 'GET /api/agent',
+        config: {},
+        tips: [
+          { k: '接口', v: 'GET /api/agent' },
+          { k: '返回', v: 'Agent[]' }
+        ]
+      },
       { id: 'agent_chat',   name: '智能体对话',   icon: ChatDotRound, desc: 'POST /api/agent/chat', inputs: ['in'], outputs: ['out'],
-        config: { agentId: 1, message: '你好' }, api: (cfg) => agentApi.chat({ agentId: Number(cfg.agentId), message: cfg.message }) }
-    ]
-  },
-  {
-    group: '知识库', icon: '📚', c1: '#10b981',
-    nodes: [
-      { id: 'kb_list',      name: '列出知识库',   icon: Reading,    desc: 'GET /api/knowledge' },
-      { id: 'kb_search',    name: '知识库查询',   icon: Reading,    desc: 'POST /api/knowledge/search-enhanced', inputs: ['in'], outputs: ['out'],
-        config: { query: '什么是 Seata' }, api: (cfg) => knowledgeApi.enhancedSearch({ query: cfg.query, topK: 3 }) }
+        config: { agentId: 1, message: '你好', temperature: 0.7 },
+        api: (cfg) => agentApi.chat({ agentId: Number(cfg.agentId), message: cfg.message }),
+        tips: [
+          { k: 'agentId', v: '智能体 ID' },
+          { k: 'message', v: '用户消息; {{input}} 占位' },
+          { k: 'temperature', v: '0=稳定, 1=创意, 默认 0.7' }
+        ]
+      },
+      { id: 'agent_think', name: 'Agent 思考',   icon: MagicStick, desc: 'ReAct 思考步骤',
+        config: { prompt: '分析问题并决定下一步', maxSteps: 5 },
+        tips: [
+          { k: 'maxSteps', v: '最大思考步数, 防死循环' }
+        ]
+      },
+      { id: 'agent_tool', name: '工具调用',     icon: Tools,  desc: 'function call',
+        config: { tool: 'web_search', params: '{}' },
+        tips: [
+          { k: 'tool', v: 'web_search/calculator/code_exec' }
+        ]
+      }
     ]
   },
   {
     group: '工具 / 推理', icon: '🛠️', c1: '#06b6d4',
     nodes: [
-      { id: 'tool_list',    name: '列出工具',     icon: Tools,       desc: 'GET /api/tool' },
+      { id: 'tool_list',    name: '列出工具',     icon: Tools, desc: 'GET /api/tool',
+        config: {},
+        tips: [
+          { k: '接口', v: 'GET /api/tool' }
+        ]
+      },
+      { id: 'web_search',   name: '联网搜索',     icon: Search, desc: 'DuckDuckGo',
+        config: { query: 'Spring Cloud Alibaba', maxResults: 5 },
+        tips: [
+          { k: 'query', v: '搜索词' },
+          { k: 'maxResults', v: '1-20' }
+        ]
+      },
       { id: 'infer',        name: '推理',         icon: ChatDotRound, desc: 'POST /api/inference', inputs: ['in'], outputs: ['out'],
-        config: { text: '你好', maxTokens: 50 }, api: (cfg) => inferenceApi.generate({ text: cfg.text, maxTokens: Number(cfg.maxTokens) }) }
+        config: { text: '你好', maxTokens: 50, temperature: 0.7 },
+        api: (cfg) => inferenceApi.generate({ text: cfg.text, maxTokens: Number(cfg.maxTokens) }),
+        tips: [
+          { k: 'text', v: '输入文本; {{input}} 占位' },
+          { k: 'maxTokens', v: '50-500' },
+          { k: 'temperature', v: '0=稳定, 1=创意' }
+        ]
+      },
+      { id: 'code_exec', name: '代码执行',     icon: Promotion, desc: '沙箱跑 Python/JS',
+        config: { language: 'python', code: 'print(1+1)', timeout: 30 },
+        tips: [
+          { k: 'language', v: 'python/javascript/bash' },
+          { k: 'timeout', v: '秒, 防死循环' }
+        ]
+      }
+    ]
+  },
+  {
+    group: '评估', icon: '📊', c1: '#ec4899',
+    nodes: [
+      { id: 'eval_bleu', name: 'BLEU 评估',   icon: DataLine, desc: '机器翻译指标',
+        config: { references: '/data/ref.txt', predictions: '/data/pred.txt' },
+        tips: [
+          { k: '输出', v: '{bleu1, bleu2, bleu3, bleu4}' }
+        ]
+      },
+      { id: 'eval_rouge', name: 'ROUGE 评估',  icon: DataLine, desc: '摘要指标',
+        config: { type: 'rouge-l' },
+        tips: [
+          { k: 'type', v: 'rouge-1/2/l' },
+          { k: '输出', v: '{precision, recall, f1}' }
+        ]
+      },
+      { id: 'eval_human', name: '人工抽检',    icon: User,  desc: '采样 + 评分',
+        config: { sampleRate: 0.1, dimensions: '准确/流畅/相关' },
+        tips: [
+          { k: 'sampleRate', v: '0-1' }
+        ]
+      }
+    ]
+  },
+  {
+    group: '输出 / 部署', icon: '🚀', c1: '#dc2626',
+    nodes: [
+      { id: 'model_register', name: '注册模型',   icon: Coin, desc: 'ModelRegistry 写入',
+        config: { name: 'my-llm-v1', stage: 'staging' },
+        tips: [
+          { k: 'stage', v: 'dev/staging/prod' }
+        ]
+      },
+      { id: 'model_deploy', name: '部署上线',     icon: Upload, desc: 'K8s/灰度发布',
+        config: { modelId: 1, replicas: 2, canary: 10 },
+        tips: [
+          { k: 'replicas', v: '1-10' },
+          { k: 'canary', v: '灰度 0-100' }
+        ]
+      },
+      { id: 'webhook', name: 'Webhook 通知',   icon: Promotion, desc: 'POST 外部 URL',
+        config: { url: 'https://example.com/hook', method: 'POST' },
+        tips: [
+          { k: 'method', v: 'POST/PUT/GET' }
+        ]
+      },
+      { id: 'log', name: '日志输出',         icon: Document, desc: '写日志',
+        config: { level: 'INFO', message: '{{output}}' },
+        tips: [
+          { k: 'level', v: 'DEBUG/INFO/WARN/ERROR' }
+        ]
+      }
+    ]
+  },
+  {
+    group: '控制流', icon: '🔀', c1: '#64748b',
+    nodes: [
+      { id: 'if_branch', name: '条件分支',     icon: SetUp, desc: 'if/else 路由',
+        config: { condition: 'score > 0.8', trueTo: '', falseTo: '' },
+        tips: [
+          { k: 'condition', v: 'JS 表达式' }
+        ]
+      },
+      { id: 'loop', name: '循环',             icon: Refresh, desc: 'forEach 迭代',
+        config: { over: '{{rows}}', maxIter: 100 },
+        tips: [
+          { k: 'over', v: '要迭代的数组' },
+          { k: 'maxIter', v: '防死循环' }
+        ]
+      },
+      { id: 'parallel', name: '并行分支',     icon: Connection, desc: 'fan-out 同步执行',
+        config: { branches: '[]' },
+        tips: [
+          { k: 'branches', v: 'JSON 数组' }
+        ]
+      },
+      { id: 'merge', name: '合并',             icon: Coin, desc: 'fan-in 同步等待',
+        config: { strategy: 'all' },
+        tips: [
+          { k: 'strategy', v: 'all/any/first' }
+        ]
+      }
+    ]
+  },
+  {
+    group: '原基础', icon: '🧠', c1: '#6366f1',
+    nodes: [
+      { id: 'model_list',   name: '列出模型',     icon: Cpu,     desc: 'GET /api/model', api: () => modelApi.list(),
+        config: { stage: 'PROD' },
+        tips: [
+          { k: '接口', v: 'GET /api/model' },
+          { k: 'stage', v: '过滤 stage' }
+        ]
+      }
     ]
   }
 ]
-
-// ============== 画布状态 ==============
-const nodes = ref([])
-const edges = ref([])
-const currentNode = ref(null)
-const doneSet = reactive(new Set())
-const canvasW = 2000
-const canvasH = 2000
-
-const findNode = (id) => nodes.value.find(n => n.id === id)
-
-const onDragStart = (e, n) => {
-  e.dataTransfer.setData('node-template', JSON.stringify(n))
-  e.dataTransfer.effectAllowed = 'copy'
+// ============ 画布框选 ============
+let canvasEl = null
+const onCanvasMouseDown = (e) => {
+  // 仅在点击空白时启动框选 (target 是 canvas 本身或 svg 背景)
+  if (e.target.classList && (e.target.classList.contains('canvas') || e.target.classList.contains('canvas-bg') || e.target.tagName === 'svg')) {
+    canvasEl = e.currentTarget
+    const rect = canvasEl.getBoundingClientRect()
+    selectionRect.value = { x1: e.clientX - rect.left, y1: e.clientY - rect.top, x2: e.clientX - rect.left, y2: e.clientY - rect.top }
+    clearSelection()
+  }
 }
-const onDrop = (e) => {
-  const raw = e.dataTransfer.getData('node-template')
-  if (!raw) return
-  const tpl = JSON.parse(raw)
-  const rect = e.currentTarget.getBoundingClientRect()
-  addNode(tpl, e.clientX - rect.left, e.clientY - rect.top)
+const onCanvasMouseMove = (e) => {
+  if (!selectionRect.value || !canvasEl) return
+  const rect = canvasEl.getBoundingClientRect()
+  selectionRect.value.x2 = e.clientX - rect.left
+  selectionRect.value.y2 = e.clientY - rect.top
 }
+const onCanvasMouseUp = () => {
+  if (selectionRect.value && canvasEl) {
+    const r = selectionRect.value
+    const x1 = Math.min(r.x1, r.x2), y1 = Math.min(r.y1, r.y2)
+    const x2 = Math.max(r.x1, r.x2), y2 = Math.max(r.y1, r.y2)
+    // 选区内的节点 id
+    selectedIds.value = nodes.value.filter(n => n.x >= x1 && n.x <= x2 + 200 && n.y >= y1 && n.y <= y2 + 80).map(n => n.id)
+  }
+  selectionRect.value = null
+  canvasEl = null
+}
+const onCanvasClick = (e) => {
+  // 点击空白 (非节点) 清空选择
+  if (e.target.classList && (e.target.classList.contains('canvas') || e.target.classList.contains('canvas-bg'))) {
+    clearSelection()
+  }
+}
+
 const addNode = (tpl, x = 100 + nodes.value.length * 30, y = 100 + nodes.value.length * 30) => {
-  nodes.value.push({
+  const node = {
     ...tpl,
     id: nid(),
     x, y,
@@ -440,12 +737,43 @@ const addNode = (tpl, x = 100 + nodes.value.length * 30, y = 100 + nodes.value.l
     config: tpl.config || {},
     inputs: tpl.inputs || [],
     outputs: tpl.outputs || ['out']
-  })
+  }
+  nodes.value.push(node)
+  pushHistory({ type: 'add', payload: { ...node } })
+  return node
 }
 const removeNode = (id) => {
-  const i = nodes.value.findIndex(n => n.id === id)
-  if (i >= 0) nodes.value.splice(i, 1)
+  const removed = nodes.value.filter(n => n.id === id)
+  if (!removed.length) return
+  const removedEdges = edges.value.filter(e => e.from === id || e.to === id)
+  pushHistory({
+    type: 'remove',
+    payload: {
+      ids: [id],
+      nodes: removed,
+      edges: removedEdges
+    }
+  })
+  nodes.value = nodes.value.filter(n => n.id !== id)
   edges.value = edges.value.filter(e => e.from !== id && e.to !== id)
+  selectedIds.value = selectedIds.value.filter(sid => sid !== id)
+}
+
+/**
+ * 复制节点 (Ctrl+D / 右键菜单)
+ */
+const duplicateSelected = () => {
+  if (!selectedIds.value.length) return
+  const newIds = []
+  selectedIds.value.forEach(sid => {
+    const src = nodes.value.find(n => n.id === sid)
+    if (src) {
+      const copy = addNode({ ...src, name: src.name + ' (副本)' }, src.x + 40, src.y + 40)
+      newIds.push(copy.id)
+    }
+  })
+  selectedIds.value = newIds
+  ElMessage.success(`已复制 ${newIds.length} 个节点`)
 }
 
 // ============== 节点拖动 ==============
@@ -502,6 +830,14 @@ const edgeDotStyle = (e) => {
 }
 
 // ============== 模板 ==============
+const onDrop = (e) => {
+  const raw = e.dataTransfer.getData('text/plain')
+  if (!raw) return
+  const tpl = JSON.parse(raw)
+  const rect = e.currentTarget.getBoundingClientRect()
+  addNode(tpl, e.clientX - rect.left, e.clientY - rect.top)
+}
+
 const loadTemplate = (name) => {
   nodes.value = []
   edges.value = []
@@ -518,6 +854,110 @@ const loadTemplates = () => {
 const saveAs = () => ElMessage.success('已保存到本地 (功能待开发云端)')
 
 // ============== 执行 ==============
+// ============ 撤销/重做 (History Stack) ============
+const history = ref([])     // { type: 'add'|'remove'|'update'|'move'|'connect', payload }
+const historyIdx = ref(-1)
+const MAX_HISTORY = 50
+const pushHistory = (action) => {
+  // 截断 redo 分支
+  history.value = history.value.slice(0, historyIdx.value + 1)
+  history.value.push({ ts: Date.now(), ...action })
+  if (history.value.length > MAX_HISTORY) history.value.shift()
+  historyIdx.value = history.value.length - 1
+}
+const undo = () => {
+  if (historyIdx.value < 0) return
+  const h = history.value[historyIdx.value]
+  if (h.type === 'add') {
+    nodes.value = nodes.value.filter(n => n.id !== h.payload.id)
+  } else if (h.type === 'remove') {
+    nodes.value.push(...h.payload.nodes)
+    edges.value.push(...h.payload.edges)
+  } else if (h.type === 'update') {
+    const target = nodes.value.find(n => n.id === h.payload.id)
+    if (target) Object.assign(target, h.payload.before)
+  } else if (h.type === 'move') {
+    const target = nodes.value.find(n => n.id === h.payload.id)
+    if (target) { target.x = h.payload.x; target.y = h.payload.y }
+  } else if (h.type === 'connect') {
+    edges.value = edges.value.filter(e => e.from !== h.payload.from || e.to !== h.payload.to)
+  } else if (h.type === 'batch') {
+    h.payload.revert()
+  }
+  historyIdx.value--
+  ElMessage.success('已撤销')
+}
+const redo = () => {
+  if (historyIdx.value >= history.value.length - 1) return
+  historyIdx.value++
+  const h = history.value[historyIdx.value]
+  if (h.type === 'add') {
+    nodes.value.push(h.payload)
+  } else if (h.type === 'remove') {
+    nodes.value = nodes.value.filter(n => !h.payload.ids.includes(n.id))
+    edges.value = edges.value.filter(e => !h.payload.ids.includes(e.from) && !h.payload.ids.includes(e.to))
+  } else if (h.type === 'update') {
+    const target = nodes.value.find(n => n.id === h.payload.id)
+    if (target) Object.assign(target, h.payload.after)
+  } else if (h.type === 'move') {
+    const target = nodes.value.find(n => n.id === h.payload.id)
+    if (target) { target.x = h.payload.x2; target.y = h.payload.y2 }
+  } else if (h.type === 'connect') {
+    edges.value.push({ from: h.payload.from, to: h.payload.to })
+  } else if (h.type === 'batch') {
+    h.payload.apply()
+  }
+  ElMessage.success('已重做')
+}
+
+// ============ 多选 ============
+const selectedIds = ref([])  // 多选节点 id
+const selectionRect = ref(null)  // 框选矩形 {x1,y1,x2,y2}
+let dragStart = null
+
+const selectAll = () => {
+  selectedIds.value = nodes.value.map(n => n.id)
+  ElMessage.success(`已选中 ${selectedIds.value.length} 个节点`)
+}
+const clearSelection = () => { selectedIds.value = [] }
+const isSelected = (id) => selectedIds.value.includes(id)
+const deleteSelected = () => {
+  if (selectedIds.value.length === 0) return
+  const ids = [...selectedIds.value]
+  const removedNodes = nodes.value.filter(n => ids.includes(n.id))
+  const removedEdges = edges.value.filter(e => ids.includes(e.from) || ids.includes(e.to))
+  pushHistory({
+    type: 'remove',
+    payload: { ids, nodes: removedNodes, edges: removedEdges }
+  })
+  nodes.value = nodes.value.filter(n => !ids.includes(n.id))
+  edges.value = edges.value.filter(e => !ids.includes(e.from) && !ids.includes(e.to))
+  selectedIds.value = []
+  ElMessage.success(`已删除 ${ids.length} 个节点`)
+}
+
+// ============ 键盘快捷键 (window 监听) ============
+const handleKey = (e) => {
+  // 输入框/文本域内不触发
+  const tag = (e.target?.tagName || '').toLowerCase()
+  if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return
+  if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+    e.preventDefault(); selectAll()
+  } else if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+    e.preventDefault(); duplicateSelected()
+  } else if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault(); undo()
+  } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+    e.preventDefault(); redo()
+  } else if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault(); deleteSelected()
+  } else if (e.key === 'Escape') {
+    clearSelection()
+  }
+}
+onMounted(() => { window.addEventListener('keydown', handleKey) })
+onBeforeUnmount(() => { window.removeEventListener('keydown', handleKey) })
+
 const running = ref(false)
 const showGuide = ref(false)  // 使用说明 drawer
 const showCases = ref(false)  // 案例库 drawer
@@ -646,7 +1086,16 @@ onMounted(() => {
 .wf-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-top, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 12px; }
 .wf-head h2 { margin: 0 0 2px; font-size: 18px; color: #1e293b; }
 .muted { color: #94a3b8; }
-.wf-head-actions { display: flex; gap: 8px; }
+.wf-head-actions { display: flex; gap: 8px; align-items: center; }
+.del-count {
+  display: inline-block; margin-left: 4px; padding: 0 5px; min-width: 18px;
+  background: #ef4444; color: #fff; border-radius: 9px;
+  font-size: 11px; font-weight: 600; line-height: 18px; text-align: center;
+}
+.sel-info {
+  font-size: 12px; color: #6366f1; font-weight: 600;
+  padding: 0 6px; background: rgba(99,102,241,0.08); border-radius: 4px;
+}
 
 .wf-grid { display: grid; grid-template-columns: 220px 1fr 320px; gap: 12px; flex: 1; min-height: 600px; }
 
@@ -708,6 +1157,19 @@ onMounted(() => {
 }
 .wn-head strong { flex: 1; }
 .wn-close { color: #fff !important; }
+
+/* 框选矩形 */
+.selection-rect {
+  position: absolute;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px dashed #6366f1;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* 节点选中态 */
+.wf-node.selected { box-shadow: 0 0 0 2px #6366f1, 0 8px 24px -6px rgba(99, 102, 241, 0.4); }
+.wf-node.selected .wn-head { filter: brightness(1.05); }
 
 /* ====== 使用说明 drawer ====== */
 .guide { padding: 8px 0; }
