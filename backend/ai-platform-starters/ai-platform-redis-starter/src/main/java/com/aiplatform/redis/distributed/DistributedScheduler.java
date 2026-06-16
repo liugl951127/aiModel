@@ -70,7 +70,9 @@ public class DistributedScheduler {
         } finally {
             try {
                 org.redisson.api.RLock l = lock.lock(key);
-                if (l.isHeldByCurrentThread()) l.unlock();
+                if (l != null && l.isHeldByCurrentThread()) {
+                    try { l.unlock(); } catch (Exception ignore) {}
+                }
             } catch (Exception ignore) {}
         }
     }

@@ -83,11 +83,14 @@ public class RedissonConfig {
                 .setPassword(password.isEmpty() ? null : password)
                 .setConnectTimeout(timeout)
                 .setTimeout(timeout)
-                .setRetryAttempts(1)
-                .setRetryInterval(500)
+                .setRetryAttempts(3)               // 业务重试 3 次, 不只 1 次
+                .setRetryInterval(1000)            // 重试间隔 1s
                 .setConnectionPoolSize(32)
                 .setConnectionMinimumIdleSize(8)
-                .setSubscriptionConnectionPoolSize(8);
+                .setSubscriptionConnectionPoolSize(8)
+                .setIdleConnectionTimeout(30000)   // 30s 空闲超时 (防止 stale)
+                .setKeepAlive(true)                // TCP keep-alive
+                .setTcpNoDelay(true);              // 关闭 Nagle 算法, 减少延迟
         // 懒加载: 避免启动时 netty 连接. warmup 主动触发.
         config.setLazyInitialization(true);
         log.info("[REDISSON] configured: address={}, database={}, timeout={}ms, warmup={}",

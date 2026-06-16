@@ -27,31 +27,59 @@ import java.util.function.Supplier;
  * // 3) 一行
  * String result = distributedLock.execute("key", 3, 10, () -> doStuff());
  * </pre>
+ *
+ * <p><b>Redis 不可用降级</b>: RedissonClient 为 null 时,
+ * {@code tryLock} 返回 false, {@code execute} 直接执行 (失去分布式语义).
+ * lock() 抛 IllegalStateException — 调用方应该用 tryLock 路径.</p>
  */
 @Slf4j
 public class DistributedLock {
 
     private final RedissonClient redisson;
+    private final boolean degraded;
 
     public DistributedLock(RedissonClient redisson) {
         this.redisson = redisson;
+        this.degraded = (redisson == null);
+        if (degraded) {
+            log.warn("[Lock] Redis 不可用, 分布式锁降级为单进程");
+        }
+    }
+
+    public boolean isDegraded() {
+        return degraded;
     }
 
     public RLock lock(String key) {
+        if (degraded) {
+            throw new IllegalStateException("Redis 不可用, 分布式锁不可用 (key=" + key + "), 请改用 tryLock 路径");
+        }
         return redisson.getLock(key);
     }
 
     public boolean tryLock(String key, long waitSeconds, long leaseSeconds) {
+        if (degraded) {
+            log.debug("[Lock] Redis 不可用, tryLock 直接返回 false (key={})", key);
+            return false;
+        }
         RLock l = redisson.getLock(key);
         try {
             return l.tryLock(waitSeconds, leaseSeconds, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;
+        } catch (Exception e) {
+            log.warn("[Lock] tryLock({}) Redis 异常降级: {}", key, e.getMessage());
+            return false;
         }
     }
 
     public <T> T execute(String key, long waitSeconds, long leaseSeconds, Supplier<T> action) {
+        if (degraded) {
+            // 降级: 直接执行 (失去分布式语义, 业务可能重复执行)
+            log.debug("[Lock] Redis 不可用, execute 直接执行 (key={})", key);
+            return action.get();
+        }
         RLock l = redisson.getLock(key);
         boolean got = false;
         try {
@@ -63,9 +91,18 @@ public class DistributedLock {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new LockAcquireException("中断: " + key);
+        } catch (LockAcquireException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("[Lock] execute({}) Redis 异常降级直接执行: {}", key, e.getMessage());
+            return action.get();
         } finally {
-            if (got && l.isHeldByCurrentThread()) {
-                try { l.unlock(); } catch (Exception e) { log.warn("unlock failed: {}", e.getMessage()); }
+            if (got && l != null) {
+                try {
+                    if (l.isHeldByCurrentThread()) {
+                        l.unlock();
+                    }
+                } catch (Exception e) { log.warn("unlock failed: {}", e.getMessage()); }
             }
         }
     }

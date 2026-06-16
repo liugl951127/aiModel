@@ -51,22 +51,31 @@ public class DistributedCache {
     }
 
     public void put(String key, Object value, int ttlSec) {
-        redis.opsForValue().set(key, value == null ? "__NULL__" : value.toString(), ttlSec, TimeUnit.SECONDS);
+        if (redis == null) return;
+        try { redis.opsForValue().set(key, value == null ? "__NULL__" : value.toString(), ttlSec, TimeUnit.SECONDS); }
+        catch (Exception e) { log.warn("[Cache] put({}) failed: {}", key, e.getMessage()); }
     }
 
     public <T> T get(String key) {
-        return (T) redis.opsForValue().get(key);
+        if (redis == null) return null;
+        try { return (T) redis.opsForValue().get(key); }
+        catch (Exception e) { log.warn("[Cache] get({}) failed: {}", key, e.getMessage()); return null; }
     }
 
     public void evict(String key) {
-        redis.delete(key);
+        if (redis == null) return;
+        try { redis.delete(key); }
+        catch (Exception e) { log.warn("[Cache] evict({}) failed: {}", key, e.getMessage()); }
     }
 
     public void evictByPattern(String pattern) {
-        java.util.Set<String> keys = redis.keys(pattern);
-        if (keys != null && !keys.isEmpty()) {
-            redis.delete(keys);
-        }
+        if (redis == null) return;
+        try {
+            java.util.Set<String> keys = redis.keys(pattern);
+            if (keys != null && !keys.isEmpty()) {
+                redis.delete(keys);
+            }
+        } catch (Exception e) { log.warn("[Cache] evictByPattern({}) failed: {}", pattern, e.getMessage()); }
     }
 
     /**

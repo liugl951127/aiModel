@@ -65,14 +65,21 @@ public class DistributedRateLimiter {
      * 获取当前窗口计数.
      */
     public long currentCount(String key) {
-        String v = redis.opsForValue().get(key);
-        return v == null ? 0 : Long.parseLong(v);
+        if (redis == null) return 0;
+        try {
+            String v = redis.opsForValue().get(key);
+            return v == null ? 0 : Long.parseLong(v);
+        } catch (Exception e) {
+            log.warn("currentCount({}) Redis 异常: {}", key, e.getMessage());
+            return 0;
+        }
     }
 
     /**
      * 重置限流计数.
      */
     public void reset(String key) {
-        redis.delete(key);
+        if (redis == null) return;
+        try { redis.delete(key); } catch (Exception e) { log.warn("reset({}) Redis 异常: {}", key, e.getMessage()); }
     }
 }
