@@ -5,10 +5,10 @@
     <!-- ============================================ -->
     <aside class="sidebar" :class="{ collapsed }">
       <div class="logo-wrap" @click="goHome">
-        <div class="logo-mark">🤖</div>
+        <div class="logo-mark">L</div>
         <div v-if="!collapsed" class="logo-text">
-          <div class="logo-title">AI Agent</div>
-          <div class="logo-sub">Platform · v1</div>
+          <div class="logo-title">LAIYE</div>
+          <div class="logo-sub">AI Agent Platform</div>
         </div>
       </div>
 
@@ -391,7 +391,7 @@ onMounted(() => {
 .app-shell {
   display: flex;
   width: 100vw; height: 100vh;
-  background: var(--bg-app, #f5f7fa);
+  background: linear-gradient(135deg, #eef2ff 0%, #f0f9ff 50%, #fef3c7 100%);
   overflow: hidden;
 }
 
@@ -400,13 +400,14 @@ onMounted(() => {
 /* ============================================ */
 .sidebar {
   width: 220px;
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-  color: #cbd5e1;
+  background: #fff;
+  color: #475569;
   display: flex; flex-direction: column;
   flex-shrink: 0;
   transition: width 0.25s;
   position: relative;
   z-index: 10;
+  border-right: 1px solid var(--border, #e5e7eb);
 }
 .sidebar.collapsed { width: 64px; }
 
@@ -414,28 +415,30 @@ onMounted(() => {
   display: flex; align-items: center; gap: 12px;
   padding: 18px 16px;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border, #e5e7eb);
 }
 .logo-mark {
   width: 36px; height: 36px; border-radius: 10px;
-  background: linear-gradient(135deg, #6366f1, #ec4899);
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff; font-size: 22px; font-weight: 900;
   display: flex; align-items: center; justify-content: center;
-  font-size: 20px; flex-shrink: 0;
+  flex-shrink: 0; letter-spacing: -1px;
 }
 .logo-text { display: flex; flex-direction: column; }
-.logo-title { font-size: 15px; font-weight: 700; color: #fff; }
-.logo-sub { font-size: 10px; color: #94a3b8; letter-spacing: 1px; }
+.logo-title { font-size: 15px; font-weight: 800; color: #1e1b4b; letter-spacing: -0.5px; }
+.logo-sub { font-size: 10px; color: #94a3b8; }
 
-.side-menu { flex: 1; border-right: none; padding: 8px; overflow-y: auto; }
+.side-menu { flex: 1; border-right: none; padding: 8px; overflow-y: auto; background: transparent !important; }
 .side-menu :deep(.el-menu-item), .side-menu :deep(.el-sub-menu__title) {
   border-radius: 8px; margin: 2px 0; height: 40px; line-height: 40px;
+  color: #475569 !important;
 }
 .side-menu :deep(.el-menu-item:hover),
-.side-menu :deep(.el-sub-menu__title:hover) { background: rgba(255, 255, 255, 0.06) !important; }
+.side-menu :deep(.el-sub-menu__title:hover) { background: #f1f5f9 !important; }
 .side-menu :deep(.el-menu-item.is-active) {
-  background: linear-gradient(90deg, #6366f1, #8b5cf6) !important;
+  background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
   color: #fff !important;
-  box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.4);
 }
 
 .sidebar-foot { padding: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
@@ -461,7 +464,8 @@ onMounted(() => {
 /* ===== 顶栏 ===== */
 .topbar {
   height: 56px;
-  background: var(--bg-top, #fff);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border, #e5e7eb);
   display: flex; align-items: center;
   padding: 0 20px;
@@ -544,7 +548,7 @@ onMounted(() => {
 .cur { margin-left: 4px; color: #6366f1; font-size: 10px; }
 
 /* ===== 内容 ===== */
-.content { flex: 1; overflow: auto; padding: 16px 20px; }
+.content { flex: 1; overflow: auto; padding: 24px 28px; }
 .fade-page-enter-active, .fade-page-leave-active { transition: all 0.18s ease; }
 .fade-page-enter-from, .fade-page-leave-to { opacity: 0; transform: translateY(4px); }
 

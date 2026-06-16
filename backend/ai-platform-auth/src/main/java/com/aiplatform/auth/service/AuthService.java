@@ -34,6 +34,28 @@ public class AuthService {
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /**
+     * 开发模式: 明文密码比对 (跳过 BCrypt). 通过 JVM 系统属性启用:
+     *   -Daiplatform.auth.dev-plain-password=true
+     * 或环境变量 AI_AUTH_DEV_PLAIN_PASSWORD=true
+     *
+     * <p>⚠️ 仅用于开发/沙箱调试, 生产严禁开启. 开启后密码明文存储/比对,
+     * 安全审计能看到 FAILED/明文模式 提示.</p>
+     */
+    private boolean isDevModePlainPassword() {
+        // 1) JVM 系统属性
+        if ("true".equalsIgnoreCase(System.getProperty("aiplatform.auth.dev-plain-password"))) return true;
+        // 2) 环境变量
+        if ("true".equalsIgnoreCase(System.getenv("AI_AUTH_DEV_PLAIN_PASSWORD"))) return true;
+        return false;
+    }
+
+    private boolean isDevModePlainPassword(boolean headerFlag) {
+        // headerFlag = 前端 X-Dev-Plain-Password 请求头
+        // 安全: 即使前端传了头, 后端仍要求环境变量/系统属性开启才生效
+        return headerFlag && isDevModePlainPassword();
+    }
+
+    /**
      * 登录前置：按用户名查用户信息 + 该用户可用的公司列表。
      * 之所以分两步，是为了让前端可以"先输用户名 → 拿到公司下拉 → 选完公司 + 输密码 → 登录"，
      * 体验更接近钉钉/飞书的企业登录流程。
@@ -71,10 +93,14 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest req) {
-        return login(req, null, null);
+        return login(req, null, null, false);
     }
 
     public LoginResponse login(LoginRequest req, String ip, String userAgent) {
+        return login(req, ip, userAgent, false);
+    }
+
+    public LoginResponse login(LoginRequest req, String ip, String userAgent, boolean devPlainHeader) {
         Result<Map<String, Object>> resp = userServiceClient.getByUsername(req.getUsername());
         if (resp == null || resp.getCode() == null || resp.getCode() != ResultCode.SUCCESS.getCode()) {
             recordAudit(req.getUsername(), null, null, ip, userAgent, "FAILED", "用户不存在");
@@ -91,8 +117,18 @@ public class AuthService {
             throw new BusinessException(ResultCode.USER_DISABLED);
         }
         String stored = (String) user.get("password");
-        if (stored == null || !passwordEncoder.matches(req.getPassword(), stored)) {
-            recordAudit(req.getUsername(), ((Number) user.get("id")).longValue(), null, ip, userAgent, "FAILED", "密码错误");
+        if (stored == null) {
+            recordAudit(req.getUsername(), ((Number) user.get("id")).longValue(), null, ip, userAgent, "FAILED", "存储密码为空");
+            throw new BusinessException(ResultCode.USER_PASSWORD_ERROR);
+        }
+        // 密码验证: 默认 BCrypt, dev 模式 (前端头 + 后端 env) 走明文比对
+        boolean useDevPlain = devPlainHeader && isDevModePlainPassword();
+        boolean passwordOk = useDevPlain
+                ? req.getPassword().equals(stored)
+                : passwordEncoder.matches(req.getPassword(), stored);
+        if (!passwordOk) {
+            recordAudit(req.getUsername(), ((Number) user.get("id")).longValue(), null, ip, userAgent, "FAILED",
+                    useDevPlain ? "密码错误 (明文模式)" : "密码错误");
             throw new BusinessException(ResultCode.USER_PASSWORD_ERROR);
         }
 

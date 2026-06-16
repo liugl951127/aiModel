@@ -194,6 +194,16 @@
                   <el-link type="primary" :underline="false" @click="onForgot">忘记密码？</el-link>
                 </div>
 
+                <!-- 开发模式: 明文密码 bypass BCrypt (后端需开 AI_AUTH_DEV_PLAIN_PASSWORD=true) -->
+                <el-alert v-if="devPlainMode" type="warning" :closable="false" show-icon class="dev-hint">
+                  <template #title>开发模式：明文密码比对 (后端 AI_AUTH_DEV_PLAIN_PASSWORD=true)</template>
+                </el-alert>
+                <div class="dev-toggle">
+                  <el-switch v-model="devPlainMode" size="small" />
+                  <span class="dev-label">开发模式（明文密码）</span>
+                  <el-link :underline="false" type="primary" size="small" @click="showDevTip = true">说明</el-link>
+                </div>
+
                 <el-button type="primary" :loading="loading" @click="onLogin" class="submit-btn" size="large" round>
                   登 录
                 </el-button>
@@ -341,6 +351,28 @@
       <span>Copyright © 2015-{{ new Date().getFullYear() }} AI Agent Platform</span>
     </footer>
 
+    <!-- 开发模式说明弹窗 -->
+    <el-dialog v-model="showDevTip" title="开发模式: 明文密码" width="480px" :align-center="true">
+      <p style="font-size:13px; line-height:1.7; color:#475569;">
+        <strong>⚠️ 仅用于开发 / 沙箱调试</strong>
+      </p>
+      <p style="font-size:12px; line-height:1.7; color:#64748b;">
+        开启后, 前端发送明文密码 + <code>X-Dev-Plain-Password: true</code> 请求头.
+        后端 <code>AuthService</code> 走明文比对 (跳过 BCrypt), 仅在设置了
+        <code>AI_AUTH_DEV_PLAIN_PASSWORD=true</code> 环境变量时生效.
+      </p>
+      <p style="font-size:12px; line-height:1.7; color:#ef4444;">
+        生产环境严禁开启. sys_login_audit 会记录 "明文模式" 失败原因.
+      </p>
+      <p style="font-size:11px; color:#94a3b8;">
+        关闭: 把 localStorage <code>dev_plain_mode</code> 改为 <code>false</code>
+        或重启浏览器.
+      </p>
+      <template #footer>
+        <el-button @click="showDevTip = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 审计弹窗 (PC 端) -->
     <el-dialog v-model="showAudit" title="最近登录记录" width="780px" :align-center="true" v-if="!isMobile">
       <el-row :gutter="12" class="audit-stats">
@@ -446,6 +478,9 @@ const onForgot = () => { activeTab.value = 'forgot' }
 
 // ============== 登录表单 ==============
 const loginForm = reactive({ username: '', password: '', tenantId: null, remember: true })
+const devPlainMode = ref(localStorage.getItem('dev_plain_mode') === 'true')
+const showDevTip = ref(false)
+watch(devPlainMode, (v) => localStorage.setItem('dev_plain_mode', v ? 'true' : 'false'))
 const loginRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
@@ -577,6 +612,8 @@ const onLogin = async () => {
       username: loginForm.username,
       password: loginForm.password,
       tenantId
+    }, {
+      headers: devPlainMode.value ? { 'X-Dev-Plain-Password': 'true' } : {}
     })
     const dt = (performance.now() - t0).toFixed(0)
     const data = resp.data
@@ -839,6 +876,14 @@ onMounted(() => {
 
 .admin-hint { margin-bottom: 12px; }
 .admin-hint :deep(.el-alert__title) { font-size: 12px; }
+
+.dev-hint { margin-bottom: 12px; }
+.dev-hint :deep(.el-alert__title) { font-size: 12px; }
+.dev-toggle {
+  display: flex; align-items: center; gap: 6px;
+  margin: 12px 0 16px; font-size: 12px; color: #94a3b8;
+}
+.dev-label { flex: 1; }
 
 .submit-btn {
   width: 100%; height: 44px;
