@@ -171,3 +171,27 @@ export const pipelineApi = {
   run: (id, query, config = {}) => request.post(`/api/knowledge/pipeline/${id}/run?query=${encodeURIComponent(query)}`, config),
   getRun: (rid) => request.get(`/api/knowledge/pipeline/run/${rid}`)
 }
+
+export const distributedApi = {
+  health: () => request.get('/api/distributed/health'),
+  // 1. 锁
+  lockDemo: (body) => request.post('/api/distributed/lock/demo', body),
+  releaseLock: (key) => request.post('/api/distributed/lock/release', null, { params: { key } }),
+  // 2. 雪花 ID
+  snowflake: (n) => request.get('/api/distributed/snowflake/next', { params: { n } }),
+  // 3. 限流
+  rateLimitCheck: (body) => request.post('/api/distributed/ratelimiter/check', body),
+  rateLimitReset: (key) => request.post('/api/distributed/ratelimiter/reset', null, { params: { key } }),
+  // 4. 幂等
+  idempotencySubmit: (token, body) => request.post('/api/distributed/idempotency/submit', body, { headers: { 'X-Idempotency-Key': token } }),
+  // 5. 缓存
+  cacheGet: (key) => request.get('/api/distributed/cache/get', { params: { key } }),
+  cacheEvict: (key) => request.post('/api/distributed/cache/evict', null, { params: { key } }),
+  // 6. 事件
+  eventPublish: (body) => request.post('/api/distributed/event/publish', body),
+  eventSubscribe: (topic) => request.post('/api/distributed/event/subscribe', null, { params: { topic } }),
+  eventLog: () => request.get('/api/distributed/event/log'),
+  // 7. 调度
+  schedulerLeader: () => request.post('/api/distributed/scheduler/leader'),
+  schedulerInfo: () => request.get('/api/distributed/scheduler/info')
+}

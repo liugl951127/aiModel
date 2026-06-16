@@ -10,6 +10,7 @@ const routes = [
     children: [
       { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/Dashboard.vue'), meta: { title: '工作台' } },
       { path: 'workflow', name: 'Workflow', component: () => import('@/views/Workflow.vue'), meta: { title: '工作流编排' } },
+      { path: 'distributed', name: 'Distributed', component: () => import('@/views/Distributed.vue'), meta: { title: '分布式能力' } },
       { path: 'workflow-list', name: 'WorkflowList', component: () => import('@/views/WorkflowList.vue'), meta: { title: '工作流管理' } },
       { path: 'model-versions', name: 'ModelVersions', component: () => import('@/views/ModelVersions.vue'), meta: { title: '模型版本' } },
       { path: 'models', name: 'Models', component: () => import('@/views/Models.vue'), meta: { title: '大模型管理' } },

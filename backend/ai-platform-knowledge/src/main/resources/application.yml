@@ -46,6 +46,7 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD:}
       database: 0
+  # 注: Redisson 自动从 spring.data.redis 读配置, 无需额外 yaml
 
 mybatis-plus:
   configuration:

@@ -248,7 +248,7 @@ import { useGlobalBus } from '@/composables/useGlobalBus'
 
 const router = useRouter()
 const isNavigating = ref(false)
-const cachedViews = ['Dashboard', 'Workflow', 'WorkflowList', 'KnowledgePipeline', 'Train', 'Agent', 'Chat']
+const cachedViews = ['Dashboard', 'Workflow', 'WorkflowList', 'Distributed', 'KnowledgePipeline', 'Train', 'Agent', 'Chat']
 
 // 路由切换进度条
 let navTimer = null
