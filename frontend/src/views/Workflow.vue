@@ -410,7 +410,7 @@ const palette = [
   {
     group: '数据准备', icon: '📥', c1: '#0ea5e9',
     nodes: [
-      { id: 'dataset_list', name: '数据集列表',   icon: Files,   desc: 'GET /api/dataset', api: () => datasetApi.list(),
+      { id: 'dataset_list', name: '数据集列表',   icon: Files,   desc: 'GET /api/dataset', 
         config: { format: 'jsonl' },
         tips: [
           { k: '接口', v: 'GET /api/dataset' },
@@ -481,7 +481,7 @@ const palette = [
         ]
       },
       { id: 'kb_search',    name: '知识库查询',   icon: Reading,    desc: 'POST /api/knowledge/search-enhanced', inputs: ['in'], outputs: ['out'],
-        config: { query: '什么是 Seata', topK: 3, rerank: true }, api: (cfg) => knowledgeApi.enhancedSearch({ query: cfg.query, topK: 3 }),
+        config: { query: '什么是 Seata', topK: 3, rerank: true }, 
         tips: [
           { k: 'query', v: '查询文本; 支持 {{input}}' },
           { k: 'topK', v: '返回条数, 3-10' },
@@ -503,7 +503,6 @@ const palette = [
     nodes: [
       { id: 'train_start',  name: '开始训练',     icon: VideoPlay, desc: 'POST /api/trainer/job', inputs: ['in'], outputs: ['out'],
         config: { corpus: '/opt/corpus/sample.txt', epochs: 10, batchSize: 32, lr: '2e-4' },
-        api: (cfg) => trainApi.start({ corpus: cfg.corpus, epochs: cfg.epochs }),
         tips: [
           { k: 'corpus', v: '训练语料路径' },
           { k: 'epochs', v: '5-50' },
@@ -540,7 +539,7 @@ const palette = [
       },
       { id: 'agent_chat',   name: '智能体对话',   icon: ChatDotRound, desc: 'POST /api/agent/chat', inputs: ['in'], outputs: ['out'],
         config: { agentId: 1, message: '你好', temperature: 0.7 },
-        api: (cfg) => agentApi.chat({ agentId: Number(cfg.agentId), message: cfg.message }),
+        
         tips: [
           { k: 'agentId', v: '智能体 ID' },
           { k: 'message', v: '用户消息; {{input}} 占位' },
@@ -579,7 +578,7 @@ const palette = [
       },
       { id: 'infer',        name: '推理',         icon: ChatDotRound, desc: 'POST /api/inference', inputs: ['in'], outputs: ['out'],
         config: { text: '你好', maxTokens: 50, temperature: 0.7 },
-        api: (cfg) => inferenceApi.generate({ text: cfg.text, maxTokens: Number(cfg.maxTokens) }),
+        
         tips: [
           { k: 'text', v: '输入文本; {{input}} 占位' },
           { k: 'maxTokens', v: '50-500' },
@@ -682,7 +681,7 @@ const palette = [
   {
     group: '原基础', icon: '🧠', c1: '#6366f1',
     nodes: [
-      { id: 'model_list',   name: '列出模型',     icon: Cpu,     desc: 'GET /api/model', api: () => modelApi.list(),
+      { id: 'model_list',   name: '列出模型',     icon: Cpu,     desc: 'GET /api/model',
         config: { stage: 'PROD' },
         tips: [
           { k: '接口', v: 'GET /api/model' },

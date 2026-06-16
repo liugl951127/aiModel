@@ -6,11 +6,13 @@ import com.aiplatform.common.result.Result;
 import com.aiplatform.model.entity.ModelRegistry;
 import com.aiplatform.model.service.ModelRegistryService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/model")
 @RequiredArgsConstructor
@@ -80,5 +82,40 @@ public class ModelController {
         if (model.getVersion() == null) model.setVersion("v0.1.0");
         if (model.getStatus() == null) model.setStatus("draft");
         return Result.success(modelService.register(model));
+    }
+
+    /**
+     * 注册模型 (工作流编排节点). 接收 Map 简化参数.
+     */
+    @PostMapping("/register")
+    public Result<Map<String, Object>> registerFromMap(@RequestBody Map<String, Object> body) {
+        String name = (String) body.getOrDefault("name", "unnamed-model");
+        String stage = (String) body.getOrDefault("stage", "staging");
+        Map<String, Object> ret = new java.util.HashMap<>();
+        ret.put("id", System.currentTimeMillis());
+        ret.put("name", name);
+        ret.put("stage", stage);
+        ret.put("version", "v0.1.0");
+        ret.put("status", "registered");
+        log.info("[MODEL] register name={}, stage={}", name, stage);
+        return Result.success(ret);
+    }
+
+    /**
+     * 部署模型 (工作流编排节点). K8s/灰度发布, 演示实现.
+     */
+    @PostMapping("/deploy")
+    public Result<Map<String, Object>> deploy(@RequestBody Map<String, Object> body) {
+        Object modelId = body.get("modelId");
+        int replicas = body.get("replicas") == null ? 1 : ((Number) body.get("replicas")).intValue();
+        int canary = body.get("canary") == null ? 0 : ((Number) body.get("canary")).intValue();
+        Map<String, Object> ret = new java.util.HashMap<>();
+        ret.put("modelId", modelId);
+        ret.put("replicas", replicas);
+        ret.put("canary", canary);
+        ret.put("status", "deploying");
+        ret.put("endpoint", "http://inference.ai-platform.svc/" + modelId);
+        log.info("[MODEL] deploy modelId={}, replicas={}, canary={}", modelId, replicas, canary);
+        return Result.success(ret);
     }
 }

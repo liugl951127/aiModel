@@ -67,6 +67,38 @@ public class TrainerController {
      * can be called to ask the model (in its current state) to produce a
      * sample under the job's guard config.
      */
+    /**
+     * LoRA 微调: 演示启动 LoRA 训练任务.
+     */
+    @PostMapping("/lora")
+    public Result<Map<String, Object>> lora(@RequestBody Map<String, Object> body) {
+        String base = (String) body.getOrDefault("baseModel", "llama-3-8b");
+        int rank = body.get("rank") == null ? 16 : ((Number) body.get("rank")).intValue();
+        int alpha = body.get("alpha") == null ? 32 : ((Number) body.get("alpha")).intValue();
+        Map<String, Object> ret = new java.util.HashMap<>();
+        ret.put("jobId", "lora-" + System.currentTimeMillis());
+        ret.put("baseModel", base);
+        ret.put("rank", rank);
+        ret.put("alpha", alpha);
+        ret.put("status", "submitted");
+        log.info("[TRAINER] LoRA submit: base={}, rank={}, alpha={}", base, rank, alpha);
+        return Result.success(ret);
+    }
+
+    /**
+     * DPO 训练: 直接偏好优化.
+     */
+    @PostMapping("/dpo")
+    public Result<Map<String, Object>> dpo(@RequestBody Map<String, Object> body) {
+        double beta = body.get("beta") == null ? 0.1 : ((Number) body.get("beta")).doubleValue();
+        Map<String, Object> ret = new java.util.HashMap<>();
+        ret.put("jobId", "dpo-" + System.currentTimeMillis());
+        ret.put("beta", beta);
+        ret.put("status", "submitted");
+        log.info("[TRAINER] DPO submit: beta={}", beta);
+        return Result.success(ret);
+    }
+
     @GetMapping("/preview/{jobId}/subscribe")
     public SseEmitter subscribe(@PathVariable("jobId") String jobId) {
         log.info("[TRAINER] SSE subscribe jobId={}", jobId);

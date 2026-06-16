@@ -1,6 +1,7 @@
 package com.aiplatform.workflow.controller;
 
 import com.aiplatform.common.result.Result;
+import com.aiplatform.workflow.engine.NodeExecutor;
 import com.aiplatform.workflow.engine.WorkflowEngine;
 import com.aiplatform.workflow.model.WorkflowRun;
 import com.aiplatform.workflow.model.WorkflowSpec;
@@ -34,6 +35,7 @@ public class WorkflowController {
 
     private final WorkflowEngine engine;
     private final WorkflowSpecRepository specRepo;
+    private final NodeExecutor nodeExecutor;
 
     // ============== CRUD ==============
     @PostMapping("/spec")
@@ -138,5 +140,105 @@ public class WorkflowController {
                         java.util.Map.of("message", "deployment complete"))
         ));
         return Result.success(t);
+    }
+
+    // ============== 节点执行端点 (前端 Workflow.vue 调用) ==============
+    /**
+     * 单节点执行: 接收 nodeId + config + upstream, 路由到对应服务.
+     *
+     * <p>调用方: 前端工作流编排器每跑一步调一次, 或 SSE 模式订阅.</p>
+     *
+     * <pre>
+     * POST /api/workflow/exec
+     * {
+     *   "nodeId": "kb_search",
+     *   "config": { "query": "{{input}}", "topK": 3, "rerank": true },
+     *   "upstream": "什么是 Seata"
+     * }
+     * </pre>
+     */
+    @PostMapping("/exec")
+    public Result<java.util.Map<String, Object>> execNode(@RequestBody java.util.Map<String, Object> body) {
+        String nodeId = (String) body.get("nodeId");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> config = (java.util.Map<String, Object>) body.get("config");
+        Object upstream = body.get("upstream");
+        if (nodeId == null || nodeId.isBlank()) {
+            return Result.fail(400, "nodeId 不能为空");
+        }
+        log.info("[WF] exec node={}, hasConfig={}, hasUpstream={}", nodeId, config != null, upstream != null);
+        java.util.Map<String, Object> out = nodeExecutor.execute(nodeId, config, upstream);
+        return Result.success(out);
+    }
+
+    /**
+     * 批量执行: 工作流引擎按依赖顺序跑所有节点, 上游输出喂下游.
+     *
+     * <p>调用方: 前端工作流 "运行" 按钮.</p>
+     *
+     * <pre>
+     * POST /api/workflow/exec/batch
+     * {
+     *   "nodes": [
+     *     { "id": "n1", "nodeId": "data_loader", "config": {...}, "deps": [] },
+     *     { "id": "n2", "nodeId": "kb_search", "config": {...}, "deps": ["n1"] }
+     *   ]
+     * }
+     * </pre>
+     */
+    @PostMapping("/exec/batch")
+    public Result<java.util.List<java.util.Map<String, Object>>> execBatch(@RequestBody java.util.Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        java.util.List<java.util.Map<String, Object>> nodes =
+                (java.util.List<java.util.Map<String, Object>>) body.get("nodes");
+        if (nodes == null || nodes.isEmpty()) {
+            return Result.fail(400, "nodes 不能为空");
+        }
+        // 简单按 deps 顺序执行 (无并行优化)
+        java.util.Map<String, Object> outputs = new java.util.HashMap<>();
+        java.util.List<java.util.Map<String, Object>> results = new java.util.ArrayList<>();
+        java.util.List<String> remaining = new java.util.ArrayList<>();
+        for (java.util.Map<String, Object> n : nodes) {
+            remaining.add((String) n.get("id"));
+        }
+        int maxIter = nodes.size() * 2;  // 防环
+        int iter = 0;
+        while (!remaining.isEmpty() && iter++ < maxIter) {
+            java.util.Iterator<String> it = remaining.iterator();
+            while (it.hasNext()) {
+                String nid = it.next();
+                java.util.Map<String, Object> node = nodes.stream()
+                        .filter(n -> nid.equals(n.get("id"))).findFirst().orElse(null);
+                if (node == null) { it.remove(); continue; }
+                @SuppressWarnings("unchecked")
+                java.util.List<String> deps = (java.util.List<String>) node.getOrDefault("deps", java.util.List.of());
+                boolean allDone = true;
+                for (String d : deps) {
+                    if (!outputs.containsKey(d)) { allDone = false; break; }
+                }
+                if (!allDone) continue;
+                // 收集上游 (最后一个 dep 的输出)
+                Object upstream = null;
+                if (!deps.isEmpty()) {
+                    upstream = outputs.get(deps.get(deps.size() - 1));
+                }
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> cfg = (java.util.Map<String, Object>) node.get("config");
+                String typeId = (String) node.get("nodeId");
+                java.util.Map<String, Object> out = nodeExecutor.execute(typeId, cfg, upstream);
+                outputs.put(nid, out);
+                java.util.Map<String, Object> result = new java.util.HashMap<>();
+                result.put("id", nid);
+                result.put("nodeId", typeId);
+                result.put("output", out);
+                result.put("status", "ok");
+                results.add(result);
+                it.remove();
+            }
+        }
+        if (!remaining.isEmpty()) {
+            return Result.fail(500, "工作流存在循环依赖或缺失依赖: " + remaining);
+        }
+        return Result.success(results);
     }
 }

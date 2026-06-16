@@ -4,12 +4,14 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.ComponentScan;
 
 /**
  * Workflow orchestrator. Default port 9011.
  */
 @EnableAsync
+@EnableFeignClients(basePackages = "com.aiplatform.workflow.feign")
 @SpringBootApplication
 @ComponentScan(basePackages = {
         "com.aiplatform.workflow",

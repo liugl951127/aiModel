@@ -65,6 +65,85 @@ public class KnowledgeController {
         return Result.success(knowledgeService.searchAsString(query, topK));
     }
 
+    /**
+     * Embedding 端点: 把文本转成向量. 用于工作流编排的 embed 节点.
+     * 演示实现: 实际项目应调 DJL/BGE/OpenAI.
+     */
+    @PostMapping("/embed")
+    public Result<Map<String, Object>> embed(@RequestBody Map<String, Object> body) {
+        Object textsObj = body.get("texts");
+        Object modelObj = body.getOrDefault("model", "BAAI/bge-small-zh-v1.5");
+        java.util.List<String> texts = new java.util.ArrayList<>();
+        if (textsObj instanceof java.util.List) {
+            for (Object o : (java.util.List<?>) textsObj) texts.add(String.valueOf(o));
+        } else if (textsObj != null) {
+            texts.add(textsObj.toString());
+        }
+        // 演示: 返回固定 512 维零向量 (避免大响应)
+        int dim = 512;
+        java.util.List<float[]> vectors = new java.util.ArrayList<>();
+        for (int i = 0; i < texts.size(); i++) {
+            float[] v = new float[dim];
+            // 简单 hash 制造差异
+            int h = texts.get(i).hashCode();
+            for (int j = 0; j < dim; j++) v[j] = ((float) ((h + j) % 100)) / 100f - 0.5f;
+            vectors.add(v);
+        }
+        Map<String, Object> ret = new java.util.HashMap<>();
+        ret.put("model", modelObj);
+        ret.put("dim", dim);
+        ret.put("count", vectors.size());
+        ret.put("vectors", vectors);
+        return Result.success(ret);
+    }
+
+    /**
+     * 向量索引: 把 vectors 写入 Milvus/ES/Chroma. 演示实现.
+     */
+    @PostMapping("/vector/index")
+    public Result<Map<String, Object>> vectorIndex(@RequestBody Map<String, Object> body) {
+        String backend = (String) body.getOrDefault("backend", "milvus");
+        String collection = (String) body.getOrDefault("collection", "vec_v1");
+        String metric = (String) body.getOrDefault("metric", "cosine");
+        Object vectors = body.get("vectors");
+        int count = vectors instanceof java.util.List ? ((java.util.List<?>) vectors).size() : 0;
+        Map<String, Object> ret = new java.util.HashMap<>();
+        ret.put("backend", backend);
+        ret.put("collection", collection);
+        ret.put("metric", metric);
+        ret.put("indexed", count);
+        ret.put("status", "indexed");
+        return Result.success(ret);
+    }
+
+    /**
+     * 文档切片: sliding window. 演示实现.
+     */
+    @PostMapping("/chunk")
+    public Result<Map<String, Object>> chunk(@RequestBody Map<String, Object> body) {
+        String text = (String) body.getOrDefault("text", "");
+        int chunkSize = Integer.parseInt(String.valueOf(body.getOrDefault("chunkSize", 256)));
+        int overlap = Integer.parseInt(String.valueOf(body.getOrDefault("overlap", 32)));
+        String by = (String) body.getOrDefault("by", "sentence");
+        java.util.List<String> chunks = new java.util.ArrayList<>();
+        if (text.isEmpty()) {
+            chunks.add("示例 chunk 1");
+            chunks.add("示例 chunk 2");
+        } else {
+            // 简化: 按 chunkSize 字符切
+            for (int i = 0; i < text.length(); i += chunkSize - overlap) {
+                int end = Math.min(i + chunkSize, text.length());
+                chunks.add(text.substring(i, end));
+                if (end >= text.length()) break;
+            }
+        }
+        Map<String, Object> ret = new java.util.HashMap<>();
+        ret.put("chunks", chunks);
+        ret.put("count", chunks.size());
+        ret.put("by", by);
+        return Result.success(ret);
+    }
+
     @DeleteMapping("/document/{id}")
     public Result<Void> deleteDoc(@PathVariable Long id) {
         knowledgeService.deleteDocument(id);
