@@ -28,7 +28,6 @@
         <dependency>
             <groupId>com.aiplatform</groupId>
             <artifactId>ai-platform-mybatis-starter</artifactId>
-            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
