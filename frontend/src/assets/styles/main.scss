@@ -1,34 +1,134 @@
+// ============================================================
+// 全局基础样式
+// 包含: 字体 / 重置 / 滚动条 / 响应式工具类 / Element Plus 主题
+// ============================================================
+
+@use './element-theme.scss';
+
 :root {
-  --primary: #2c5cff;
-  --bg: #f5f7fa;
-  --sidebar-bg: #001529;
-  --sidebar-active: #2c5cff;
+  --primary: #6366f1;
+  --primary-light: #818cf8;
+  --primary-dark: #4f46e5;
+  --bg: var(--bg-app, #f5f7fa);
+  --sidebar-bg: #0f172a;
+  --sidebar-active: #6366f1;
+  --radius-base: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 30px -8px rgba(0, 0, 0, 0.15);
 }
 
 html, body, #app {
   height: 100%;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
   background: var(--bg);
-  color: #303133;
+  color: var(--text-primary, #1e293b);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.25s, color 0.25s;
 }
 
 * { box-sizing: border-box; }
 
-.page-container {
-  padding: 20px;
+a { color: var(--el-color-primary); text-decoration: none; }
+a:hover { color: var(--el-color-primary-light-3); }
+
+// ============================================================
+// 滚动条
+// ============================================================
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong, #cbd5e1);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-secondary, #94a3b8); }
+
+// Firefox
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
+// ============================================================
+// 工具类
+// ============================================================
+.page-container { padding: 16px; }
 .card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
 }
-
 .flex { display: flex; }
 .flex-1 { flex: 1; }
+.gap-4 { gap: 4px; }
+.gap-8 { gap: 8px; }
 .gap-12 { gap: 12px; }
-.gap-16 { gap: 16px; }
+.mt-4 { margin-top: 4px; }
+.mt-8 { margin-top: 8px; }
 .mt-12 { margin-top: 12px; }
 .mt-16 { margin-top: 16px; }
+.text-muted { color: var(--text-secondary, #94a3b8); }
+.text-primary { color: var(--text-primary, #1e293b); }
+.text-center { text-align: center; }
+.text-sm { font-size: 12px; }
+.text-xs { font-size: 11px; }
+.text-bold { font-weight: 700; }
+
+// ============================================================
+// Element Plus 全局调整
+// ============================================================
+
+// 链接不带下划线
+.el-link { text-decoration: none !important; }
+
+// Button 紧凑
+.el-button {
+  font-weight: 500;
+  & + .el-button { margin-left: 0; }
+}
+.el-button + .el-button { margin-left: 8px; }
+
+// Card padding
+.el-card { box-sizing: border-box; }
+
+// 全局 Element Plus 弹窗 z-index 最高
+.el-overlay { z-index: 3000 !important; }
+.el-message { z-index: 5000 !important; }
+.el-notification { z-index: 5000 !important; }
+
+// 滚动容器统一
+.scroll-y { overflow-y: auto; max-height: 100%; }
+
+// 空状态
+.empty-tip {
+  padding: 40px 0; text-align: center;
+  color: var(--text-secondary, #94a3b8);
+  font-size: 12px;
+}
+
+// 分隔
+.divider-h { height: 1px; background: var(--border, #e5e7eb); margin: 12px 0; }
+
+// 状态色
+.color-ok { color: var(--el-color-success); }
+.color-warn { color: var(--el-color-warning); }
+.color-err { color: var(--el-color-danger); }
+.color-info { color: var(--el-color-info); }
+.color-primary { color: var(--el-color-primary); }
+
+// 焦点 / Hover 通用
+.focusable { transition: all 0.18s; cursor: pointer; }
+.focusable:hover { transform: translateY(-1px); }
+
+// ============================================================
+// 主题过渡 (避免切换时颜色突变)
+// ============================================================
+* {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.18s;
+  transition-timing-function: ease;
+}

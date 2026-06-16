@@ -96,99 +96,102 @@
     <!-- 主区                                       -->
     <!-- ============================================ -->
     <main class="main">
-      <!-- 顶栏 -->
-      <header class="topbar">
-        <div class="topbar-left">
-          <el-button :underline="false" text @click="collapsed = !collapsed" class="collapse-btn">
-            <el-icon :size="20"><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
-          </el-button>
-          <el-breadcrumb separator="/" class="crumb">
-            <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
-            <el-breadcrumb-item>{{ $route.meta?.title || $route.name }}</el-breadcrumb-item>
-          </el-breadcrumb>
-        </div>
-
-        <div class="topbar-center">
-          <el-input
-            v-model="searchKey"
-            placeholder="搜索菜单 / API / 智能体…"
-            :prefix-icon="Search"
-            clearable
-            class="global-search"
-            @keyup.enter="onSearch"
-          />
-          <div v-if="searchResults.length" class="search-popover">
-            <div
-              v-for="r in searchResults"
-              :key="r.path"
-              class="search-item"
-              @click="goTo(r.path)"
-            >
-              <el-icon><component :is="r.icon" /></el-icon>
-              <div class="si-meta">
-                <div class="si-title">{{ r.name }}</div>
-                <div class="si-desc">{{ r.desc }}</div>
-              </div>
-            </div>
+      <!-- 顶栏 (el-affix 钉顶部) -->
+      <el-affix :offset="0" target=".main" class="topbar-affix">
+        <header class="topbar">
+          <div class="topbar-left">
+            <el-tooltip :content="collapsed ? '展开侧栏' : '折叠侧栏'" placement="bottom">
+              <el-button :underline="false" link @click="collapsed = !collapsed" class="collapse-btn">
+                <el-icon :size="20"><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
+              </el-button>
+            </el-tooltip>
+            <el-breadcrumb separator="/" class="crumb">
+              <el-breadcrumb-item :to="{ path: '/dashboard' }">
+                <el-icon><HomeFilled /></el-icon>
+                首页
+              </el-breadcrumb-item>
+              <el-breadcrumb-item>{{ $route.meta?.title || $route.name }}</el-breadcrumb-item>
+            </el-breadcrumb>
           </div>
-        </div>
 
-        <div class="topbar-right">
-          <!-- 实时事件钟 -->
-          <el-tooltip content="实时事件流" placement="bottom">
-            <div class="live-dot-wrap" @click="showTicker = !showTicker">
-              <div class="live-dot" :class="{ active: liveCount > 0 }"></div>
-              <span v-if="liveCount > 0" class="live-badge">{{ liveCount > 99 ? '99+' : liveCount }}</span>
-            </div>
-          </el-tooltip>
-
-          <!-- 主题切换 -->
-          <el-tooltip content="主题" placement="bottom">
-            <el-button :underline="false" text @click="cycleTheme">
-              <el-icon :size="20"><component :is="themeIcon" /></el-icon>
-            </el-button>
-          </el-tooltip>
-
-          <!-- 租户标签（admin 多租户时显示） -->
-          <el-tag v-if="roles.includes('SUPER_ADMIN')" type="warning" size="small" class="role-tag">
-            🔑 超管
-          </el-tag>
-
-          <!-- 用户菜单 -->
-          <el-dropdown trigger="click" @command="onUserMenu">
-            <div class="user-chip">
-              <el-avatar :size="32" class="user-avatar">{{ avatarLetter }}</el-avatar>
-              <div class="user-meta">
-                <div class="user-name">{{ nickname || username }}</div>
-                <div class="user-dept">{{ department || '未设置部门' }}</div>
-              </div>
-              <el-icon><CaretBottom /></el-icon>
-            </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item disabled>
-                  <div class="ud-info">
-                    <strong>{{ nickname || username }}</strong>
-                    <div class="muted">{{ roles.join(' · ') }}</div>
+          <div class="topbar-center">
+            <el-autocomplete
+              v-model="searchKey"
+              :fetch-suggestions="onSearchSuggest"
+              placeholder="搜索菜单 / API / 智能体…"
+              :prefix-icon="Search"
+              clearable
+              class="global-search"
+              @select="onSearchSelect"
+              @keyup.enter="onSearch"
+              value-key="name"
+            >
+              <template #default="{ item }">
+                <div class="si-item">
+                  <el-icon><component :is="item.icon" /></el-icon>
+                  <div class="si-meta">
+                    <div class="si-title">{{ item.name }}</div>
+                    <div class="si-desc">{{ item.desc }}</div>
                   </div>
-                </el-dropdown-item>
-                <el-dropdown-item command="tenants">
-                  <el-icon><OfficeBuilding /></el-icon>切换租户
-                </el-dropdown-item>
-                <el-dropdown-item command="profile">
-                  <el-icon><User /></el-icon>个人中心
-                </el-dropdown-item>
-                <el-dropdown-item command="swagger" divided>
-                  <el-icon><Document /></el-icon>API 文档 (Swagger)
-                </el-dropdown-item>
-                <el-dropdown-item command="logout" divided>
-                  <el-icon><SwitchButton /></el-icon>退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </header>
+                </div>
+              </template>
+            </el-autocomplete>
+          </div>
+
+          <div class="topbar-right">
+            <el-tooltip content="实时事件流" placement="bottom">
+              <el-badge :value="liveCount" :hidden="liveCount === 0" :max="99">
+                <el-button :underline="false" link @click="showTicker = !showTicker" class="live-btn">
+                  <el-icon :size="20"><BellFilled /></el-icon>
+                </el-button>
+              </el-badge>
+            </el-tooltip>
+
+            <el-tooltip content="主题" placement="bottom">
+              <el-button :underline="false" link @click="cycleTheme">
+                <el-icon :size="20"><component :is="themeIcon" /></el-icon>
+              </el-button>
+            </el-tooltip>
+
+            <el-tooltip v-if="roles.includes('SUPER_ADMIN')" content="超级管理员" placement="bottom">
+              <el-tag type="warning" size="small" effect="dark" class="role-tag">🔑 超管</el-tag>
+            </el-tooltip>
+
+            <el-dropdown trigger="click" @command="onUserMenu">
+              <div class="user-chip">
+                <el-avatar :size="32" class="user-avatar">{{ avatarLetter }}</el-avatar>
+                <div class="user-meta">
+                  <div class="user-name">{{ nickname || username }}</div>
+                  <div class="user-dept">{{ department || '未设置部门' }}</div>
+                </div>
+                <el-icon><CaretBottom /></el-icon>
+              </div>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item disabled>
+                    <div class="ud-info">
+                      <strong>{{ nickname || username }}</strong>
+                      <div class="muted">{{ roles.join(' · ') }}</div>
+                    </div>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="tenants">
+                    <el-icon><OfficeBuilding /></el-icon>切换租户
+                  </el-dropdown-item>
+                  <el-dropdown-item command="profile">
+                    <el-icon><User /></el-icon>个人中心
+                  </el-dropdown-item>
+                  <el-dropdown-item command="swagger" divided>
+                    <el-icon><Document /></el-icon>API 文档
+                  </el-dropdown-item>
+                  <el-dropdown-item command="logout" divided>
+                    <el-icon><SwitchButton /></el-icon>退出登录
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </header>
+      </el-affix>
 
       <!-- 内容 -->
       <section class="content">
@@ -233,7 +236,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   DataLine, Cpu, Files, VideoPlay, UserFilled, Tools, Reading, ChatDotRound, Setting,
   Connection, Refresh, Search, Fold, Expand, CaretBottom, User, SwitchButton,
-  OfficeBuilding, Document, Sunny, Moon, MagicStick, Tickets, Box
+  OfficeBuilding, Document, Sunny, Moon, MagicStick, Tickets, Box, HomeFilled, BellFilled
 } from '@element-plus/icons-vue'
 import LiveTickerBar from '@/components/LiveTickerBar.vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
@@ -258,13 +261,23 @@ const avatarLetter = computed(() =>
 // ============== 侧栏折叠 ==============
 const collapsed = ref(false)
 
-// ============== 全局搜索 ==============
+// ============== 全局搜索 (el-autocomplete) ==============
 const searchKey = ref('')
-const searchResults = computed(() => {
+const onSearchSuggest = (queryString, cb) => {
+  const k = (queryString || '').trim().toLowerCase()
+  if (!k) { cb([]); return }
+  const results = allMenus.filter(m => m.name.toLowerCase().includes(k) || m.desc.toLowerCase().includes(k)).slice(0, 8)
+  cb(results)
+}
+const onSearchSelect = (item) => {
+  if (item?.path) goTo(item.path)
+}
+const onSearch = () => {
   const k = searchKey.value.trim().toLowerCase()
-  if (!k) return []
-  return allMenus.filter(m => m.name.toLowerCase().includes(k) || m.desc.toLowerCase().includes(k)).slice(0, 8)
-})
+  if (!k) return
+  const r = allMenus.find(m => m.name.toLowerCase().includes(k) || m.desc.toLowerCase().includes(k))
+  if (r) goTo(r.path)
+}
 const allMenus = [
   { path: '/dashboard', name: '工作台', icon: 'DataLine', desc: '平台概览 + 实时活动' },
   { path: '/workflow', name: '工作流编排', icon: 'Connection', desc: '拖拽编排业务流' },
@@ -284,11 +297,6 @@ const allMenus = [
   { path: '/menus', name: '菜单管理', icon: 'Setting', desc: '菜单树维护' },
   { path: '/audit', name: '登录审计', icon: 'Document', desc: 'sys_login_audit' }
 ]
-const onSearch = () => {
-  if (searchResults.value.length > 0) {
-    goTo(searchResults.value[0].path)
-  }
-}
 const goTo = (p) => {
   searchKey.value = ''
   router.push(p)
