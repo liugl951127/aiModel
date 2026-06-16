@@ -3,15 +3,11 @@
 ## 1. 跑 schema + seed
 
 ```bash
-# MySQL
 mysql -uroot -p < deploy/sql/01_schema.sql
 mysql -uroot -p < deploy/sql/02_seed.sql
-
-# 或一次性
-mysql -uroot -p < <(cat deploy/sql/01_schema.sql deploy/sql/02_seed.sql)
 ```
 
-## 2. 默认账号 (password 已 BCrypt 编码)
+## 2. 默认账号 (password 用项目真实 BCrypt 编码)
 
 | 用户名 | 密码 | 角色 | 租户 |
 | --- | --- | --- | --- |
@@ -19,52 +15,46 @@ mysql -uroot -p < <(cat deploy/sql/01_schema.sql deploy/sql/02_seed.sql)
 | `demo` | `demo123` | 市场部 / 用户 | 1 (默认公司) |
 | `manager` | `demo123` | 运营部 / 用户 | 2 (示例科技) |
 
-## 3. 密码不对时怎么排查
+## 3. 自定义密码 (用项目真实 BCryptPasswordEncoder)
 
-### Step 1: 验算 hash
 ```bash
-python3 scripts/verify_password.py check admin123 '$2a$10$4tMHnM6bsrADgZJyK3vI5.z99DvtP6xhQoPAjuayBmGvtdj4Z8zeO'
-# 期望: ✅ 密码 'admin123' 匹配 hash
+cd backend
+# 安装项目到本地 maven
+mvn -N install
+
+# 跑 hash 生成器
+mvn -pl ai-platform-user exec:java \
+  -Dexec.mainClass="com.aiplatform.user.util.BCryptHashMain" \
+  -Dexec.classpathScope=runtime \
+  -Dfile.encoding=UTF-8
 ```
 
-### Step 2: 确认 DB 已 seed
-```bash
-mysql -uroot -p -e "SELECT id, username, LEFT(password, 20) AS hash_prefix, status FROM ai_platform.sys_user;"
-# 期望: 看到 3 行 (admin/demo/manager)
+输出:
+```
+明文:   admin123
+hash:   $2a$10$8qabkLPmOcdGOTABzszZ2O/qTOArLELuL27Vne4rU9sD/viL7IFZy
+rounds: 10 (Spring BCryptPasswordEncoder 默认)
+自验:   ✅ 通过
 ```
 
-如果只有 0 行, 跑 seed:
+把 `hash` 复制到 SQL:
 ```bash
-mysql -uroot -p < deploy/sql/02_seed.sql
+mysql -uroot -p -e "UPDATE ai_platform.sys_user SET password='\$2a\$10\$8qa...' WHERE username='admin';"
 ```
 
-### Step 3: 自定义密码
-```bash
-# 生成新 hash
-python3 scripts/verify_password.py gen MyNewPassword
-# 复制输出, 在 DB 里直接 UPDATE
-mysql -uroot -p -e "UPDATE ai_platform.sys_user SET password='<新hash>' WHERE username='admin';"
-```
+**重要**: 必须用项目的 `BCryptPasswordEncoder` 生成的 hash, 不能用 Python `bcrypt` 库。
+两个库默认 salt prefix 不同 ($2a$ vs $2b$)，虽然 Spring 兼容 $2b$ 但推荐统一用 $2a$。
 
-### Step 4: 看后端日志
-- `AuthService` 登录时如果 `passwordEncoder.matches(plain, stored) == false`, 会记录审计 `FAILED/密码错误`
-- 看 `sys_login_audit` 表确认是否真的 BCrypt 不匹配
+## 4. 排查密码错误
 
 ```bash
-mysql -uroot -p -e "SELECT username, login_status, fail_reason, login_time FROM ai_platform.sys_login_audit ORDER BY login_time DESC LIMIT 5;"
-```
+# 1. 看后端审计
+mysql -uroot -p -e "SELECT username, login_status, fail_reason FROM ai_platform.sys_login_audit ORDER BY login_time DESC LIMIT 5;"
+# 期望:
+#   FAILED / 密码错误  → 密码不匹配
+#   FAILED / 用户不存在 → DB 没 seed
 
-## 4. 用现有 auth-service 重置密码
-
-直接调 user-service API:
-```bash
+# 2. 重置 admin 密码
 curl -X POST http://127.0.0.1:9001/api/user/1/reset-password
-# 返: { "code":200, "data":"123456" }
-# 把 admin 密码重置为 123456
+# 返: { "code": 200, "data": "123456" }
 ```
-
-## 5. Spring BCrypt 兼容性
-
-`BCryptPasswordEncoder` 同时支持 `$2a$` / `$2b$` / `$2y$` 三种前缀。
-Python `bcrypt` 库默认生成 `$2b$` — 写 SQL 时建议统一用 `$2a$` (更兼容)。
-`verify_password.py gen` 默认就用 `$2a$`。
