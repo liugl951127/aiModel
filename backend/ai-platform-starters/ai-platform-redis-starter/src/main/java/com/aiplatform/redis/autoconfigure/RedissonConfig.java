@@ -9,13 +9,27 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * 自定义 Redisson 配置 — 覆盖 redisson-spring-boot-starter 的 auto-config.
- * <p>关键点: {@code lazyInitialization=true} + 短超时 + 失败降级,
- * 让服务在 Redis 暂时不可用时仍能启动 (开发环境友好).</p>
  *
- * <p>Spring 装配顺序: 这个类优先于 {@code RedissonAutoConfigurationV2},
- * 因为 spring boot 的 auto-config 用 {@code @ConditionalOnMissingBean}.</p>
+ * <h3>核心策略</h3>
+ * <ol>
+ *   <li><b>方法名 = "redisson"</b>: 覆盖 starter 中
+ *       {@code RedissonAutoConfigurationV2#redisson(...)} 方法, Spring 看到同 bean 名就跳过 starter 的</li>
+ *   <li><b>启动时主动连</b>: 后台线程 tryLock 触发实际连接, 5s 内拿到结果就 log [OK]/[WARN]</li>
+ *   <li><b>不阻塞启动</b>: 后台线程 + lazy=true + 短超时, 失败仅 warn, 不抛异常</li>
+ *   <li><b>健康检查</b>: {@link #REDIS_READY} AtomicBoolean 暴露状态</li>
+ * </ol>
+ *
+ * <p>可配项 (application.yml):</p>
+ * <pre>
+ * redisson:
+ *   warmup-on-startup: true        # 是否启动时主动连 (默认 true)
+ *   warmup-timeout-ms: 5000        # 启动 warmup 最多等几 ms
+ * </pre>
  */
 @Slf4j
 @Configuration
@@ -36,19 +50,25 @@ public class RedissonConfig {
     @Value("${redisson.timeout:3000}")
     private int timeout;
 
+    @Value("${redisson.warmup-on-startup:true}")
+    private boolean warmupOnStartup;
+
+    @Value("${redisson.warmup-timeout-ms:5000}")
+    private long warmupTimeoutMs;
+
     /**
-     * 自定义 RedissonClient — 覆盖 starter 的 auto-config.
-     *
-     * <p>关键:
-     * <ol>
-     *   <li>{@code setLazyInitialization(true)} — 第一次使用时才连, 启动不阻塞</li>
-     *   <li>3s connect timeout + 1 retry — 连不上快速失败, 不卡 Spring 启动</li>
-     *   <li>{@code @ConditionalOnMissingBean} — 业务可自定义覆盖</li>
-     * </ol>
+     * Redisson 连接状态 (供健康检查用)
      */
-    @Bean(destroyMethod = "shutdown")
-    @ConditionalOnMissingBean
-    public RedissonClient redissonClient() {
+    public static final AtomicBoolean REDIS_READY = new AtomicBoolean(false);
+
+    /**
+     * 自定义 RedissonClient — 方法名必须叫 "redisson",
+     * <p>与 starter 的 {@code RedissonAutoConfigurationV2#redisson} 同名, Spring 通过
+     * {@code @ConditionalOnMissingBean(name = "redisson")} 跳过 starter 的注册.</p>
+     */
+    @Bean(name = "redisson", destroyMethod = "shutdown")
+    @ConditionalOnMissingBean(name = "redisson")
+    public RedissonClient redisson() {
         Config config = new Config();
         String address = "redis://" + host + ":" + port;
         config.useSingleServer()
@@ -62,10 +82,43 @@ public class RedissonConfig {
                 .setConnectionPoolSize(32)
                 .setConnectionMinimumIdleSize(8)
                 .setSubscriptionConnectionPoolSize(8);
-        // ★ 关键: lazy 初始化, 不在启动时连 Redis (顶层 Config)
+        // 懒加载: 避免首次 op 阻塞. 后台 warmup 线程会主动连
         config.setLazyInitialization(true);
-        log.info("[REDISSON] initialized, address={}, database={}, lazy=true, timeout={}ms",
-                address, database, timeout);
-        return Redisson.create(config);
+        log.info("[REDISSON] configured: address={}, database={}, timeout={}ms, warmup={}",
+                address, database, timeout, warmupOnStartup);
+        RedissonClient client = Redisson.create(config);
+        // 创建后立即异步 warmup
+        if (warmupOnStartup) {
+            scheduleWarmup(client);
+        }
+        return client;
+    }
+
+    /**
+     * 异步 warmup: 触发实际连接, 不阻塞调用方.
+     */
+    private void scheduleWarmup(RedissonClient client) {
+        Thread t = new Thread(() -> {
+            long t0 = System.currentTimeMillis();
+            try {
+                // tryLock 触发实际连接 (等 warmup-timeout-ms)
+                boolean acquired = client.getLock("__ai_platform_warmup__")
+                        .tryLock(warmupTimeoutMs, 100, TimeUnit.MILLISECONDS);
+                long dt = System.currentTimeMillis() - t0;
+                if (acquired) {
+                    try { client.getLock("__ai_platform_warmup__").unlock(); } catch (Exception ignore) {}
+                }
+                // 不管 acquired true/false, 只要没抛异常就说明连接成功
+                REDIS_READY.set(true);
+                log.info("[REDISSON] [OK] connected to Redis in {}ms ({}:{})", dt, host, port);
+            } catch (Exception e) {
+                long dt = System.currentTimeMillis() - t0;
+                REDIS_READY.set(false);
+                log.warn("[REDISSON] [WARN] startup connect failed ({}:{}) after {}ms: {} — service will start in degraded mode",
+                        host, port, dt, e.getMessage());
+            }
+        }, "redisson-warmup");
+        t.setDaemon(true);
+        t.start();
     }
 }
