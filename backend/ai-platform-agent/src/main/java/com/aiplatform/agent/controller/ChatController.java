@@ -30,4 +30,14 @@ public class ChatController {
     public Result<List<Message>> history(@RequestParam String sessionId) {
         return Result.success(orchestrator.history(sessionId));
     }
+
+    /**
+     * Agent 调用日志 (DB, 重启不丢). 给前端 /api/agent/invoke-logs 用.
+     */
+    @GetMapping("/invoke-logs")
+    public Result<List<com.aiplatform.agent.entity.AgentInvokeLogEntity>> invokeLogs(
+            @RequestParam(required = false) Long agentId,
+            @RequestParam(defaultValue = "50") int limit) {
+        return Result.success(orchestrator.listInvokeLogs(agentId, limit));
+    }
 }
