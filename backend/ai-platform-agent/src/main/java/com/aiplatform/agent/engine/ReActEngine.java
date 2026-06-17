@@ -114,7 +114,7 @@ public class ReActEngine {
                 "maxTokens", 512
         );
         Result<Map<String, Object>> resp = inferenceClient.generate(body);
-        if (resp == null || resp.getCode() == null || resp.getCode() != ResultCode.SUCCESS.getCode()) {
+        if (resp == null || resp.getCode() == null || resp.getCode() != ResultCode.SUCCESS.getCode().intValue()) {
             // Fallback to a deterministic stub so the loop can still be exercised end-to-end
             // when the inference service is offline.
             return "{\"action\":\"final\",\"answer\":\"(本地模型未就绪) 已收到你的输入: " + escape(prompt) + "\"}";

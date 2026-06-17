@@ -102,7 +102,7 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest req, String ip, String userAgent, boolean devPlainHeader) {
         Result<Map<String, Object>> resp = userServiceClient.getByUsername(req.getUsername());
-        if (resp == null || resp.getCode() == null || resp.getCode() != ResultCode.SUCCESS.getCode()) {
+        if (resp == null || resp.getCode() == null || resp.getCode() != ResultCode.SUCCESS.getCode().intValue()) {
             recordAudit(req.getUsername(), null, null, ip, userAgent, "FAILED", "用户不存在");
             throw new BusinessException(ResultCode.USER_PASSWORD_ERROR);
         }
