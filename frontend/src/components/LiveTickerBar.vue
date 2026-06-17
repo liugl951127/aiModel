@@ -9,11 +9,11 @@
         </div>
         <div class="td-actions">
           <el-tooltip content="清空" placement="top">
-            <el-button :underline="false" text size="small" @click="messages = []">
+            <el-button underline="never" text size="small" @click="messages = []">
               <el-icon><Delete /></el-icon>
             </el-button>
           </el-tooltip>
-          <el-button :underline="false" text size="small" @click="visible = false">
+          <el-button underline="never" text size="small" @click="visible = false">
             <el-icon><Close /></el-icon>
           </el-button>
         </div>
@@ -64,7 +64,7 @@
       </div>
 
       <footer class="td-foot">
-        <el-button :underline="false" text size="small" @click="clearAll">
+        <el-button underline="never" text size="small" @click="clearAll">
           <el-icon><Refresh /></el-icon>
           重新拉取
         </el-button>

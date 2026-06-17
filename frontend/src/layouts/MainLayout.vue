@@ -115,7 +115,7 @@
         <header class="topbar">
           <div class="topbar-left">
             <el-tooltip :content="collapsed ? '展开侧栏' : '折叠侧栏'" placement="bottom">
-              <el-button :underline="false" link @click="collapsed = !collapsed" class="collapse-btn">
+              <el-button underline="never" link @click="collapsed = !collapsed" class="collapse-btn">
                 <el-icon :size="20"><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
               </el-button>
             </el-tooltip>
@@ -155,14 +155,14 @@
           <div class="topbar-right">
             <el-tooltip content="实时事件流" placement="bottom">
               <el-badge :value="liveCount" :hidden="liveCount === 0" :max="99">
-                <el-button :underline="false" link @click="showTicker = !showTicker" class="live-btn">
+                <el-button underline="never" link @click="showTicker = !showTicker" class="live-btn">
                   <el-icon :size="20"><BellFilled /></el-icon>
                 </el-button>
               </el-badge>
             </el-tooltip>
 
             <el-tooltip content="主题" placement="bottom">
-              <el-button :underline="false" link @click="cycleTheme">
+              <el-button underline="never" link @click="cycleTheme">
                 <el-icon :size="20"><component :is="themeIcon" /></el-icon>
               </el-button>
             </el-tooltip>
@@ -252,7 +252,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, markRaw } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -346,7 +346,7 @@ const goHome = () => router.push('/dashboard')
 const themes = ['light', 'dark', 'auto']
 const themeIdx = ref(1)  // 默认 dark
 const themeIcon = computed(() => {
-  return [Sunny, Moon, MagicStick][themeIdx.value]
+  return markRaw([Sunny, Moon, MagicStick][themeIdx.value])
 })
 const cycleTheme = () => {
   themeIdx.value = (themeIdx.value + 1) % themes.length

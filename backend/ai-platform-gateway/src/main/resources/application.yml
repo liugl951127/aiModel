@@ -7,6 +7,12 @@
 
 server:
   port: 9000
+  # 上传体积上限: 单文件 50M, 请求体 60M (含 multipart 额外开销)
+  # 上传超这个限制会被网关直接拒绝, 返回 413 + 友好提示
+  max-http-request-header-size: 16KB
+  tomcat:
+    max-swallow-size: 60MB
+    max-http-form-post-size: 60MB
 
 spring:
   application:

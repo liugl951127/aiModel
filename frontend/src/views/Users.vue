@@ -39,10 +39,10 @@
         <el-table-column prop="createTime" label="创建时间" width="170" />
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button :underline="false" size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button :underline="false" size="small" @click="onChangePwd(row)">改密</el-button>
-            <el-button :underline="false" size="small" type="warning" @click="onResetPwd(row)">重置</el-button>
-            <el-button :underline="false" size="small" type="danger" @click="remove(row)">删除</el-button>
+            <el-button underline="never" size="small" @click="openEdit(row)">编辑</el-button>
+            <el-button underline="never" size="small" @click="onChangePwd(row)">改密</el-button>
+            <el-button underline="never" size="small" type="warning" @click="onResetPwd(row)">重置</el-button>
+            <el-button underline="never" size="small" type="danger" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

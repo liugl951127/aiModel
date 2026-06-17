@@ -6,7 +6,7 @@
         <p class="muted">管理角色 + 给用户分配角色 + 设置角色拥有的菜单权限</p>
       </div>
       <div class="hd-actions">
-        <el-button :underline="false" @click="loadStats">
+        <el-button underline="never" @click="loadStats">
           <el-icon><Refresh /></el-icon>
           刷新
         </el-button>
@@ -45,10 +45,10 @@
         <el-table-column prop="createTime" label="创建时间" width="170" />
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button :underline="false" size="small" @click="onAssignUser(row)">分配用户</el-button>
-            <el-button :underline="false" size="small" @click="onAssignMenu(row)">分配菜单</el-button>
-            <el-button :underline="false" size="small" type="primary" @click="onEdit(row)">编辑</el-button>
-            <el-button :underline="false" size="small" type="danger" @click="onDelete(row)">删除</el-button>
+            <el-button underline="never" size="small" @click="onAssignUser(row)">分配用户</el-button>
+            <el-button underline="never" size="small" @click="onAssignMenu(row)">分配菜单</el-button>
+            <el-button underline="never" size="small" type="primary" @click="onEdit(row)">编辑</el-button>
+            <el-button underline="never" size="small" type="danger" @click="onDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

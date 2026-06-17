@@ -425,7 +425,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, markRaw } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -476,7 +476,7 @@ const onLang = (code) => {
 // ============== 主题 ==============
 const themes = ['light', 'dark', 'auto']
 const themeIdx = ref(0)
-const themeIcon = computed(() => [Sunny, Moon, MagicStick][themeIdx.value])
+const themeIcon = computed(() => markRaw([Sunny, Moon, MagicStick][themeIdx.value]))
 const cycleTheme = () => {
   themeIdx.value = (themeIdx.value + 1) % themes.length
   document.documentElement.dataset.theme = themes[themeIdx.value]

@@ -41,9 +41,9 @@
         </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button :underline="false" size="small" @click="onCreate(row)">添加子菜单</el-button>
-            <el-button :underline="false" size="small" type="primary" @click="onEdit(row)">编辑</el-button>
-            <el-button :underline="false" size="small" type="danger" @click="onDelete(row)">删除</el-button>
+            <el-button underline="never" size="small" @click="onCreate(row)">添加子菜单</el-button>
+            <el-button underline="never" size="small" type="primary" @click="onEdit(row)">编辑</el-button>
+            <el-button underline="never" size="small" type="danger" @click="onDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

@@ -189,7 +189,7 @@
 
 defineOptions({ name: 'Dashboard' })
 
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, markRaw } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Cpu, Files, VideoPlay, UserFilled, Tools, Reading, ChatDotRound,
@@ -212,10 +212,10 @@ const now = ref(new Date().toLocaleString('zh-CN'))
 let clockTimer = null
 
 const stats = ref([
-  { key: 'models',  label: '大模型',   value: '—', icon: Cpu,        tone: 'blue',   path: '/models' },
-  { key: 'agents',  label: '智能体',   value: '—', icon: UserFilled, tone: 'purple', path: '/agents' },
-  { key: 'kb',      label: '知识库',   value: '—', icon: Reading,    tone: 'green',  path: '/knowledge' },
-  { key: 'train',   label: '训练任务', value: '—', icon: VideoPlay,  tone: 'orange', path: '/train' }
+  { key: 'models',  label: '大模型',   value: 0, icon: markRaw(Cpu),        tone: 'blue',   path: '/models' },
+  { key: 'agents',  label: '智能体',   value: 0, icon: markRaw(UserFilled), tone: 'purple', path: '/agents' },
+  { key: 'kb',      label: '知识库',   value: 0, icon: markRaw(Reading),    tone: 'green',  path: '/knowledge' },
+  { key: 'train',   label: '训练任务', value: 0, icon: markRaw(VideoPlay),  tone: 'orange', path: '/train' }
 ])
 // 业务数据 (客户/商机/合同/订单)
 const bizStats = ref({ customerTotal: 0, opportunityTotal: 0, contractAmount: 0, paidAmount: 0 })

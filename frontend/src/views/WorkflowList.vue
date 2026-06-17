@@ -6,11 +6,11 @@
         <p class="muted">管理已保存的工作流定义 (复用 / 编辑 / 复制 / 查运行历史)</p>
       </div>
       <div class="hd-actions">
-        <el-button :underline="false" @click="$router.push('/workflow')">
+        <el-button underline="never" @click="$router.push('/workflow')">
           <el-icon><Plus /></el-icon>
           编排新工作流
         </el-button>
-        <el-button :underline="false" @click="loadSpecs">
+        <el-button underline="never" @click="loadSpecs">
           <el-icon><Refresh /></el-icon>
           刷新
         </el-button>
@@ -49,9 +49,9 @@
         </el-table-column>
         <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
-            <el-button :underline="false" size="small" type="success" @click="onRun(row)">运行</el-button>
-            <el-button :underline="false" size="small" @click="onDuplicate(row)">复制</el-button>
-            <el-button :underline="false" size="small" type="danger" @click="onDelete(row)">删除</el-button>
+            <el-button underline="never" size="small" type="success" @click="onRun(row)">运行</el-button>
+            <el-button underline="never" size="small" @click="onDuplicate(row)">复制</el-button>
+            <el-button underline="never" size="small" type="danger" @click="onDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

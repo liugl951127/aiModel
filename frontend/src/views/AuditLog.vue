@@ -5,7 +5,7 @@
         <h2>📜 登录审计</h2>
         <p class="muted">谁/什么时间/IP/结果 — 全量登录审计日志, 来自 sys_login_audit 表</p>
       </div>
-      <el-button :underline="false" @click="loadAll">
+      <el-button underline="never" @click="loadAll">
         <el-icon><Refresh /></el-icon>
         刷新
       </el-button>
