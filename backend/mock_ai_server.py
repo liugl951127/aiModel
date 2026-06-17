@@ -371,6 +371,16 @@ class MockHandler(http.server.BaseHTTPRequestHandler):
             })
         elif path == "/api/auth/health":
             self.send_json(200, {"code": 200, "message": "ok", "data": {"status": "UP"}})
+
+        # === E2E 贯通路径 (其他模块, 业务页面调用) ===
+        elif path == "/api/workflow/spec/list":
+            self.send_json(200, {"code": 200, "message": "ok", "data": [
+                {"id": 1, "name": "E2E LoRA", "author": "e2e-test", "nodeCount": 5, "edgeCount": 4, "runCount": 0, "createTime": "2026-06-17", "updateTime": "2026-06-17"}
+            ]})
+        elif path == "/api/workflow/runs":
+            self.send_json(200, {"code": 200, "message": "ok", "data": [
+                {"id": "run-1", "specName": "E2E LoRA", "status": "SUCCEEDED", "progress": 100, "currentStep": "infer", "startedAt": "2026-06-17T10:00:00", "finishedAt": "2026-06-17T10:01:00", "durationMs": 60000, "source": "db"}
+            ]})
         else:
             self.send_json(404, {"code": 404, "message": "not found: " + path})
 
@@ -407,6 +417,60 @@ class MockHandler(http.server.BaseHTTPRequestHandler):
             current = body.get("current", {})
             wf = modify_existing(user_input.lower(), current, user_input)
             self.send_json(200, {"code": 200, "message": "ok", "data": wf, "timestamp": 1234567890})
+
+        # === E2E 贯通路径 ===
+        elif path == "/api/dataset":
+            # 创建数据集
+            new_id = 1000 + len(body.get("datasetCode", "")) % 100
+            self.send_json(200, {"code": 200, "message": "ok", "data": {
+                "id": new_id, "tenantId": 1, **body, "createTime": "2026-06-17T10:00:00"
+            }})
+        elif path == "/api/trainer/submit":
+            # 提交训练
+            import uuid
+            job_id = uuid.uuid4().hex[:8]
+            self.send_json(200, {"code": 200, "message": "ok", "data": {
+                "jobId": job_id, "status": "queued", "progress": 0, "message": "训练任务已启动"
+            }})
+        elif path.startswith("/api/model/export/") and path.endswith("/formats"):
+            self.send_json(200, {"code": 200, "message": "ok", "data": ["onnx", "gguf", "pytorch"]})
+        elif path == "/api/model/export/1" or path.startswith("/api/model/export/"):
+            # ONNX/GGUF/PyTorch 导出
+            fmt = "onnx"
+            if "format=gguf" in self.path: fmt = "gguf"
+            elif "format=pytorch" in self.path: fmt = "pytorch"
+            self.send_json(200, {"code": 200, "message": "ok", "data": {
+                "modelId": 1, "format": fmt, "bundlePath": f"/opt/ai-platform/exports/model-{fmt}.zip",
+                "fileName": f"model-{fmt}.zip", "sizeBytes": 1024 * 1024,
+                "downloadUrl": f"/api/model/export/1/download?format={fmt}"
+            }})
+        elif path == "/api/workflow/spec":
+            new_id = 999
+            self.send_json(200, {"code": 200, "message": "ok", "data": {
+                "id": new_id, "name": body.get("name", "未命名"), "author": "e2e-test",
+                "nodeCount": len(body.get("nodes", [])), "edgeCount": len(body.get("edges", [])),
+                "runCount": 0, "createTime": "2026-06-17T10:00:00", "updateTime": "2026-06-17T10:00:00"
+            }})
+        elif path == "/api/workflow/run":
+            import uuid
+            run_id = uuid.uuid4().hex[:8]
+            self.send_json(200, {"code": 200, "message": "ok", "data": run_id})
+        elif path == "/api/inference/generate":
+            self.send_json(200, {"code": 200, "message": "ok", "data": {
+                "text": "你好! 我是 E2E 测试的 AI 助手, 很高兴认识你。", "tokens": 18, "durationMs": 234
+            }})
+        elif path == "/api/files/chunk/init":
+            import uuid
+            upload_id = uuid.uuid4().hex
+            self.send_json(200, {"code": 200, "message": "ok", "data": {
+                "uploadId": upload_id, "totalChunks": 1, "chunkSize": 5242880
+            }})
+        elif path == "/api/distributed/lock":
+            self.send_json(200, {"code": 200, "message": "ok", "data": {
+                "lockKey": body.get("orderId", "unknown"),
+                "acquired": True, "token": "e2e-token-" + str(int(time.time())),
+                "ttlMs": 30000
+            }})
 
         else:
             self.send_json(404, {"code": 404, "message": "not found: " + path})
