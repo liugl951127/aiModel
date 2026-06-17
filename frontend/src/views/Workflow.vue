@@ -495,6 +495,40 @@ defineOptions({ name: 'Workflow' })
 const bus = useGlobalBus()
 const logEl = ref(null)
 
+// 监听全局 AI 助手发出的事件 (在其它页点'生成/诊断/建议'后会跳到本页)
+onMounted(() => {
+  bus.on('workflow:ai-generate', ({ input }) => {
+    aiGenOpen.value = true
+    // 如果 input 已在弹窗填好就直接触发
+    setTimeout(() => {
+      const ta = document.querySelector('.ai-gen textarea')
+      if (ta) {
+        ta.value = input || ''
+        ta.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+      // 触发生成按钮
+      const btn = document.querySelector('.gen-btn-row .el-button--primary')
+      if (btn) btn.click()
+    }, 300)
+  })
+  bus.on('workflow:diagnose', () => {
+    if (validation.value.valid) {
+      ElMessage.success('当前流程合法, 可以运行')
+    } else {
+      ElMessage.warning('流程有问题, 请看 AI 助手诊断')
+    }
+  })
+  bus.on('workflow:suggest-params', ({ nodeId }) => {
+    if (nodeId) {
+      const n = nodes.value.find(x => x.id === nodeId)
+      if (n) { selectedNode.value = n; configVisible.value = true; return }
+    }
+    // 默认打开选中节点
+    if (selectedNode.value) configVisible.value = true
+    else ElMessage.info('请先选中一个节点, 再点 AI 建议')
+  })
+})
+
 // ============== 画布状态 ==============
 const specName = ref('我的工作流')
 const nodes = ref([])
@@ -999,12 +1033,21 @@ const run = async () => {
     }
     const order = v.order
     addLog('运行', `共 ${order.length} 节点, 开始顺序执行...`, 'info')
+    // 推送 AI 助手: 开始跑了
+    bus.emit('live:event', { type: 'wf', text: `▶ 工作流 [${specName.value}] 开始执行, 共 ${order.length} 节点`, actor: 'workflow' })
     let upstream = {}
     for (const id of order) {
       const n = nodes.value.find(x => x.id === id)
       if (!n) continue
       currentNode.value = id
       addLog('节点', `→ ${n.name} (${n.id})`, 'info')
+      // 推送 AI 助手: 节点在跑
+      bus.emit('live:event', { type: 'wf', text: `▶ ${n.name} (${n.type}) 执行中...`, actor: 'workflow' })
+      // AI 类节点额外提示
+      const isAiNode = ['agent_think', 'agent_chat', 'infer_chat', 'infer', 'infer_generate'].includes(n.type)
+      if (isAiNode) {
+        bus.emit('live:event', { type: 'agent', text: `🧠 AI 思考中: 调模型生成...`, actor: 'ai' })
+      }
       try {
         const r = await workflowApi.exec({
           workflowId: specName.value,
@@ -1014,14 +1057,25 @@ const run = async () => {
         const data = r.data || {}
         if (data.error) {
           addLog('节点', `✗ ${n.name} 失败: ${data.error}`, 'error')
+          bus.emit('live:event', { type: 'wf', text: `✗ ${n.name} 失败: ${data.error}`, actor: 'workflow' })
         } else {
           doneSet.value.add(id)
           addLog('节点', `✓ ${n.name} 完成`, 'success')
           // 简化: 把 result 喂给下一个
           upstream = data.result || upstream
+          // AI 节点报告生成结果
+          if (isAiNode && data.result?.text) {
+            const preview = String(data.result.text).slice(0, 50)
+            bus.emit('live:event', { type: 'agent', text: `✓ AI 生成: ${preview}${preview.length >= 50 ? '...' : ''}`, actor: 'ai' })
+          } else {
+            bus.emit('live:event', { type: 'wf', text: `✓ ${n.name} 完成`, actor: 'workflow' })
+          }
         }
       } catch (e) {
         addLog('节点', `✗ ${n.name} 异常: ${e.message}`, 'error')
+        // 推送 AI 助手: 异常, 主动诊断
+        bus.emit('live:event', { type: 'wf', text: `✗ ${n.name} 异常`, actor: 'workflow' })
+        bus.emit('assistant:diagnose', { node: n.name, error: e.message })
       }
     }
     currentNode.value = null
@@ -1029,6 +1083,7 @@ const run = async () => {
     const ok = doneSet.value.size === order.length
     lastRun.value = { status: ok ? 'SUCCESS' : 'PARTIAL', durationMs: dur, ts: Date.now() }
     addLog('运行', ok ? `✓ 全部 ${order.length} 节点完成` : `⚠ 仅 ${doneSet.value.size}/${order.length} 成功`, ok ? 'success' : 'error')
+    bus.emit('live:event', { type: 'wf', text: ok ? `✓ 工作流完成 (${dur}ms)` : `⚠ 部分失败 (${dur}ms)`, actor: 'workflow' })
     ElMessage[ok ? 'success' : 'warning'](ok ? '运行完成' : '部分失败')
   } finally {
     running.value = false

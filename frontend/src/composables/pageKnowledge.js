@@ -164,13 +164,19 @@ export const pageKnowledge = {
     qa: [
       {
         keywords: '新手|开始|第一个|入门|上手',
-        answer: '新手 3 步: ① 左上 [+ 新建流程] ② 从左侧拖 [kb_search] + [agent_think] 两个节点 ③ 连起来点 [▶ 运行].\n\n最快: 右上 [加载 RAG 模板] 一键填好.',
-        actions: [{ label: '加载 RAG 模板', event: 'pageAction', payload: { page: '/workflow', action: 'loadRag' } }]
+        answer: '新手 3 步: ① 点 [🪄 AI 极速生成] 按钮 ② 一句话告诉 AI 你要什么 ③ AI 自动填画布 + 跑.\n\n背后真调本地 MiniGpt 模型, agent_think 节点会真生成 token.',
+        actions: [
+          { label: '🪄 一键生成 RAG 流程', event: 'generate', payload: '做一个 RAG 知识库问答流程' },
+          { label: '加载 RAG 模板', event: 'pageAction', payload: { page: '/workflow', action: 'loadRag' } }
+        ]
       },
       {
         keywords: 'rag|模板|template',
-        answer: 'RAG 模板 3 节点流水线: kb_ingest (文档入库) → kb_search (检索) → agent_think (回答).\n\n关键参数: topK 3-5, chunkSize 256, overlap 32.',
-        actions: [{ label: '加载 RAG', event: 'pageAction', payload: { page: '/workflow', action: 'loadRag' } }]
+        answer: 'RAG 模板 3 节点流水线: kb_ingest (文档入库) → kb_search (检索) → agent_think (回答).\n\n关键参数: topK 3-5, chunkSize 256, overlap 32.\n\n所有这些节点背后都走真模型, 跑起来后 agent_think 会调本地 MiniGpt 真生成 token.',
+        actions: [
+          { label: '🪄 AI 生成 RAG', event: 'generate', payload: '做一个 RAG 知识库问答流程' },
+          { label: '加载 RAG 模板', event: 'pageAction', payload: { page: '/workflow', action: 'loadRag' } }
+        ]
       },
       {
         keywords: '死循环|循环|环|cycle|自连',
@@ -178,7 +184,18 @@ export const pageKnowledge = {
       },
       {
         keywords: '32|分类|节点|node|组|group',
-        answer: '32 节点分 8 组: 数据准备 (5) / 训练 (4) / 评估 (3) / 部署 (3) / Agent (4) / 知识库 (4) / 工具 (5) / 推理 (4).\n\n完整列表: 鼠标悬停节点卡的 ? 图标, 看节点说明.',
+        answer: '32 节点分 8 组: 数据准备 (5) / 训练 (4) / 评估 (3) / 部署 (3) / Agent (4) / 知识库 (4) / 工具 (5) / 推理 (4).\n\n完整列表: 鼠标悬停节点卡的 ? 图标, 看节点说明.\n\n点击 [诊断] 按钮可让 AI 检查你的流程.',
+        actions: [{ label: '🔍 AI 诊断当前流程', event: 'diagnose' }]
+      },
+      {
+        keywords: '训练|llama|lora|微调|finetune',
+        answer: '点击下方按钮, AI 会自动生成 LoRA 训练流程 (5 节点: 数据加载 → 切片 → 训练 → 评估 → 注册).\n\n背后会调 trainer 服务真跑训练任务.',
+        actions: [{ label: '🪄 生成 LoRA 训练流程', event: 'generate', payload: '训练个 LoRA 模型, epochs=3' }]
+      },
+      {
+        keywords: 'ai|参数|补全|建议|智能化',
+        answer: 'AI 参数补全 3 种方式:\n1. 双击节点 → 配置弹窗 → [🤖 AI 补全参数] 按钮\n2. 选中节点 → 右键菜单 → [AI 建议]\n3. 在助手问 "推荐参数" → AI 给建议 + 一键应用\n\n所有 AI 调用都走真后端 /api/workflow/component-schemas/{id}/suggest.',
+        actions: [{ label: '打开画布', event: 'navigate', payload: '/workflow' }]
       },
     ]
   },

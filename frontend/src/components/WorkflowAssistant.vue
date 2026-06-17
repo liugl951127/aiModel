@@ -131,6 +131,31 @@ onMounted(() => {
     if (payload?.type === 'canvas') liveContext.value = payload.data
     else if (payload?.type === 'pageStatus') livePageStatus.value = payload.data || []
   })
+  // 订阅诊断事件: 节点异常, AI 主动推诊断
+  bus.on('assistant:diagnose', (payload) => {
+    const node = payload?.node || '节点'
+    const err = payload?.error || '未知错误'
+    // 推一条助手消息
+    messages.value.push({
+      role: 'assistant',
+      title: '🚨 AI 诊断: ' + node + ' 异常',
+      content: `节点 [${node}] 执行失败: ${err}\n\n可能原因:
+1. 参数缺失 (双击节点检查必填项)
+2. 后端服务没起 (看 Nacos / 服务状态)
+3. 模型未加载 (Train.vue 加载模型)
+4. 网络问题 (重试或看后端日志)
+
+快速修复: 双击节点, 点 [🤖 AI 补全参数], 会自动填所有字段.`,
+      actions: [
+        { label: '打开节点配置', event: 'navigate', payload: '/workflow' },
+        { label: '问 AI 怎么修', event: 'ask', payload: '节点执行失败怎么修?' }
+      ]
+    })
+    hint.value = true
+    scrollBottom()
+    // 弹窗展开
+    if (minimized.value) minimized.value = false
+  })
 })
 
 // 优先用 live (bus 推送), 兜底用 props (直接传)
@@ -267,6 +292,30 @@ const onAction = (a) => {
   else if (a.event === 'navigate') {
     router.push(a.payload)
     ElMessage.success('正在跳转: ' + a.payload)
+  }
+  else if (a.event === 'generate') {
+    // 跳到 workflow 页 + 触发 AI 生成
+    router.push('/workflow').then(() => {
+      setTimeout(() => {
+        bus.emit('workflow:ai-generate', { input: a.payload })
+      }, 500)
+    })
+  }
+  else if (a.event === 'diagnose') {
+    // 跳到 workflow 页 + 触发诊断
+    router.push('/workflow').then(() => {
+      setTimeout(() => {
+        bus.emit('workflow:diagnose', {})
+      }, 500)
+    })
+  }
+  else if (a.event === 'suggest-params') {
+    // 双击某个节点, 跳过去取 AI 建议
+    router.push('/workflow').then(() => {
+      setTimeout(() => {
+        bus.emit('workflow:suggest-params', a.payload || {})
+      }, 500)
+    })
   }
   else if (a.event === 'reset') {
     // 滚到顶部让用户看推荐问题

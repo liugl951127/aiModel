@@ -72,15 +72,18 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { MagicStick, Right, Check } from '@element-plus/icons-vue'
 import { workflowApi } from '@/api'
+import { useGlobalBus } from '@/composables/useGlobalBus'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:modelValue', 'apply'])
+
+const bus = useGlobalBus()
 
 const visible = ref(props.modelValue)
 watch(() => props.modelValue, v => visible.value = v)
@@ -90,6 +93,18 @@ const userInput = ref('')
 const loading = ref(false)
 const result = ref(null)
 const scenarios = ref([])
+
+// 接收来自 AI 助手的 generate 事件
+onMounted(() => {
+  bus.on('workflow:ai-generate', ({ input }) => {
+    visible.value = true
+    nextTick(() => {
+      userInput.value = input || ''
+      // 自动触发生成
+      setTimeout(() => onGenerate(), 200)
+    })
+  })
+})
 
 const onOpen = async () => {
   result.value = null
