@@ -32,6 +32,12 @@
             <el-icon><Promotion /></el-icon> 导出
           </el-button>
         </el-tooltip>
+        <el-tooltip content="从 JSON 文件加载流程 (跨平台)" placement="bottom">
+          <el-button @click="triggerImport">
+            <el-icon><Upload /></el-icon> 导入
+          </el-button>
+        </el-tooltip>
+        <input ref="fileInput" type="file" accept=".json" style="display: none" @change="onFileSelected" />
         <el-button :disabled="!history.length" @click="undo">
           <el-icon><Back /></el-icon> 撤销
         </el-button>
@@ -181,12 +187,21 @@
             </div>
           </el-popover>
           <el-icon class="wn-del" @click.stop="removeNode(n.id)"><Close /></el-icon>
+          <!-- 输入端口 (左边) -->
+          <span
+            :class="['wn-port', 'wn-port-in', _connectFrom && _connectFrom.id !== n.id ? 'wn-connecting' : '']"
+            style="left: -5px; top: 50%; transform: translateY(-50%);"
+            @mousedown.stop="onPortMouseDown($event, n, 'in', 'in')"
+            title="输入端口 - 点击连线"
+          />
+          <!-- 输出端口 (右边) -->
           <span
             v-for="p in n.outPorts"
             :key="p"
             class="wn-port wn-port-out"
             :style="{ right: '-5px', top: ((n.outPorts.indexOf(p) + 1) * 14) + 'px' }"
             @mousedown.stop="onPortMouseDown($event, n, p, 'out')"
+            title="输出端口 - 点击连线"
           />
         </div>
 
@@ -473,8 +488,8 @@
       </div>
     </el-dialog>
 
-    <!-- AI 极速生成流程 (一句话 → 画布) -->
-    <WorkflowAiGenerate v-model="aiGenOpen" @apply="onAiApply" />
+    <!-- AI 极速生成流程 (一句话 → 画布, 支持多轮修改) -->
+    <WorkflowAiGenerate v-model="aiGenOpen" :current="{ name: specName, nodes, edges }" @apply="onAiApply" />
   </div>
 </template>
 
@@ -484,7 +499,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   QuestionFilled, Back, RefreshRight, VideoPlay, Document, FolderOpened, Download, Plus, Close, Delete, Refresh, Promotion,
   FullScreen, ZoomIn, ZoomOut, Position, Aim,
-  CircleCheckFilled, CircleCloseFilled, MagicStick
+  CircleCheckFilled, CircleCloseFilled, MagicStick, Upload
 } from '@element-plus/icons-vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
 import WorkflowAiGenerate from '@/components/WorkflowAiGenerate.vue'
@@ -526,6 +541,10 @@ onMounted(() => {
     // 默认打开选中节点
     if (selectedNode.value) configVisible.value = true
     else ElMessage.info('请先选中一个节点, 再点 AI 建议')
+  })
+  // AI 生成后直接跳过去跑
+  bus.on('workflow:run-direct', () => {
+    setTimeout(() => run(), 200)
   })
 })
 
@@ -698,14 +717,24 @@ const onDrop = (e) => {
 }
 
 const onNodeMouseDown = (e, n) => {
+  // 如果正在连线中, 节点本体被点击 = 视为点 in 端口
+  if (_connectFrom.value) {
+    onPortMouseDown(e, n, 'in', 'in')
+    return
+  }
   selectedIds.value = [n.id]
   const startX = e.clientX, startY = e.clientY
   const ox = n.x, oy = n.y
-  const move = (m) => { n.x = Math.max(0, ox + (m.clientX - startX)); n.y = Math.max(0, oy + (m.clientY - startY)) }
+  let moved = false
+  const move = (m) => {
+    moved = true
+    n.x = Math.max(0, ox + (m.clientX - startX))
+    n.y = Math.max(0, oy + (m.clientY - startY))
+  }
   const up = () => {
     window.removeEventListener('mousemove', move)
     window.removeEventListener('mouseup', up)
-    pushHistory(`move ${n.id}`, { nodes: nodes.value, edges: edges.value })
+    if (moved) pushHistory(`move ${n.id}`, { nodes: nodes.value, edges: edges.value })
   }
   window.addEventListener('mousemove', move)
   window.addEventListener('mouseup', up)
@@ -809,31 +838,56 @@ const edgeConflict = (fromId, fromPort, toId, toPort) => {
 const onPortMouseDown = (e, node, port, dir) => {
   if (!_connectFrom.value) {
     _connectFrom.value = { id: node.id, port, dir }
-  } else {
-    const from = _connectFrom.value
-    const to = { id: node.id, port, dir }
-    if (from.dir === 'out' && to.dir === 'in') {
-      const conflict = edgeConflict(from.id, from.port, to.id, to.port)
-      if (conflict) {
-        ElMessage.warning(conflict)
-        addLog('连线', `✗ 拒绝: ${conflict} (${from.id}→${to.id})`, 'error')
-        _connectFrom.value = null
-        return
-      }
-      edges.value.push({ from: from.id, fromPort: from.port, to: to.id, toPort: to.port })
-      pushHistory('connect', { nodes: nodes.value, edges: edges.value })
-    } else if (from.dir === 'in' && to.dir === 'out') {
-      const conflict = edgeConflict(to.id, to.port, from.id, from.port)
-      if (conflict) {
-        ElMessage.warning(conflict)
-        addLog('连线', `✗ 拒绝: ${conflict} (${to.id}→${from.id})`, 'error')
-        _connectFrom.value = null
-        return
-      }
-      edges.value.push({ from: to.id, fromPort: to.port, to: from.id, toPort: from.port })
-    }
-    _connectFrom.value = null
+    addLog('连线', `→ 起点: ${node.name} (${dir} 端口)`, 'info')
+    return
   }
+  const from = _connectFrom.value
+  const to = { id: node.id, port, dir }
+
+  // 同节点且同方向 = 取消并重选起点
+  if (from.id === to.id && from.dir === to.dir) {
+    _connectFrom.value = { id: node.id, port, dir }
+    addLog('连线', `→ 重新选起点: ${node.name} (${dir} 端口)`, 'info')
+    return
+  }
+
+  // 决定方向: out  → in
+  let a, b  // a=from, b=to
+  if (from.dir === 'out' && to.dir === 'in') {
+    a = from; b = to
+  } else if (from.dir === 'in' && to.dir === 'out') {
+    a = to; b = from
+  } else {
+    // 同方向 (out-out 或 in-in)  - 重选
+    _connectFrom.value = { id: node.id, port, dir }
+    addLog('连线', `→ 重选起点: ${node.name} (${dir} 端口)`, 'info')
+    return
+  }
+
+  if (a.id === b.id) {
+    ElMessage.warning('不能连接自己')
+    _connectFrom.value = null
+    return
+  }
+  const conflict = edgeConflict(a.id, a.port, b.id, b.port)
+  if (conflict) {
+    ElMessage.warning(conflict)
+    addLog('连线', `✗ 拒绝: ${conflict}`, 'error')
+    _connectFrom.value = null
+    return
+  }
+  // 检查逆向已存在: B→A 已存在, 拒绝 A→B
+  if (edges.value.some(e => e.from === b.id && e.to === a.id)) {
+    ElMessage.warning('反向连线已存在, 不能双向连接')
+    _connectFrom.value = null
+    return
+  }
+
+  edges.value.push({ from: a.id, fromPort: a.port, to: b.id, toPort: b.port })
+  pushHistory('connect', { nodes: nodes.value, edges: edges.value })
+  addLog('连线', `✓ ${a.id} → ${b.id}`, 'success')
+  ElMessage.success('已连线: ' + (nodes.value.find(n => n.id === a.id)?.name || a.id) + ' → ' + (nodes.value.find(n => n.id === b.id)?.name || b.id))
+  _connectFrom.value = null
 }
 
 let _selectionRect = null
@@ -985,6 +1039,8 @@ const exportSpec = () => {
     name: specName.value,
     version: 1,
     exportedAt: new Date().toISOString(),
+    platform: 'ai-platform-workflow',
+    minRuntimeVersion: '2.0',
     nodes: nodes.value.map(({ x, y, ...rest }) => rest),
     edges: edges.value
   }
@@ -999,6 +1055,50 @@ const exportSpec = () => {
   URL.revokeObjectURL(url)
   addLog('导出', `✓ 已下载: ${a.download}`, 'success')
   ElMessage.success(`已导出: ${a.download}`)
+}
+
+// 导入流程 (跨平台 JSON)
+const fileInput = ref(null)
+const triggerImport = () => {
+  if (fileInput.value) {
+    fileInput.value.value = ''
+    fileInput.value.click()
+  }
+}
+const onFileSelected = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  try {
+    const text = await file.text()
+    const data = JSON.parse(text)
+    if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) {
+      ElMessage.error('文件格式不对, 需包含 nodes + edges')
+      return
+    }
+    // 平台兼容性检查
+    if (data.platform && data.platform !== 'ai-platform-workflow') {
+      ElMessage.warning(`文件来自其它平台 (${data.platform}), 尽力加载`)
+    }
+    pushHistory('import', { nodes: nodes.value, edges: edges.value })
+    // 重生 id 避免冲突
+    let idCounter = nodes.value.length
+    nodes.value = data.nodes.map(n => ({
+      id: n.id || `n${++idCounter}`,
+      type: n.type,
+      name: n.name,
+      x: n.x ?? (60 + (idCounter % 4) * 240),
+      y: n.y ?? (60 + Math.floor(idCounter / 4) * 160),
+      params: n.params || {},
+      outPorts: n.outPorts || ['out']
+    }))
+    edges.value = data.edges
+    specName.value = data.name || file.name.replace(/\.json$/, '')
+    selectedIds.value = []
+    addLog('导入', `✓ 从 ${file.name} 加载 ${nodes.value.length} 节点 / ${edges.value.length} 边`, 'success')
+    ElMessage.success(`已导入: ${nodes.value.length} 节点 / ${edges.value.length} 边`)
+  } catch (err) {
+    ElMessage.error('导入失败: ' + err.message)
+  }
 }
 
 const loadSpec = async (s) => {
@@ -1224,6 +1324,10 @@ const onKey = (e) => {
   } else if (e.key === 'Escape') {
     selectedIds.value = []
     selectedEdge.value = null
+    if (_connectFrom.value) {
+      _connectFrom.value = null
+      addLog('连线', '✗ 取消连线 (ESC)', 'info')
+    }
   }
 }
 
@@ -1309,8 +1413,14 @@ onBeforeUnmount(() => {
 .wn-cfg-row { display: flex; align-items: center; gap: 4px; font-size: 10px; }
 .wn-cfg-row label { color: #94a3b8; flex-shrink: 0; min-width: 40px; }
 .wn-cfg-row code { background: #f1f5f9; padding: 0 4px; border-radius: 3px; }
-.wn-port { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #6366f1; cursor: crosshair; }
-.wn-port-out { right: -4px; }
+.wn-port { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #6366f1; cursor: crosshair; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.15s, background 0.15s; z-index: 5; }
+.wn-port:hover { transform: scale(1.4); background: #4f46e5; }
+.wn-port-out { right: -5px; }
+.wn-port-in { left: -5px; background: #10b981; }
+.wn-port-in:hover { background: #059669; }
+/* 连线中点亮的样式 */
+.wn-connecting { animation: port-pulse 1s infinite; }
+@keyframes port-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); } 50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); } }
 
 /* 右: 配置 */
 .inspector { background: var(--bg-top, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 8px; padding: 8px; overflow-y: auto; }

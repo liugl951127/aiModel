@@ -43,6 +43,20 @@ public class AiWorkflowController {
     }
 
     /**
+     * 多轮修改: 在现有画布上根据追加需求修改.
+     * <p>请求: {@code { "input": "多 3 个评估节点", "current": {...当前画布...} }}</p>
+     * <p>响应: 新的画布 (含 action 字段: replace/add_node/delete_node/update_params)</p>
+     */
+    @PostMapping("/ai-modify")
+    public Result<Map<String, Object>> modify(@RequestBody Map<String, Object> body) {
+        String input = body == null ? "" : String.valueOf(body.getOrDefault("input", ""));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> current = (Map<String, Object>) body.get("current");
+        Map<String, Object> wf = generator.generate(input, current);
+        return Result.success(wf);
+    }
+
+    /**
      * 列出 10 个支持场景 (给前端预设按钮用).
      */
     @GetMapping("/ai-scenarios")

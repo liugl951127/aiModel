@@ -62,6 +62,9 @@ public class ServiceClients {
 
         @PostMapping("/chunk")
         Result<Map<String, Object>> chunk(@RequestBody Map<String, Object> body);
+
+        @PostMapping("/document/upload")
+        Result<Map<String, Object>> ingest(@RequestBody Map<String, Object> body);
     }
 
     @FeignClient(name = "ai-platform-inference", path = "/api/inference")

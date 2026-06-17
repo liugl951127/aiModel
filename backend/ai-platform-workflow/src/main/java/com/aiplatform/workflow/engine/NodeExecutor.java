@@ -77,8 +77,14 @@ public class NodeExecutor {
                     return toMap(knowledgeClient.vectorIndex(resolved));
                 case "kb_index":
                     return kbIndex(resolved);
+                case "kb_ingest":
+                    return toMap(knowledgeClient.ingest(resolved));
                 case "kb_search":
                     return toMap(knowledgeClient.enhancedSearch(resolved));
+                case "kb_chunk":
+                    return toMap(knowledgeClient.chunk(resolved));
+                case "kb_embed":
+                    return toMap(knowledgeClient.embed(resolved));
 
                 // ============== 训练 ==============
                 case "train_start":

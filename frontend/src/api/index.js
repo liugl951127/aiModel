@@ -165,6 +165,8 @@ export const workflowApi = {
   template: () => request.get('/api/workflow/templates/train-eval-deploy'),
   // AI 自然语言 → workflow JSON
   aiGenerate: (input) => request.post('/api/workflow/ai-generate', { input }),
+  // AI 多轮修改 (在现有画布上追加修改)
+  aiModify: (input, current) => request.post('/api/workflow/ai-modify', { input, current }),
   aiScenarios: () => request.get('/api/workflow/ai-scenarios'),
   // 组件参数 schema (后台可配, 不是前端 hardcode)
   listComponentSchemas: () => request.get('/api/workflow/component-schemas'),

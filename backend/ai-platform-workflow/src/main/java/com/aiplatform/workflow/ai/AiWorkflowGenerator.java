@@ -74,11 +74,190 @@ public class AiWorkflowGenerator {
      * @return 工作流 JSON (含 name / description / nodes / edges)
      */
     public Map<String, Object> generate(String userInput) {
+        return generate(userInput, null);
+    }
+
+    /**
+     * 多轮修改: 在现有画布基础上根据用户追加需求修改.
+     * <p>支持操作:
+     * <ul>
+     *   <li>"多 3 个评估节点" / "加个 LoRA 训练" → append 节点</li>
+     *   <li>"改成 RAG" / "变成营销流程" → 重生成整个画布</li>
+     *   <li>"把第一个节点删了" → remove</li>
+     *   <li>"调整 topK=5" → update 参数</li>
+     * </ul>
+     *
+     * @param userInput 用户追加输入
+     * @param currentSpec 现有画布 (可为 null, 表示全新生成)
+     * @return 新的工作流 JSON
+     */
+    public Map<String, Object> generate(String userInput, Map<String, Object> currentSpec) {
         if (userInput == null || userInput.trim().isEmpty()) {
             return fallback();
         }
         String input = userInput.toLowerCase().trim();
+        // 多轮模式: 现有画布 + 追加修改
+        if (currentSpec != null && hasExistingNodes(currentSpec)) {
+            return modifyExisting(input, currentSpec, userInput);
+        }
+        // 全新生成
+        return buildNew(input, userInput);
+    }
 
+    private boolean hasExistingNodes(Map<String, Object> spec) {
+        Object nodes = spec.get("nodes");
+        return nodes instanceof List && !((List<?>) nodes).isEmpty();
+    }
+
+    /**
+     * 智能多轮: 根据用户追加需求修改现有画布
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> modifyExisting(String input, Map<String, Object> spec, String originalInput) {
+        // 1) 完全重生成 (关键词: 换成/改成/变成/重做/不要了/重新)
+        if (input.matches(".*(换成|改成|变成|重做|不要了|重新|从新|重起).*")) {
+            return buildNew(input, originalInput);
+        }
+
+        // 2) 删除节点 (关键词: 删掉/删除/去掉/移除 + 节点)
+        Matcher mDel = Pattern.compile("(删掉|删除|去掉|移除)\\s*[第]?(\\d+|[一-十]+)?\\s*个?\\s*节点?").matcher(input);
+        if (mDel.find()) {
+            // 解析要删的节点名
+            String target = mDel.group(2);
+            List<Map<String, Object>> nodes = new ArrayList<>((List<Map<String, Object>>) spec.get("nodes"));
+            List<Map<String, Object>> edges = new ArrayList<>((List<Map<String, Object>>) spec.get("edges"));
+            if (target != null) {
+                int idx = parseChineseNumber(target);
+                if (idx > 0 && idx <= nodes.size()) {
+                    String removedId = (String) nodes.get(idx - 1).get("id");
+                    nodes.remove(idx - 1);
+                    edges.removeIf(e -> e.get("from").equals(removedId) || e.get("to").equals(removedId));
+                }
+            } else {
+                // 没指定, 删最后一个
+                if (!nodes.isEmpty()) {
+                    String removedId = (String) nodes.get(nodes.size() - 1).get("id");
+                    nodes.remove(nodes.size() - 1);
+                    edges.removeIf(e -> e.get("from").equals(removedId) || e.get("to").equals(removedId));
+                }
+            }
+            Map<String, Object> r = new LinkedHashMap<>(spec);
+            r.put("nodes", nodes);
+            r.put("edges", edges);
+            r.put("userInput", originalInput);
+            r.put("action", "delete_node");
+            return r;
+        }
+
+        // 3) 添加节点 (关键词: 多加/多/加/补/插入/添 + 节点)
+        Matcher mAdd = Pattern.compile("(多加|多|加|补|插入|添)\\s*(\\d+|[一-十]+)?\\s*个?\\s*(.*)").matcher(input);
+        if (mAdd.find()) {
+            String num = mAdd.group(2);
+            String what = mAdd.group(3);
+            int count = parseChineseNumber(num);
+            if (count <= 0) count = 1;
+            // 识别要加什么节点
+            String nodeType = detectNodeTypeFromName(what);
+            if (nodeType != null) {
+                List<Map<String, Object>> nodes = new ArrayList<>((List<Map<String, Object>>) spec.get("nodes"));
+                List<Map<String, Object>> edges = new ArrayList<>((List<Map<String, Object>>) spec.get("edges"));
+                String prevId = nodes.isEmpty() ? null : (String) nodes.get(nodes.size() - 1).get("id");
+                int x = nodes.isEmpty() ? START_X : (int) nodes.get(nodes.size() - 1).get("x") + X_GAP;
+                int y = nodes.isEmpty() ? START_Y : (int) nodes.get(nodes.size() - 1).get("y");
+                for (int i = 0; i < count; i++) {
+                    String id = "n" + (nodes.size() + 1);
+                    Map<String, Object> node = new LinkedHashMap<>();
+                    node.put("id", id);
+                    node.put("type", nodeType);
+                    node.put("name", nodeType);
+                    node.put("x", x);
+                    node.put("y", y);
+                    node.put("params", defaultParams(nodeType, originalInput));
+                    nodes.add(node);
+                    if (prevId != null) {
+                        edges.add(Map.of("from", prevId, "to", id));
+                    }
+                    prevId = id;
+                    x += X_GAP;
+                }
+                Map<String, Object> r = new LinkedHashMap<>(spec);
+                r.put("nodes", nodes);
+                r.put("edges", edges);
+                r.put("userInput", originalInput);
+                r.put("action", "add_node");
+                return r;
+            }
+        }
+
+        // 4) 改参数 (关键词: topK=N / chunkSize=N / epochs=N)
+        if (input.contains("topk") || input.contains("chunk") || input.contains("epoch") || input.contains("lr=")) {
+            List<Map<String, Object>> nodes = new ArrayList<>((List<Map<String, Object>>) spec.get("nodes"));
+            for (Map<String, Object> n : nodes) {
+                Object params = n.get("params");
+                if (params instanceof Map) {
+                    ((Map<String, Object>) params).putAll(parseParamsFromText(input));
+                }
+            }
+            Map<String, Object> r = new LinkedHashMap<>(spec);
+            r.put("nodes", nodes);
+            r.put("userInput", originalInput);
+            r.put("action", "update_params");
+            return r;
+        }
+
+        // 5) 兜底: 重新生成
+        return buildNew(input, originalInput);
+    }
+
+    /** 从 "评估/训练/检索" 等中文识别出节点 type */
+    private String detectNodeTypeFromName(String what) {
+        if (what == null) return null;
+        String s = what.trim();
+        if (s.contains("评估")) return "eval_bleu";
+        if (s.contains("训练") || s.contains("lora")) return "lora_train";
+        if (s.contains("检索") || s.contains("搜索") || s.contains("RAG") || s.contains("知识库")) return "kb_search";
+        if (s.contains("入库") || s.contains("ingest")) return "kb_ingest";
+        if (s.contains("切片") || s.contains("分片")) return "kb_chunk";
+        if (s.contains("向量化") || s.contains("embed")) return "kb_embed";
+        if (s.contains("思考") || s.contains("推理") || s.contains("思考")) return "agent_think";
+        if (s.contains("回答") || s.contains("chat")) return "agent_chat";
+        if (s.contains("部署")) return "model_deploy";
+        if (s.contains("注册")) return "model_register";
+        if (s.contains("数据")) return "data_loader";
+        if (s.contains("清洗")) return "data_clean";
+        return null;
+    }
+
+    private int parseChineseNumber(String s) {
+        if (s == null || s.isEmpty()) return -1;
+        try { return Integer.parseInt(s); } catch (Exception e) {}
+        return switch (s) {
+            case "一" -> 1; case "二" -> 2; case "两" -> 2; case "三" -> 3; case "四" -> 4; case "五" -> 5;
+            case "六" -> 6; case "七" -> 7; case "八" -> 8; case "九" -> 9; case "十" -> 10;
+            default -> -1;
+        };
+    }
+
+    private Map<String, Object> parseParamsFromText(String text) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        Matcher m = Pattern.compile("(top[_-]?k|chunk[_-]?size|epochs?|lr|learning[_-]?rate|max[_-]?tokens?)\\s*[=:]\\s*([\\d.]+)").matcher(text);
+        while (m.find()) {
+            String key = m.group(1).toLowerCase().replace("_", "");
+            if (key.startsWith("topk")) key = "topK";
+            else if (key.startsWith("chunksize")) key = "chunkSize";
+            else if (key.startsWith("learningrate")) key = "learningRate";
+            else if (key.startsWith("maxtokens")) key = "maxTokens";
+            String val = m.group(2);
+            try {
+                p.put(key, val.contains(".") ? Double.parseDouble(val) : Integer.parseInt(val));
+            } catch (Exception e) {
+                p.put(key, val);
+            }
+        }
+        return p;
+    }
+
+    private Map<String, Object> buildNew(String input, String userInput) {
         // 1) 场景识别
         Scenario scenario = detectScenario(input);
         log.info("AI 场景识别: {} (置信度 {}) -> {}", scenario.name, scenario.confidence, userInput);
@@ -100,7 +279,6 @@ public class AiWorkflowGenerator {
             node.put("name", tpl.name);
             node.put("x", x);
             node.put("y", y);
-            // 默认参数 (来自 schema 注册)
             node.put("params", defaultParams(tpl.type, userInput));
             nodes.add(node);
 
@@ -111,13 +289,13 @@ public class AiWorkflowGenerator {
             x += X_GAP;
         }
 
-        // 3) 组装结果
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("name", scenario.name);
         result.put("description", scenario.description);
         result.put("scenario", scenario.key);
         result.put("confidence", scenario.confidence);
         result.put("userInput", userInput);
+        result.put("action", "replace");
         result.put("nodes", nodes);
         result.put("edges", edges);
         return result;
