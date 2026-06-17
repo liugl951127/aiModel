@@ -352,12 +352,32 @@
     <!-- 双击节点: 改参数 dialog (后端拉 schema + AI 建议) -->
     <el-dialog v-model="configVisible" :title="configTitle" width="720px" align-center @close="cancelConfig">
       <div v-loading="configLoading" v-if="configNode">
+        <!-- ★ 异常 Banner (如果该节点刚运行失败, 顶部醒示) -->
+        <el-alert
+          v-if="configNode._failedReason"
+          type="error"
+          :closable="true"
+          show-icon
+          :title="`🚨 本节点上次运行异常: ${configNode._failedReason}`"
+          style="margin-bottom: 12px;"
+        >
+          <template #default>
+            <div style="margin-top: 4px;">
+              <b>错误原因:</b> {{ configNode._failedReason }}<br>
+              <b>修改建议:</b> 检查下面标红的必填项 / 调大超时 / 点右侧 [🤖 AI 补全参数] / 点 [问 AI 怎么修]<br>
+              <span style="color: #6b7280;">改完后点 [确定保存] 再点顶栏 [▶ 运行] 重试</span>
+            </div>
+          </template>
+        </el-alert>
+
         <el-row :gutter="16">
           <!-- 左: 参数表单 -->
           <el-col :span="14">
             <h4 style="margin: 0 0 8px; color: #6366f1;">📝 参数配置</h4>
             <el-form label-position="top" size="default">
-              <el-form-item v-for="p in configSchema" :key="p.key" :label="p.label + (p.required ? ' *' : '')">
+              <el-form-item v-for="p in configSchema" :key="p.key"
+                  :label="p.label + (p.required ? ' *' : '')"
+                  :error="isFieldInvalid(p) ? fieldErrorTip(p) : ''">
                 <template v-if="p.type === 'select'">
                   <el-select v-model="configNode.params[p.key]" placeholder="选择" style="width: 100%">
                     <el-option v-for="opt in (p.options || [])" :key="opt" :label="opt" :value="opt" />
@@ -823,6 +843,24 @@ const configSuggestions = ref([])     // AI 智能建议
 const suggestLoading = ref(false)
 const configTitle = computed(() => configNode.value ? `配置: ${configNode.value.name} (${configNode.value.id})` : '')
 
+// ★ 企业级: 检查字段是否填了 (必填项 + 异常后高亮)
+const isFieldInvalid = (p) => {
+  if (!configNode.value) return false
+  // 仅当节点异常时, 红色框
+  if (!configNode.value._failedReason) return false
+  // 必填项 + 值为空 → 错
+  if (p.required) {
+    const v = configNode.value.params?.[p.key]
+    if (v === undefined || v === null || v === '') return true
+  }
+  return false
+}
+const fieldErrorTip = (p) => {
+  if (!configNode.value) return ''
+  if (p.required) return '必填项, 节点上次异常可能是这个原因'
+  return ''
+}
+
 // 打开双击节点 config: 调后端 schema
 const openConfig = async (n) => {
   // 浅拷贝避免 selectedNode <-> configNode reactive 循环引用
@@ -1282,7 +1320,8 @@ const loadSpec = async (s) => {
         name: n.name,
         x: typeof n.x === 'number' ? n.x : (60 + (i % 4) * 240),
         y: typeof n.y === 'number' ? n.y : (60 + Math.floor(i / 4) * 160),
-        params: n.params || {}
+        params: n.params || {},
+        _failedReason: null  // ★ 从 DB 加载后清空, 上次运行的失败原因不适用
       }))
       edges.value = (data.edges || []).map(e => ({
         from: e.from,
@@ -1396,6 +1435,8 @@ const run = async () => {
       if (failedNode) {
         // 标记失败样式
         failedIds.value.add(id)
+        // ★ 在节点上记失败原因, 配置弹窗顶部 Banner 用
+        failedNode._failedReason = failedReason || '未知错误'
         // 选中该节点 (用户能立即看到是哪个)
         selectedIds.value = [id]
         // 自动滚到该节点位置
