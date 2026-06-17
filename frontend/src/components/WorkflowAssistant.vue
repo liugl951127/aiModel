@@ -3,12 +3,12 @@
     <!-- 浮窗标题栏 (可拖动) -->
     <div class="wfa-header" @mousedown="onDragStart">
       <div class="wfa-title">
-        <div class="wfa-avatar"><el-icon><MagicStick /></el-icon></div>
+        <div class="wfa-avatar">{{ pageMeta.icon || '🪄' }}</div>
         <div>
-          <div class="wfa-name">AI 编排助手</div>
+          <div class="wfa-name">{{ pageMeta.name ? pageMeta.name + ' 助手' : 'AI 助手' }}</div>
           <div class="wfa-status">
             <span class="wfa-dot" :class="{ active: status === 'ready' }"></span>
-            {{ status === 'thinking' ? '正在分析... · ' + contextHint : '就绪 · ' + contextHint }}
+            {{ statusText }}
           </div>
         </div>
       </div>
@@ -24,13 +24,30 @@
 
     <!-- 主区 (可收起) -->
     <div v-show="!minimized" class="wfa-body">
-      <!-- 上下文摘要 (画布状态) -->
-      <div class="wfa-ctx">
-        <span class="ctx-tag">节点 {{ ctx.nodeCount }}</span>
-        <span class="ctx-tag">边 {{ ctx.edgeCount }}</span>
-        <span v-if="ctx.cycleCount > 0" class="ctx-tag err">环 {{ ctx.cycleCount }}</span>
-        <span v-else-if="ctx.nodeCount > 0" class="ctx-tag ok">无环</span>
+      <!-- 页面上下文条 (顶部) -->
+      <div class="wfa-page" v-if="pageMeta.name">
+        <div class="page-info">
+          <span class="page-icon">{{ pageMeta.icon }}</span>
+          <span class="page-name">{{ pageMeta.name }}</span>
+          <span class="page-desc">{{ pageMeta.description }}</span>
+        </div>
+      </div>
+
+      <!-- Workflow 画布上下文 (如有) -->
+      <div class="wfa-ctx" v-if="effectiveContext && effectiveContext.nodeCount !== undefined">
+        <span class="ctx-tag">节点 {{ effectiveContext.nodeCount }}</span>
+        <span class="ctx-tag">边 {{ effectiveContext.edgeCount }}</span>
+        <span v-if="effectiveContext.cycleCount > 0" class="ctx-tag err">环 {{ effectiveContext.cycleCount }}</span>
+        <span v-else-if="effectiveContext.nodeCount > 0" class="ctx-tag ok">无环</span>
         <span v-else class="ctx-tag">空画布</span>
+      </div>
+
+      <!-- 页面内容状态 (表格/控件) -->
+      <div class="wfa-pagestatus" v-if="effectivePageStatus && effectivePageStatus.length">
+        <span v-for="(s, i) in effectivePageStatus" :key="i" class="status-tag" :class="s.type">
+          <el-icon v-if="s.icon"><component :is="s.icon" /></el-icon>
+          {{ s.label }}: {{ s.value }}
+        </span>
       </div>
 
       <!-- 消息区 -->
@@ -57,15 +74,15 @@
 
       <!-- 快捷问题 -->
       <div v-if="quickQuestions.length" class="wfa-quick">
-        <div class="quick-label">💡 推荐问题</div>
-        <el-tag v-for="q in quickQuestions" :key="q.q" size="small" effect="plain" @click="ask(q.q)" style="cursor: pointer;">
-          {{ q.q }}
+        <div class="quick-label">💡 {{ pageMeta.name ? '本页' : '推荐' }}问题</div>
+        <el-tag v-for="q in quickQuestions" :key="q" size="small" effect="plain" @click="ask(q)" style="cursor: pointer;">
+          {{ q }}
         </el-tag>
       </div>
 
       <!-- 输入框 -->
       <div class="wfa-input">
-        <el-input v-model="input" placeholder="问点什么... (例如: 怎么加 RAG 节点?)" @keyup.enter="ask()" size="default">
+        <el-input v-model="input" :placeholder="inputPlaceholder" @keyup.enter="ask()" size="default">
           <template #append>
             <el-button type="primary" @click="ask()" :loading="status === 'thinking'">
               <el-icon><Promotion /></el-icon>
@@ -78,26 +95,52 @@
 
   <!-- 关闭后小图标 -->
   <div v-else class="wfa-fab" @click="visible = true; minimized = false" title="打开 AI 助手">
-    <el-icon :size="20"><MagicStick /></el-icon>
+    <el-icon :size="20">{{ pageMeta.icon || '🪄' }}</el-icon>
     <span v-if="hint" class="fab-hint">!</span>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, nextTick, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { MagicStick, Close, Plus, Minus, Promotion } from '@element-plus/icons-vue'
+import { getPageKnowledge } from '@/composables/pageKnowledge'
+import { useGlobalBus } from '@/composables/useGlobalBus'
 
 const props = defineProps({
-  // 画布状态 (父组件传入, 变化时自动重算推荐问题)
-  context: { type: Object, required: true }
+  // 画布状态 (Workflow 页传, 其它页可不传)
+  context: { type: Object, default: () => null },
+  // 页面内容状态 (表格/控件实时数据, 由父组件传)
+  pageStatus: { type: Array, default: () => [] },
+  // 自定义页面知识 (覆盖默认)
+  customKnowledge: { type: Object, default: null }
 })
-const emit = defineEmits(['action'])
+const emit = defineEmits(['action', 'navigate'])
+const route = useRoute()
+const router = useRouter()
+const bus = useGlobalBus()
+
+// 全局推送的上下文 (画布状态 / 表格状态等)
+const liveContext = ref(null)
+const livePageStatus = ref([])
+
+onMounted(() => {
+  // 订阅全局 bus, 接收各页推送的实时状态
+  bus.on('assistant:context', (payload) => {
+    if (payload?.type === 'canvas') liveContext.value = payload.data
+    else if (payload?.type === 'pageStatus') livePageStatus.value = payload.data || []
+  })
+})
+
+// 优先用 live (bus 推送), 兜底用 props (直接传)
+const effectiveContext = computed(() => liveContext.value || props.context)
+const effectivePageStatus = computed(() => livePageStatus.value.length ? livePageStatus.value : (props.pageStatus || []))
 
 // 浮窗位置 + 显隐
 const visible = ref(true)
 const minimized = ref(false)
-const pos = reactive({ x: 0, y: 0 })
+const pos = reactive({ x: 24, y: 24 })
 const dragStart = ref(null)
 const rootStyle = computed(() => ({ right: pos.x + 'px', bottom: pos.y + 'px' }))
 
@@ -115,125 +158,92 @@ const onDragStart = (e) => {
   window.addEventListener('mouseup', onUp)
 }
 
-// 上下文
-const ctx = computed(() => props.context || {})
-const contextHint = computed(() => {
-  const c = ctx.value
-  if (c.cycleCount > 0) return '检测到死循环, 建议先修复'
-  if (c.nodeCount === 0) return '画布为空, 拖节点开始'
-  if (c.nodeCount < 3) return '节点较少, 可以加更多'
-  if (c.edgeCount < c.nodeCount - 1) return '部分节点未连接'
-  return '流程已就绪, 可以运行'
+// ====== 页面知识 (随路由变化) ======
+const pageMeta = computed(() => {
+  if (props.customKnowledge) return props.customKnowledge
+  return getPageKnowledge(route.path)
 })
 
-// 消息
+const pageWelcome = computed(() => {
+  const meta = pageMeta.value
+  return `你好! 我是「${meta.name}」智能助手, 懂这页的每个功能. 试试问我任何问题!`
+})
+
+// 监听路由变化, 重置消息
+watch(() => route.path, (newPath) => {
+  // 切换页面时, 重置消息 (只留欢迎语)
+  messages.value = [
+    { role: 'assistant', title: `👋 欢迎来到「${pageMeta.value.name}」`, content: pageWelcome.value, actions: pageMeta.value.qa?.[0]?.actions || [] }
+  ]
+}, { immediate: false })
+
+// ====== 消息 ======
 const messages = ref([
-  {
-    role: 'assistant',
-    title: '👋 你好!',
-    content: '我是 AI 编排助手, 可以帮你诊断流程问题、推荐参数、添加缺失的节点. 试试问我任何问题!',
-    actions: [
-      { label: '检查我的流程', event: 'diagnose' },
-      { label: '如何加 RAG 节点', event: 'ask', payload: '怎么加 RAG 节点?' }
-    ]
-  }
+  { role: 'assistant', title: '👋 你好!', content: '我是 AI 助手, 懂这页每个功能. 试试问我任何问题!' }
 ])
 const input = ref('')
-const status = ref('ready') // ready | thinking
+const status = ref('ready')
 const msgEl = ref(null)
 const hint = ref(false)
 
 const scrollBottom = () => nextTick(() => { if (msgEl.value) msgEl.value.scrollTop = 1e9 })
 
-// 快捷问题: 根据画布状态动态变
-const quickQuestions = computed(() => {
-  const c = ctx.value
-  if (c.cycleCount > 0) return [
-    { q: '为什么流程有死循环?' }, { q: '怎么修复这个循环?' }, { q: '怎么避免以后再出现?' }
-  ]
-  if (c.nodeCount === 0) return [
-    { q: '新手怎么开始?' }, { q: '推荐一个简单流程' }, { q: 'RAG 流程怎么搭?' }
-  ]
-  if (c.nodeCount < 3) return [
-    { q: '还应该加什么节点?' }, { q: '怎么提高效果?' }, { q: 'LLaMA 训练流程?' }
-  ]
-  if (!c.valid) return [
-    { q: '流程哪里不合法?' }, { q: '怎么才能运行?' }
-  ]
-  return [
-    { q: '还能优化吗?' }, { q: '每个参数怎么调?' }, { q: 'AI 给我建议' }
-  ]
+// ====== 状态文本 ======
+const statusText = computed(() => {
+  if (status.value === 'thinking') return '正在分析...'
+  // 优先级: 画布状态 > 页面状态 > 默认
+  if (effectiveContext.value?.cycleCount > 0) return '检测到死循环, 建议先修复'
+  if (effectiveContext.value?.nodeCount > 0) return '画布编辑中, 随时可问'
+  if (effectivePageStatus.value && effectivePageStatus.value.length) return `已加载 ${pageMeta.value.name}`
+  return '就绪 · 随时提问'
 })
 
-// 知识库 (内置, 不调后端 LLM, 节省 token + 实时响应)
-const knowledge = {
-  // 新手入门
-  '新手|怎么开始|开始|上手|入门': {
-    title: '🚀 新手 30 秒上手',
-    content: '三步走: ① 从左侧拖一个 "数据加载" 节点到画布 ② 加一个 "知识检索" 节点 (从 kb_ingest 或 kb_search 拖) ③ 加 "Agent 思考" 节点, 拖线连起来. 然后点 [运行] 即可执行.\n\n最简单: 点右上角 [加载 RAG 模板], 一键填好 3 节点流水线.',
-    actions: [{ label: '加载 RAG 模板', event: 'loadRag' }]
-  },
-  // RAG 相关
-  'RAG|检索增强|知识库': {
-    title: '📚 RAG 流程 (3 步)',
-    content: 'RAG 完整流程: kb_ingest (文档入库) → kb_search (向量检索 TopK) → agent_think (LLM 基于检索结果回答).\n\n关键参数: topK 3-5 够用, chunkSize 256 token, 切片重叠 32.',
-    actions: [{ label: '加载 RAG 模板', event: 'loadRag' }]
-  },
-  // 死循环
-  '死循环|闭环|循环|自连|检测|fix': {
-    title: '🛠️ 死循环修复',
-    content: '死循环原因: A→B→A 这种环路. 修复方法:\n① 检查所有连线, 找反向箭头 ② 删掉造成循环的那根边 ③ 确认流程是有向无环图 (DAG) ④ 重新运行\n\n提示: 流程不合法时, 画布会变红, 节点会脉冲.',
-  },
-  // 训练
-  '训练|lora|llama|微调|finetune': {
-    title: '⚙️ 训练流程',
-    content: '训练节点: train_lora (轻量微调) / train_dpo (偏好对齐) / train_full (全量).\n\n推荐: train_lora + eval_hallucination (幻觉检测) + model_register (注册版本).\n\n关键参数: lr=0.001, maxIters=200, batchSize=12.',
-  },
-  // 评估
-  '评估|测试|指标|评分': {
-    title: '🧪 模型评估',
-    content: '评估节点: eval_bleu (文本相似度) / eval_hallucination (RAGAS 幻觉检测) / eval_rouge (摘要).\n\n推荐: 把 eval_bleu 加到训练后, 自动评估模型质量.',
-  },
-  // 部署
-  '部署|上线|onnx|export': {
-    title: '🚀 部署上线',
-    content: '部署流程: model_register (注册版本) → model_deploy (ONNX 部署).\n\n建议: 先部署到 staging 测试, 再部署 prod 生产.',
-  },
-  // Agent
-  'agent|智能体|react|工具调用': {
-    title: '🤖 Agent 智能体',
-    content: 'Agent 节点: agent_think (ReAct 自动工具调用) / agent_tool (直接调单个工具) / agent_chat (多轮对话).\n\n推荐: agent_think, maxSteps=5 够用, 多了 LLM 容易跑偏.',
-  },
-  // 知识库
-  '知识库|kb|embedding|chunk|ingest': {
-    title: '📚 知识库',
-    content: 'kb 节点: kb_ingest (文档入库) / kb_search (检索) / kb_chunk (切片) / kb_embed (向量化).\n\n推荐: chunkSize=256, overlap=32, topK=3-5, 检索用 BGE 中文 512 维.',
-  },
-  // AI 建议
-  'ai建议|参数建议|调优|建议|怎么调|优化': {
-    title: '🤖 AI 调优建议',
-    content: '每个节点都有 "AI 智能建议" 按钮, 双击节点后点 [🤖 根据当前输入给建议], 会针对每个参数推荐值 + 理由. 还可以 [全部应用] 一键设置.',
-    actions: [{ label: '怎么用 AI 建议', event: 'ask', payload: 'AI 建议怎么用?' }]
-  },
-  // 默认
-  'default': {
-    title: '🤖 我可以帮你',
-    content: '常见问题: ① 怎么搭 RAG 流程 ② 训练参数怎么调 ③ 死循环怎么修复 ④ 怎么部署 ⑤ 怎么用 AI 建议\n\n直接问, 例如: "怎么加 RAG 节点?" 或 "怎么调训练参数?"',
-    actions: [
-      { label: '检查我的流程', event: 'diagnose' },
-      { label: '加载 RAG 模板', event: 'loadRag' }
-    ]
+// ====== 快捷问题 (页面优先) ======
+const quickQuestions = computed(() => {
+  // Workflow 页面特殊处理 (画布状态)
+  if (effectiveContext.value) {
+    const c = effectiveContext.value
+    if (c.cycleCount > 0) return ['为什么有死循环?', '怎么修复?', '怎么避免再出现?']
+    if (c.nodeCount === 0) return ['新手怎么开始?', '推荐一个简单流程', 'RAG 流程怎么搭?']
+    if (c.nodeCount < 3) return ['还应该加什么?', '怎么提高效果?', 'LLaMA 训练流程?']
+    if (!c.valid) return ['流程哪里不合法?', '怎么才能运行?']
+    return ['还能优化吗?', '每个参数怎么调?', 'AI 给我建议']
   }
-}
+  // 普通页面: 用页面配置的 quickQuestions
+  return pageMeta.value.quickQuestions || []
+})
 
+const inputPlaceholder = computed(() => {
+  return `问点什么... (例如: ${(quickQuestions.value[0] || '怎么用这个页?').replace('?', '').replace('?', '')}?)`
+})
+
+// ====== 答案匹配 ======
+// 优先级: 页面知识 > 通用知识
 const findAnswer = (q) => {
   const lower = q.toLowerCase()
-  for (const key in knowledge) {
-    if (key === 'default') continue
-    const keywords = key.split('|')
-    if (keywords.some(k => lower.includes(k.toLowerCase()))) return knowledge[key]
+  const pageQA = pageMeta.value.qa || []
+
+  // 1. 页面专属 Q&A
+  for (const item of pageQA) {
+    const kws = item.keywords.split('|')
+    if (kws.some(k => lower.includes(k.toLowerCase()))) {
+      return {
+        title: pageMeta.value.name + ' 助手',
+        content: item.answer,
+        actions: item.actions
+      }
+    }
   }
-  return knowledge.default
+
+  // 2. 兜底: 通用
+  return {
+    title: '通用助手',
+    content: `抱歉, 我对「${pageMeta.value.name}」这个具体问题不太清楚. \n\n试试这些:\n• 用「${pageMeta.value.name}」相关关键词\n• 或者点上面的 💡 推荐问题\n• 反馈给我们: GitHub Issues`,
+    actions: [
+      { label: '看推荐问题', event: 'reset' },
+      { label: '看帮助', event: 'navigate', payload: '/help' }
+    ]
+  }
 }
 
 const ask = (q) => {
@@ -244,35 +254,67 @@ const ask = (q) => {
   scrollBottom()
   status.value = 'thinking'
 
-  // 模拟思考 (300-800ms 真实感)
   setTimeout(() => {
     const ans = findAnswer(text)
     messages.value.push({ role: 'assistant', title: ans.title, content: ans.content, actions: ans.actions })
     status.value = 'ready'
     scrollBottom()
-  }, 400 + Math.random() * 500)
+  }, 300 + Math.random() * 400)
 }
 
 const onAction = (a) => {
   if (a.event === 'ask') ask(a.payload)
+  else if (a.event === 'navigate') {
+    router.push(a.payload)
+    ElMessage.success('正在跳转: ' + a.payload)
+  }
+  else if (a.event === 'reset') {
+    // 滚到顶部让用户看推荐问题
+    if (msgEl.value) msgEl.value.scrollTop = 0
+  }
   else emit('action', a)
 }
 
-// 监听画布状态, 异常时自动提示
-watch(() => [ctx.value.cycleCount, ctx.value.valid, ctx.value.nodeCount], ([c, v, n]) => {
-  if (c > 0) {
+// 监听: 画布异常时, 主动插入一条提示
+watch(() => [effectiveContext.value?.cycleCount, effectiveContext.value?.valid, effectiveContext.value?.nodeCount], ([c, v, n], [oc, ov, on]) => {
+  if (c > 0 && oc !== c) {
+    messages.value.push({
+      role: 'assistant',
+      title: '⚠️ 画布有问题',
+      content: `检测到 ${c} 个死循环, 流程无法运行. 修复: 找反向箭头删除, 保持 DAG 结构.`,
+      actions: [
+        { label: '怎么修复', event: 'ask', payload: '怎么修复循环?' },
+        { label: '隐藏助手', event: 'minimize' }
+      ]
+    })
     hint.value = true
+    scrollBottom()
+  }
+  // 流程从不合法变成合法
+  if (ov === false && v === true && on > 0) {
+    messages.value.push({
+      role: 'assistant',
+      title: '✅ 流程合法',
+      content: '画布已通过校验, 可以运行了. 记得点 [▶ 运行] 测试一下.',
+      actions: [{ label: '看运行步骤', event: 'ask', payload: '怎么运行流程?' }]
+    })
+    scrollBottom()
   }
 })
 
-onMounted(() => {})
+onMounted(() => {
+  // 首次进入时, 把欢迎消息替换为页面专属
+  messages.value = [
+    { role: 'assistant', title: `👋 欢迎来到「${pageMeta.value.name}」`, content: pageWelcome.value, actions: pageMeta.value.qa?.[0]?.actions || [] }
+  ]
+})
 </script>
 
 <style scoped>
 .wfa-root {
   position: fixed;
-  width: 340px;
-  max-height: 540px;
+  width: 360px;
+  max-height: 600px;
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
@@ -300,6 +342,7 @@ onMounted(() => {})
   z-index: 99;
   box-shadow: 0 6px 16px -4px rgba(99,102,241,0.4);
   transition: transform 0.2s;
+  font-size: 20px;
 }
 .wfa-fab:hover { transform: scale(1.1); }
 .fab-hint {
@@ -346,12 +389,22 @@ onMounted(() => {})
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 .wfa-actions .el-button { color: #fff; }
 
-.wfa-body { display: flex; flex-direction: column; height: 460px; }
+.wfa-body { display: flex; flex-direction: column; max-height: 540px; }
+
+.wfa-page {
+  padding: 6px 12px;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+}
+.page-info { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.page-icon { font-size: 14px; }
+.page-name { font-weight: 600; color: #1e293b; }
+.page-desc { color: #64748b; }
 
 .wfa-ctx {
   display: flex;
   gap: 4px;
-  padding: 8px 12px;
+  padding: 6px 12px;
   background: #f8fafc;
   border-bottom: 1px solid #f0f0f0;
 }
@@ -365,6 +418,28 @@ onMounted(() => {})
 .ctx-tag.ok { background: #d1fae5; color: #047857; }
 .ctx-tag.err { background: #fee2e2; color: #b91c1c; }
 
+.wfa-pagestatus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 12px;
+  background: #fefefe;
+  border-bottom: 1px solid #f0f0f0;
+}
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  padding: 2px 6px;
+  background: #e0e7ff;
+  color: #4338ca;
+  border-radius: 4px;
+}
+.status-tag.warn { background: #fef3c7; color: #b45309; }
+.status-tag.danger { background: #fee2e2; color: #b91c1c; }
+.status-tag.ok { background: #d1fae5; color: #047857; }
+
 .wfa-msgs {
   flex: 1;
   padding: 12px;
@@ -372,11 +447,13 @@ onMounted(() => {})
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 280px;
+  min-height: 160px;
 }
 .wfa-msg { display: flex; }
 .wfa-msg.user { justify-content: flex-end; }
 .msg-bubble {
-  max-width: 85%;
+  max-width: 88%;
   padding: 8px 12px;
   border-radius: 10px;
   font-size: 12px;
@@ -386,7 +463,7 @@ onMounted(() => {})
 }
 .wfa-msg.user .msg-bubble { background: #6366f1; color: #fff; }
 .wfa-msg.assistant .msg-bubble { background: #f1f5f9; color: #1e293b; }
-.msg-title { font-weight: 600; margin-bottom: 4px; color: #6366f1; }
+.msg-title { font-weight: 600; margin-bottom: 4px; color: #6366f1; font-size: 12px; }
 .wfa-msg.user .msg-title { color: #fff; }
 .msg-content { white-space: pre-wrap; }
 .msg-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }

@@ -245,6 +245,9 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 全局 AI 助手 (跨所有页面, 跟着路由走) -->
+    <WorkflowAssistant />
   </div>
 </template>
 
@@ -258,6 +261,7 @@ import {
   OfficeBuilding, Document, Sunny, Moon, MagicStick, Tickets, Box, HomeFilled, BellFilled
 } from '@element-plus/icons-vue'
 import LiveTickerBar from '@/components/LiveTickerBar.vue'
+import WorkflowAssistant from '@/components/WorkflowAssistant.vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
 
 const router = useRouter()
