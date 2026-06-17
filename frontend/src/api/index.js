@@ -299,3 +299,10 @@ export const activityApi = {
   recent: () => request.get('/api/activity/recent'),
   streamUrl: () => '/api/activity/stream'
 }
+
+// ---------- 实时监控 ----------
+export const monitorApi = {
+  snapshot: () => request.get('/api/monitor/snapshot'),
+  metrics: () => request.get('/api/monitor/metrics'),
+  streamUrl: () => '/api/monitor/stream'
+}

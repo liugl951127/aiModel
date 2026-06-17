@@ -539,6 +539,39 @@ export const pageKnowledge = {
     ]
   },
 
+  // ============ 监控 ============
+  '/monitor': {
+    name: '实时监控',
+    icon: '📊',
+    description: '9 核心服务健康 + QPS/延迟/错误率 时序 + AI/workflow 业务指标',
+    quickQuestions: [
+      '服务怎么算健康?',
+      '指标多久更新一次?',
+      '告警怎么触发的?',
+      '数据来源哪里?',
+    ],
+    qa: [
+      {
+        keywords: '服务|健康|down|offline|离线',
+        answer: '服务健康: 后端 HealthProbe 主动探活 9 个服务 (网关/认证/用户/系统/模型/推理/知识库/文件/训练), HTTP GET /health 2s 超时.\n\n30 秒一次, 响应码 2xx-3xx=up, 4xx 401 也算 up, 5xx/超时=down.\n\n服务 down 时会在顶部出红色告警条.',
+        actions: [{ label: '打开监控', event: 'navigate', payload: '/monitor' }]
+      },
+      {
+        keywords: '指标|更新|qps|延迟|多久|间隔',
+        answer: '指标时序: 60 个点, 3 秒间隔, 共 3 分钟窗口. 旧点自动滑出.\n\n当前数据是模拟生成 (生产可接 Micrometer+Prometheus 真实埋点). 30 秒前端拉一次 /api/monitor/metrics.',
+      },
+      {
+        keywords: '告警|alert|warning|告警怎么',
+        answer: '告警 2 类:\n1. critical: 服务 down (top-bar 红色 alert)\n2. warning: 错误总数 > 100\n\n未来可接 Slack / 飞书 / 邮件 webhook.',
+      },
+      {
+        keywords: '数据|来源|metrics|后端',
+        answer: '后端: /api/monitor/snapshot (一次性), /api/monitor/metrics (时序), /api/monitor/stream (SSE 3s 一次推送).\n\nsse 后端用 ConcurrentHashMap + Deque 维护, 进程内 60 点环形缓冲.',
+        actions: [{ label: '看后端代码', event: 'navigate', payload: '/monitor' }]
+      },
+    ]
+  },
+
   // ============ 默认 ============
   '__default__': {
     name: '通用',

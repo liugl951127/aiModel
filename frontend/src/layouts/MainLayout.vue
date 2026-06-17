@@ -91,6 +91,7 @@
           <el-menu-item index="/menus">菜单</el-menu-item>
           <el-menu-item index="/audit">审计</el-menu-item>
           <el-menu-item index="/dist-tx">分布式事务</el-menu-item>
+          <el-menu-item index="/monitor">实时监控</el-menu-item>
         </el-sub-menu>
       </el-menu>
 

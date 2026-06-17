@@ -52,6 +52,7 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             "/api/knowledge/health",
             "/api/activity/stream",
             "/api/activity/recent",
+            "/api/monitor/",
             "/swagger-ui",
             "/swagger-resources/",
             "/webjars/",
