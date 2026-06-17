@@ -120,12 +120,14 @@ const loadRuns = async () => {
 }
 
 const onRun = async (row) => {
-  const r = await workflowApi.getSpec(row.id)
-  if (r.data) {
-    const r2 = await workflowApi.run(r.data)
+  // 后端新版只吃 {specId}, 直接传 id
+  const r2 = await workflowApi.run({ specId: row.id })
+  if (r2.code === 200) {
     ElMessage.success(`已提交, runId=${r2.data}`)
-    bus.emit('wf:event', { text: `工作流 ${row.name} 已运行`, action: { label: '查看', handler: () => loadRuns() } })
+    bus.emit('wf:event', { text: `工作流 ${row.name} 已运行` })
     loadRuns()
+  } else {
+    ElMessage.error('运行失败: ' + r2.message)
   }
 }
 const onDuplicate = async (row) => {

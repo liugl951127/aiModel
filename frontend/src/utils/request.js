@@ -40,4 +40,18 @@ request.interceptors.response.use(
   }
 )
 
+/**
+ * 响应解包辅助: 后端返 {code,message,data}, 拦截器已抓 → r = 整个 Result
+ * 但代码里常看到 r.data.X (当拦截器没拦时的写法) → 修起来麻烦
+ * 用法: const d = unwrap(r) 拿到最终 data
+ */
+export function unwrap(resp) {
+  if (!resp) return resp
+  if (resp.data && typeof resp.data === 'object' && 'code' in resp.data && 'data' in resp.data) {
+    return resp.data.data
+  }
+  if (resp.data !== undefined) return resp.data
+  return resp
+}
+
 export default request

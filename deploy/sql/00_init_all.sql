@@ -255,6 +255,57 @@ CREATE TABLE model_train_job (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '训练任务';
 
 -- ---------------------------------------------------------------------------
+-- 工作流定义 (DB 持久化, 替换 ConcurrentHashMap 内存版)
+-- ---------------------------------------------------------------------------
+DROP TABLE IF EXISTS workflow_spec;
+CREATE TABLE workflow_spec (
+    id              BIGINT       NOT NULL,
+    tenant_id       BIGINT       NOT NULL DEFAULT 1,
+    name            VARCHAR(255) NOT NULL,
+    author          VARCHAR(64),
+    description     TEXT,
+    spec_json       LONGTEXT     NOT NULL COMMENT '前端 JSON 全量 (nodes+edges+viewport)',
+    node_count      INT          DEFAULT 0,
+    edge_count      INT          DEFAULT 0,
+    run_count       INT          DEFAULT 0,
+    last_run_at     DATETIME,
+    create_by       BIGINT,
+    update_by       BIGINT,
+    create_time     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted         INT          DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_author (author),
+    KEY idx_tenant (tenant_id, deleted)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '工作流定义 (入库 + 重启不丢)';
+
+-- 工作流运行实例 (执行历史)
+DROP TABLE IF EXISTS workflow_run;
+CREATE TABLE workflow_run (
+    id              BIGINT       NOT NULL,
+    tenant_id       BIGINT       NOT NULL DEFAULT 1,
+    spec_id         BIGINT,
+    spec_name       VARCHAR(255),
+    status          VARCHAR(32)  NOT NULL DEFAULT 'PENDING',
+    input           LONGTEXT,
+    output          LONGTEXT,
+    failed_node_id  VARCHAR(64),
+    failed_node_name VARCHAR(128),
+    failed_reason   TEXT,
+    duration_ms     BIGINT,
+    started_at      DATETIME,
+    finished_at     DATETIME,
+    create_by       BIGINT,
+    update_by       BIGINT,
+    create_time     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted         INT          DEFAULT 0,
+    PRIMARY KEY (id),
+    KEY idx_spec (spec_id),
+    KEY idx_status (status, deleted)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '工作流执行实例';
+
+-- ---------------------------------------------------------------------------
 -- Agent / Tool / Conversation
 -- ---------------------------------------------------------------------------
 DROP TABLE IF EXISTS agent_agent;

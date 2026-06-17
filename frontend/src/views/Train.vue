@@ -48,8 +48,8 @@
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" :loading="running" @click="onSubmit" :disabled="running">
-            {{ running ? '训练中…' : '开始训练' }}
+          <el-button type="primary" :loading="loading || running" @click="onSubmit" :disabled="loading || running">
+            {{ loading ? '提交中…' : (running ? '训练中…' : '开始训练') }}
           </el-button>
           <el-button v-if="running" @click="onSample" :disabled="!jobId">生成样本</el-button>
         </el-form-item>
@@ -151,6 +151,7 @@ import { ref, reactive, onMounted, onBeforeUnmount, computed, nextTick, markRaw 
 import { ElMessage } from 'element-plus'
 import { trainerApi } from '@/api'
 import { useGlobalBus } from '@/composables/useGlobalBus'
+import { unwrap } from '@/utils/request'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -171,6 +172,7 @@ const currentHyperParams = computed(() => {
 
 const jobId = ref('')
 const running = ref(false)
+const loading = ref(false)  // 提交中 (跟 running 区分, running 是后端在跑)
 const connected = ref(false)
 const step = ref(0)
 const events = ref([])
@@ -205,18 +207,31 @@ function onModelChange () {
 
 async function onSubmit () {
   if (!form.corpusPath) { ElMessage.warning('请填写语料路径'); return }
+  loading.value = true
   try {
     const r = await trainerApi.submit({
       trainerId: form.trainerId,
       corpusPath: form.corpusPath,
       params: form.params
     })
-    jobId.value = r.data.jobId
+    const data = unwrap(r)
+    jobId.value = data?.jobId || data?.id
+    if (!jobId.value) {
+      ElMessage.error('提交成功但未返回 jobId, 请看 console')
+      console.warn('[train] submit 返回无 jobId:', r)
+      return
+    }
     running.value = true
     lossSeries.value = []; hallSeries.value = []; supportSeries.value = []; stepSeries.value = []
     events.value = []; samples.value = []
+    ElMessage.success('训练任务已启动: ' + jobId.value)
     openStream()
-  } catch (e) { ElMessage.error('提交失败') }
+  } catch (e) {
+    console.error('[train] submit 失败:', e)
+    ElMessage.error('提交失败: ' + (e?.response?.data?.message || e?.message || '网络错误'))
+  } finally {
+    loading.value = false
+  }
 }
 
 async function onSample () {

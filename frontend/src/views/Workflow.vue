@@ -146,10 +146,12 @@
           v-for="n in nodes"
           :key="n.id"
           :ref="(el) => setNodeRef(el, n.id)"
+          :data-node-id="n.id"
           class="wf-node"
           :class="{
             running: currentNode === n.id,
             done: doneSet.has(n.id),
+            failed: failedIds.has(n.id),
             selected: isSelected(n.id),
             'is-start': validation.starts.includes(n.id),
             'is-end': !edges.some(e => e.from === n.id) && edges.some(e => e.to === n.id),
@@ -476,7 +478,9 @@
             :class="{
               'is-start': validation.starts.includes(n.id),
               'is-end': !edges.some(e => e.from === n.id) && edges.some(e => e.to === n.id),
-              'is-cycle': validation.cycle.includes(n.id)
+              'is-cycle': validation.cycle.includes(n.id),
+              'is-failed': failedIds.has(n.id),
+              'is-selected': selectedIds.includes(n.id)
             }"
             :style="{ left: n.x + 'px', top: n.y + 'px' }"
           >
@@ -513,19 +517,47 @@ const bus = useGlobalBus()
 const logEl = ref(null)
 // 节点 DOM ref map (用于计算真实宽度, 精确连线)
 const nodeMap = ref(new Map())
+let resizeObserver = null  // 全局 ResizeObserver, 节点变宽/变名同步量
+// ★ 节点宽度版本号: 变一调, 驱动 edgePath computed 重算 (因为 _renderW 不在 reactive 里)
+const renderVersion = ref(0)
 const setNodeRef = (el, id) => {
   if (el) {
     nodeMap.value.set(id, el)
     // 测实际宽度, 存到 node._renderW
     const n = nodes.value.find(x => x.id === id)
-    if (n) n._renderW = el.offsetWidth
+    if (n) {
+      n._renderW = el.offsetWidth
+      // ★ 绑定 ResizeObserver, 名字变了/参数变了节点变宽 → 箭头立即跟上
+      if (resizeObserver) resizeObserver.observe(el)
+    }
   } else {
     nodeMap.value.delete(id)
   }
 }
 
+// ResizeObserver: 节点 DOM size 变 → 同步 _renderW + 驱动箭头重算
+const setupResizeObserver = () => {
+  if (typeof ResizeObserver === 'undefined') return
+  if (resizeObserver) return
+  resizeObserver = new ResizeObserver(entries => {
+    let changed = false
+    for (const entry of entries) {
+      const el = entry.target
+      const id = el.getAttribute('data-node-id')
+      if (!id) continue
+      const n = nodes.value.find(x => x.id === id)
+      if (n && Math.abs((n._renderW || 0) - el.offsetWidth) > 0.5) {
+        n._renderW = el.offsetWidth
+        changed = true
+      }
+    }
+    if (changed) renderVersion.value++  // 驱动 edgePath 重算
+  })
+}
+
 // 监听全局 AI 助手发出的事件 (在其它页点'生成/诊断/建议'后会跳到本页)
 onMounted(() => {
+  setupResizeObserver()  // ★ 启动 ResizeObserver, 节点名字变长箭头立即重算
   bus.on('workflow:ai-generate', ({ input }) => {
     aiGenOpen.value = true
     // 如果 input 已在弹窗填好就直接触发
@@ -564,6 +596,7 @@ onMounted(() => {
 
 // ============== 画布状态 ==============
 const specName = ref('我的工作流')
+const specDesc = ref('')  // 工作流描述
 const nodes = ref([])
 const edges = ref([])
 const selectedIds = ref([])
@@ -584,6 +617,7 @@ const removeEdge = (i) => {
 const isSelected = (id) => selectedIds.value.includes(id)
 const currentNode = ref(null)
 const doneSet = ref(new Set())
+const failedIds = ref(new Set())  // 节点失败记录 (高亮 + 选中 + 弹配置)
 const canvasW = 2000
 const canvasH = 1200
 
@@ -788,6 +822,16 @@ const openConfig = async (n) => {
   }
 }
 
+// 滚动到某个节点 (让用户看到高亮 + 配置弹窗)
+const scrollToNode = (id) => {
+  nextTick(() => {
+    const el = document.querySelector(`[data-node-id="${id}"]`)
+    if (el && el.scrollIntoView) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+    }
+  })
+}
+
 // AI 智能建议: 调后端 /suggest
 const askAI = async () => {
   if (!configNode.value) return
@@ -824,10 +868,15 @@ const applyAllSuggestions = () => {
 }
 
 const cancelConfig = () => {
+  // 强记当前 id, 以便保证同一个节点二次打开还是取新的点
   configVisible.value = false
-  // 清除选中和当前配置节点, 避免下次双击时 reactive 循环
-  configNode.value = null
-  configSuggestions.value = []
+  // 下一 tick 清 configNode (避免动画中 reactive 竟用)
+  nextTick(() => {
+    configNode.value = null
+    configSuggestions.value = []
+    configSchema.value = []
+  })
+  addLog('配置', '取消修改', 'info')
 }
 
 const saveConfig = () => {
@@ -953,6 +1002,8 @@ const portCoord = (node, dir) => {
 }
 
 const edgePath = (e) => {
+  // 读 renderVersion 驱动重算 (节点尺寸变化时主动重算)
+  void renderVersion.value
   const a = findNode(e.from)
   const b = findNode(e.to)
   if (!a || !b) return ''
@@ -1047,22 +1098,34 @@ const loadSpecList = async () => {
 const save = async () => {
   saving.value = true
   try {
+    // ★ 企业级: 保存全部节点 (含 x,y) + edges + viewport + _renderW
+    // 后端吃任意 JSON, 不强制 schema, 全部原样存 spec_json
     const body = {
-      name: specName.value,
-      nodes: nodes.value.map(({ x, y, ...rest }) => rest),
-      edges: edges.value
+      name: specName.value || '(未命名)',
+      description: specDesc.value || '',
+      nodes: nodes.value.map(n => ({
+        id: n.id,
+        type: n.type,
+        name: n.name,
+        x: n.x || 0,
+        y: n.y || 0,
+        params: n.params || {}
+      })),
+      edges: edges.value,
+      viewport: { zoom: zoom.value || 1, pan: pan.value || { x: 0, y: 0 } }
     }
     const r = await workflowApi.saveSpec(body)
     if (r.code === 200) {
       ElMessage.success(`已保存: ${specName.value}`)
-      addLog('保存', `✓ ${specName.value}`, 'success')
+      addLog('保存', `✓ ${specName.value} (id=${r.data?.id})`, 'success')
       bus.emit('wf:event', { text: `工作流已保存: ${specName.value}` })
       await loadSpecList()
     } else {
       ElMessage.error(`保存失败: ${r.message}`)
     }
   } catch (e) {
-    ElMessage.error(`保存失败: ${e.message}`)
+    console.error('[workflow] 保存失败:', e)
+    ElMessage.error(`保存失败: ${e?.response?.data?.message || e?.message || '网络错误'}`)
   } finally {
     saving.value = false
   }
@@ -1141,14 +1204,43 @@ const loadSpec = async (s) => {
     const r = await workflowApi.getSpec(s.id)
     if (r.code === 200) {
       const data = r.data
-      specName.value = data.name
-      nodes.value = (data.nodes || []).map((n, i) => ({ ...n, x: n.x ?? 60 + (i % 4) * 240, y: n.y ?? 60 + Math.floor(i / 4) * 160 }))
-      edges.value = data.edges || []
-      ElMessage.success(`已加载: ${data.name}`)
-      addLog('加载', `✓ ${data.name}`, 'success')
+      specName.value = data.name || '(未命名)'
+      specDesc.value = data.description || ''
+      // ★ 企业级: 后端返回完整 spec (含 nodes+edges+x+y), 原样恢复
+      nodes.value = (data.nodes || []).map((n, i) => ({
+        id: n.id,
+        type: n.type,
+        name: n.name,
+        x: typeof n.x === 'number' ? n.x : (60 + (i % 4) * 240),
+        y: typeof n.y === 'number' ? n.y : (60 + Math.floor(i / 4) * 160),
+        params: n.params || {}
+      }))
+      edges.value = (data.edges || []).map(e => ({
+        from: e.from,
+        to: e.to,
+        fromPort: e.fromPort || 'out',
+        toPort: e.toPort || 'in'
+      }))
+      ElMessage.success(`已加载: ${specName.value} (${nodes.value.length}节点/${edges.value.length}边)`)
+      addLog('加载', `✓ ${specName.value} (${nodes.value.length}节点)`, 'success')
+      // 取消选中 + 清失败
+      selectedIds.value = []
+      failedIds.value = new Set()
+      doneSet.value = new Set()
+      // 下一帧重测所有节点宽度 (因为 _renderW 不存 DB, 重画后会自动重设)
+      nextTick(() => {
+        nodes.value.forEach(n => {
+          const el = nodeMap.value.get(n.id)
+          if (el) n._renderW = el.offsetWidth
+        })
+        renderVersion.value++  // 驱动 edgePath 重算
+      })
+    } else {
+      ElMessage.error(`加载失败: ${r.message}`)
     }
   } catch (e) {
-    ElMessage.error(`加载失败: ${e.message}`)
+    console.error('[workflow] 加载失败:', e)
+    ElMessage.error(`加载失败: ${e?.response?.data?.message || e?.message || '网络错误'}`)
   }
 }
 
@@ -1168,6 +1260,7 @@ const run = async () => {
   if (!nodes.value.length) return
   running.value = true
   doneSet.value.clear()
+  failedIds.value.clear()  // 清上次失败记录
   logs.value = []
   const t0 = Date.now()
   try {
@@ -1183,6 +1276,8 @@ const run = async () => {
     // 推送 AI 助手: 开始跑了
     bus.emit('live:event', { type: 'wf', text: `▶ 工作流 [${specName.value}] 开始执行, 共 ${order.length} 节点`, actor: 'workflow' })
     let upstream = {}
+    let failedNode = null  // ★ 失败节点 (用于高亮 + 弹配置)
+    let failedReason = ''
     for (const id of order) {
       const n = nodes.value.find(x => x.id === id)
       if (!n) continue
@@ -1203,6 +1298,8 @@ const run = async () => {
         })
         const data = r.data || {}
         if (data.error) {
+          failedNode = n
+          failedReason = data.error
           addLog('节点', `✗ ${n.name} 失败: ${data.error}`, 'error')
           bus.emit('live:event', { type: 'wf', text: `✗ ${n.name} 失败: ${data.error}`, actor: 'workflow' })
         } else {
@@ -1219,10 +1316,27 @@ const run = async () => {
           }
         }
       } catch (e) {
-        addLog('节点', `✗ ${n.name} 异常: ${e.message}`, 'error')
+        failedNode = n
+        failedReason = e.message || e?.response?.data?.message || '未知错误'
+        addLog('节点', `✗ ${n.name} 异常: ${failedReason}`, 'error')
         // 推送 AI 助手: 异常, 主动诊断
         bus.emit('live:event', { type: 'wf', text: `✗ ${n.name} 异常`, actor: 'workflow' })
-        bus.emit('assistant:diagnose', { node: n.name, error: e.message })
+        bus.emit('assistant:diagnose', { node: n.name, nodeId: n.id, error: failedReason, params: n.params })
+      }
+      // ★ 失败时: 高亮 + 选中 + 弹配置 + 终止后续
+      if (failedNode) {
+        // 标记失败样式
+        failedIds.value.add(id)
+        // 选中该节点 (用户能立即看到是哪个)
+        selectedIds.value = [id]
+        // 自动滚到该节点位置
+        scrollToNode(id)
+        // 弹配置弹窗 (用户立即能改参数)
+        openConfig(failedNode)
+        // 终止后续执行
+        addLog('运行', `⛔ 后续节点不再执行, 请修改 ${failedNode.name} 参数后重试`, 'error')
+        ElMessage.error(`${failedNode.name} 失败, 后续节点已停止. 改完后点 [确定保存] 再 [▶ 运行]`)
+        break
       }
     }
     currentNode.value = null
@@ -1295,6 +1409,7 @@ const zoomOpen = ref(false)
 const zoom = ref(1)
 const panX = ref(0)
 const panY = ref(0)
+const pan = computed(() => ({ x: panX.value, y: panY.value }))
 const zoomViewport = ref(null)
 const ZOOM_MIN = 0.2
 const ZOOM_MAX = 4
@@ -1376,6 +1491,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('keydown', onZoomKey)
+  if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null }
 })
 </script>
 
@@ -1420,6 +1536,9 @@ onBeforeUnmount(() => {
 .zoom-node.is-start { border-color: #10b981; border-left-width: 4px; }
 .zoom-node.is-end { border-color: #f43f5e; border-right-width: 4px; }
 .zoom-node.is-cycle { border-color: #ef4444; border-width: 2px; background: #fef2f2; }
+.zoom-node.is-failed { border-color: #dc2626; border-width: 2px; background: #fee2e2; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25); animation: pulse-failed 1.5s infinite; }
+.zoom-node.is-selected { outline: 3px solid #f59e0b; outline-offset: 2px; }
+@keyframes pulse-failed { 0%, 100% { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25); } 50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0.08); } }
 .zoom-node .el-icon { color: #6366f1; }
 .zoom-hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 16px; font-size: 11px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); z-index: 5; }
 .wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -1432,6 +1551,7 @@ onBeforeUnmount(() => {
 .wf-node:hover { box-shadow: 0 3px 8px -1px rgba(0,0,0,0.12); border-color: #c7d2fe; }
 .wf-node.running { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2); }
 .wf-node.done { border-color: #10b981; }
+.wf-node.failed { border-color: #dc2626 !important; background: #fee2e2 !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.3) !important; animation: pulse-failed 1.5s infinite; }
 .wf-node.selected { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); }
 .wf-node.is-start { border-color: #10b981; border-left-width: 4px; }
 .wf-node.is-end { border-color: #f43f5e; border-right-width: 4px; }
