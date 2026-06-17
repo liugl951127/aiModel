@@ -14,31 +14,48 @@
     <artifactId>ai-platform-redis-starter</artifactId>
     <packaging>jar</packaging>
     <name>ai-platform-redis-starter</name>
-    <description>Starter: Redis template + RedisUtils helper</description>
+    <description>Starter: Redis template + RedisUtils + 7 distributed tools
+        (Lock/Id/Limiter/Idempotency/Cache/EventBus/Scheduler).
+        Redisson 3.27.2 + Spring Data Redis, 自定义 Config 覆盖 starter auto-config.</description>
 
     <dependencies>
+        <!-- 内部依赖: 只用 common-core (纯 Java, 避免 servlet 冲突) -->
         <dependency>
             <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common</artifactId>
+            <artifactId>ai-platform-common-core</artifactId>
         </dependency>
+
+        <!-- Spring Boot 基础 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
+        <!-- RedisTemplate / ConnectionFactory -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+
+        <!-- Redisson 客户端 (core + spring 集成).
+             不用 redisson-spring-boot-starter (它会触发自己的 RedissonAutoConfigurationV2, 需要用 @AutoConfigureBefore 覆盖).
+             这里只引 core, 让我自己的 RedissonConfig 完全控制 RedissonClient 创建. -->
         <dependency>
             <groupId>org.redisson</groupId>
-            <artifactId>redisson-spring-boot-starter</artifactId>
+            <artifactId>redisson</artifactId>
             <version>3.27.2</version>
+        </dependency>
+
+        <!-- Jackson (EventBus 序列化用) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
     </dependencies>
 
     <build>
         <finalName>${project.artifactId}</finalName>
         <plugins>
+            <!-- starter 不需要 fat-jar, 业务模块自己 repackage -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -47,3 +64,4 @@
         </plugins>
     </build>
 </project>
+
