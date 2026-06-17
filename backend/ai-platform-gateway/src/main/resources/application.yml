@@ -48,7 +48,7 @@ spring:
         - id: system-route
           uri: ${SYSTEM_URI:lb://ai-platform-system}
           predicates:
-            - Path=/api/system/**,/api/menu/**,/api/role/**,/api/dict/**
+            - Path=/api/system/**,/api/menu/**,/api/role/**,/api/dict/**,/api/biz/**,/api/distributed-tx/**,/api/activity/**
         - id: model-route
           uri: ${MODEL_URI:lb://ai-platform-model}
           predicates:

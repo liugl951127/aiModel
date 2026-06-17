@@ -198,6 +198,7 @@ import {
 import { useGlobalBus } from '@/composables/useGlobalBus'
 import { bizApi } from '@/api'
 import { modelApi, datasetApi, agentApi, knowledgeApi } from '@/api'
+import request from '@/utils/request'
 
 const router = useRouter()
 const bus = useGlobalBus()
@@ -278,10 +279,24 @@ const sysList = ref([
 const sysCheckTime = ref('')
 const checkAll = async () => {
   sysCheckTime.value = new Date().toLocaleTimeString('zh-CN')
+  // 名称 -> 接口路径映射 (真实后端)
+  const pathMap = {
+    '网关': '/api/auth/health',
+    '认证': '/api/auth/health',
+    '推理': '/api/inference/health',
+    '训练': '/api/trainer/health',
+    '知识库': '/api/knowledge/health'
+  }
   for (const s of sysList.value) {
+    if (s.name === 'Nacos') {
+      // Nacos 另起端口, 简单 ping 一下, 不影响其他
+      s.status = 'warn' // 本地默认不走 nacos, 标 warn
+      continue
+    }
+    const path = pathMap[s.name] || '/api/auth/health'
     try {
-      const resp = await fetch(`/${s.name === 'Nacos' ? 'nacos' : 'api/' + (s.name === '网关' ? 'auth' : s.name === '认证' ? 'auth' : s.name === '推理' ? 'inference' : s.name === '训练' ? 'trainer' : s.name === '知识库' ? 'knowledge' : 'unknown')}/health`, { method: 'GET' })
-      s.status = resp.ok ? 'ok' : 'down'
+      const resp = await request.get(path)
+      s.status = resp.code === 200 || resp.data?.code === 200 ? 'ok' : 'down'
     } catch { s.status = 'down' }
   }
   bus.emit('sys:event', { text: '系统状态已重新检查' })

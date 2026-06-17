@@ -288,3 +288,9 @@ export const distTxApi = {
   get: () => request.get('/api/distributed-tx'),
   update: (data) => request.post('/api/distributed-tx', data)
 }
+
+// ---------- 活动流 (LiveTickerBar 用) ----------
+export const activityApi = {
+  recent: () => request.get('/api/activity/recent'),
+  streamUrl: () => '/api/activity/stream'
+}

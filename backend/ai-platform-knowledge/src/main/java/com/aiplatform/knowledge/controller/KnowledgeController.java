@@ -149,4 +149,17 @@ public class KnowledgeController {
         knowledgeService.deleteDocument(id);
         return Result.success();
     }
+
+    /**
+     * 知识库服务健康检查 (供 Dashboard 监控).
+     */
+    @GetMapping("/health")
+    public Result<java.util.Map<String, Object>> health() {
+        java.util.Map<String, Object> r = new java.util.LinkedHashMap<>();
+        r.put("status", "UP");
+        r.put("service", "ai-platform-knowledge");
+        r.put("bases", knowledgeService.listBases().size());
+        r.put("time", java.time.LocalDateTime.now().toString());
+        return Result.success(r);
+    }
 }

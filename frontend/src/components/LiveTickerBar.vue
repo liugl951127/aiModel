@@ -144,6 +144,17 @@ onMounted(() => {
   _off4 = bus.on('wf:event', (e) => push({ type: 'wf', text: e.text, actor: e.actor, action: e.action }))
   _off5 = bus.on('sys:event', (e) => push({ type: 'sys', text: e.text, actor: e.actor, action: e.action }))
 
+  // 加载后端历史事件 (填充初始列表)
+  try {
+    import('@/api').then(({ activityApi }) => {
+      activityApi.recent().then(r => {
+        if (r.data?.code === 200 && Array.isArray(r.data.data)) {
+          r.data.data.forEach(e => push(e))
+        }
+      }).catch(() => { /* 后端不可达时不报错 */ })
+    })
+  } catch { /* ignore */ }
+
   // 试连后端 SSE (预留)
   try {
     if (typeof EventSource !== 'undefined') {

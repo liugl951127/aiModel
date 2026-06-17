@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 业务表通用 CRUD — 客户/洽谈/商机/合同/报价/订单/产品/服务/回款/费用.
@@ -516,6 +517,42 @@ public class BizController {
                 .map(Payment::getAmount).filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         r.put("paidAmount", paidAmount);
+        return Result.success(r);
+    }
+
+    /**
+     * 工作台业务指标聚合 (Dashboard.vue 用).
+     * <p>返回 4 大指标: 客户数 / 商机金额 / 订单数 / 回款金额, 加 7 项业务表条数.</p>
+     */
+    @GetMapping("/dashboard")
+    public Result<Map<String, Object>> dashboard() {
+        Map<String, Object> r = new HashMap<>();
+        // 4 大核心指标
+        r.put("customerCount", Optional.ofNullable(customerMapper.selectCount(null)).orElse(0L));
+        r.put("opportunityAmount", opportunityMapper.selectList(null).stream()
+                .map(Opportunity::getAmount).filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        r.put("orderCount", Optional.ofNullable(orderMapper.selectCount(null)).orElse(0L));
+        r.put("paidAmount", paymentMapper.selectList(null).stream()
+                .map(Payment::getAmount).filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        // 7 项业务表条数 (供 Dashboard 详细面板)
+        Map<String, Long> counts = new LinkedHashMap<>();
+        counts.put("customer", Optional.ofNullable(customerMapper.selectCount(null)).orElse(0L));
+        counts.put("chat", Optional.ofNullable(chatMapper.selectCount(null)).orElse(0L));
+        counts.put("opportunity", Optional.ofNullable(opportunityMapper.selectCount(null)).orElse(0L));
+        counts.put("quote", Optional.ofNullable(quoteMapper.selectCount(null)).orElse(0L));
+        counts.put("contract", Optional.ofNullable(contractMapper.selectCount(null)).orElse(0L));
+        counts.put("order", Optional.ofNullable(orderMapper.selectCount(null)).orElse(0L));
+        counts.put("payment", Optional.ofNullable(paymentMapper.selectCount(null)).orElse(0L));
+        r.put("tableCounts", counts);
+        // 商机阶段分布
+        Map<String, Long> stages = new LinkedHashMap<>();
+        opportunityMapper.selectList(null).forEach(o -> {
+            String s = o.getStage() == null ? "未知" : o.getStage();
+            stages.merge(s, 1L, Long::sum);
+        });
+        r.put("opportunityStages", stages);
         return Result.success(r);
     }
 }

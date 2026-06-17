@@ -28,4 +28,19 @@ public class InferenceController {
     public Result<Map<String, String>> models() {
         return Result.success(inferenceService.list());
     }
+
+    /**
+     * 推理服务健康检查 (供 Dashboard / 监控).
+     * 返回服务状态 + 可用模型数 + 启动时间.
+     */
+    @GetMapping("/health")
+    public Result<Map<String, Object>> health() {
+        Map<String, Object> r = new java.util.LinkedHashMap<>();
+        r.put("status", "UP");
+        r.put("service", "ai-platform-inference");
+        r.put("models", inferenceService.list().size());
+        r.put("uptime", System.currentTimeMillis());
+        r.put("time", java.time.LocalDateTime.now().toString());
+        return Result.success(r);
+    }
 }

@@ -46,6 +46,12 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
             "/v3/api-docs",
             "/v3/api-docs.yaml",
             "/doc.html",
+            // 监控 / 健康检查 走公开
+            "/api/inference/health",
+            "/api/trainer/health",
+            "/api/knowledge/health",
+            "/api/activity/stream",
+            "/api/activity/recent",
             "/swagger-ui",
             "/swagger-resources/",
             "/webjars/",
