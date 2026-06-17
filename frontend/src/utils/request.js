@@ -3,7 +3,8 @@ import { ElMessage } from 'element-plus'
 
 const request = axios.create({
   baseURL: '/',
-  timeout: 60000
+  // 跟后端 Feign read-timeout (30s) 保持一致. 超过说明服务不可用, 早点让用户重试
+  timeout: 30000
 })
 
 request.interceptors.request.use((config) => {
