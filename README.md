@@ -6,6 +6,28 @@
 
 ---
 
+## 🆕 本周更新 (Latest Updates)
+
+| 提交 | 能力 |
+|---|---|
+| `964ad08` | **AgentInvokeLog DB 化** — 每次 /api/conversation/chat 写入 agent_invoke_log 表 (重启不丢) |
+| `8668acf` | **端到端贯通 e2e 脚本** — 跨 5 大模块 11 个接口, 11/11 PASS (脚本在 `frontend/e2e_full_chain.cjs`) |
+| `9469725` | **PreviewBus SSE 事件 Redis 化** — SSE late subscriber 重连后还能看到历史 (动态代理免引依赖) |
+| `9a312ad` | **ChunkUpload 会话 Redis 化** — 分片上传断点续传真可用 (重启服务不丢会话) |
+| `f21a357` | **异常节点客户级提示** — 配置弹窗顶部 Banner + 必填项红框 |
+| `4e5d164` | **WorkflowRun DB 化** — 工作流运行历史写入 workflow_run 表 |
+| `f2a727d` | **TrainJob DB 化** — 训练任务写入 model_train_job 表 (重启服务不丢训练记录) |
+| `cb32f4f` | **红色箭头 + 跨行正交折线** — 边颜色可点变橙 / 跨行L型转弯 |
+| `fb4f16e` | **5 个二级菜单贯通** — 任意页面跳到下一步 (附 query 参数) |
+
+**真 e2e 验证贯通** (1 分钟跑完 11 步):
+```bash
+python3 backend/mock_ai_server.py 9999 &
+node frontend/e2e_full_chain.cjs http://127.0.0.1:9999
+```
+
+---
+
 ## 一、能力一览
 
 | 领域 | 能力 |
