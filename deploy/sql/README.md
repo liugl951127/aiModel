@@ -1,13 +1,44 @@
 # 数据库脚本说明
 
-## 文件顺序 (按文件名升序执行)
+## 🌟 一键初始化 (推荐)
 
-| 文件 | 库 | 行数 | 作用 |
+`00_init_all.sql` 把本项目需要的全部 ai_platform 库内容 (32 表 + 21 条种子) 集中到一个文件:
+
+```powershell
+# 一条命令, 整个项目数据库初始化完
+mysql -uroot -p951127 < deploy\sql\00_init_all.sql
+```
+
+跑完后会自动显示:
+- `SHOW TABLES` → 32 张表
+- 各表种子数量 (10 个统计项, 看到非 0 即成功)
+
+## 其它库 (Nacos / Seata)
+
+不在 `00_init_all.sql` 内, 官方 schema 动态变化, 按需跑:
+
+```powershell
+# 启用 Nacos 时
+mysql -uroot -p951127 -e "CREATE DATABASE IF NOT EXISTS nacos_config DEFAULT CHARSET utf8mb4;"
+curl -O https://raw.githubusercontent.com/alibaba/nacos/develop/distribution/conf/mysql-schema.sql
+mysql -uroot -p951127 nacos_config < mysql-schema.sql
+
+# 启用分布式事务时
+mysql -uroot -p951127 -e "CREATE DATABASE IF NOT EXISTS seata DEFAULT CHARSET utf8mb4;"
+curl -O https://raw.githubusercontent.com/seata/seata/2.0.0/script/server/db/mysql.sql
+mysql -uroot -p951127 seata < mysql.sql
+```
+
+跳过这 2 个库不影响启动: 服务走本地配置 + 事务降级到 LOCAL.
+
+## 文件清单
+
+| 文件 | 大小 | 作用 | 必跑 |
 |---|---|---|---|
-| `01_schema.sql` | ai_platform | 646 | **32 张业务表** (主库, 必跑) |
-| `02_seed.sql` | ai_platform | 140 | **系统 + 业务种子** (admin/角色/菜单/客户/订单) |
-| nacos 自带 | nacos_config | - | 跑 [Nacos 官方 schema-mysql.sql](https://github.com/alibaba/nacos/blob/develop/distribution/conf/mysql-schema.sql) (用 nacos 必跑) |
-| seata 自带 | seata | - | 跑 [Seata 官方 db_store.sql](https://github.com/seata/seata/tree/develop/script/server/db) (用分布式事务必跑) |
+| **`00_init_all.sql`** | **40 KB** | **本项目完整初始化 (32 表 + 种子)** | **✓** |
+| 01_schema.sql | 28 KB | 32 张表 DDL (00_init_all 子集) | 备查 |
+| 02_seed.sql | 9 KB | 种子数据 (00_init_all 子集) | 备查 |
+| README.md | 2 KB | 本说明 | - |
 
 ## 32 张表清单
 
@@ -33,19 +64,3 @@
 `agent_invoke_log` `user_credits` `usage_stats`
 
 ## 32 张表 ↔ 32 个 Java 实体, 0 漏 (2026-06-17 验证)
-
-## 跑法 (PowerShell)
-
-```powershell
-# 1. 业务主库 (必)
-mysql -uroot -p951127 < deploy\sql\01_schema.sql
-mysql -uroot -p951127 ai_platform < deploy\sql\02_seed.sql
-
-# 2. Nacos 配置库 (启用 Nacos 时必)
-# 下载 https://raw.githubusercontent.com/alibaba/nacos/develop/distribution/conf/mysql-schema.sql
-mysql -uroot -p951127 < nacos-mysql.sql
-
-# 3. Seata 库 (启用分布式事务时必)
-# 下载 https://raw.githubusercontent.com/seata/seata/2.0.0/script/server/db/mysql.sql
-mysql -uroot -p951127 < seata-mysql.sql
-```
