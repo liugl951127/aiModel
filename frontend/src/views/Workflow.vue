@@ -825,7 +825,7 @@ const edgePath = (e) => {
   const a = findNode(e.from)
   const b = findNode(e.to)
   if (!a || !b) return ''
-  const x1 = a.x + 240, y1 = a.y + 30
+  const x1 = a.x + 200, y1 = a.y + 30
   const x2 = b.x, y2 = b.y + 30
   const dx = (x2 - x1) / 2
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
@@ -834,12 +834,19 @@ const edgeDotStyle = (e) => {
   const a = findNode(e.from)
   const b = findNode(e.to)
   if (!a || !b) return {}
-  const x1 = a.x + 240, y1 = a.y + 30
+  const x1 = a.x + 200, y1 = a.y + 30
   const x2 = b.x, y2 = b.y + 30
   return { offsetPath: `path('M ${x1} ${y1} C ${(x1+x2)/2} ${y1}, ${(x1+x2)/2} ${y2}, ${x2} ${y2}')`, offsetDistance: '50%' }
 }
 
 // ============== 模板 ==============
+const onDragStart = (e, n) => {
+  // 必须用 JSON.stringify, drop 里 JSON.parse 反序列化
+  // 同时设 effectAllowed 允许 move/copy
+  e.dataTransfer.effectAllowed = 'copy'
+  e.dataTransfer.setData('text/plain', JSON.stringify(n))
+}
+
 const onDrop = (e) => {
   const raw = e.dataTransfer.getData('text/plain')
   if (!raw) return
@@ -1107,7 +1114,7 @@ onMounted(() => {
   padding: 0 6px; background: rgba(99,102,241,0.08); border-radius: 4px;
 }
 
-.wf-grid { display: grid; grid-template-columns: 220px 1fr 320px; gap: 12px; flex: 1; min-height: 600px; }
+.wf-grid { display: grid; grid-template-columns: 180px 1fr 280px; gap: 8px; flex: 1; min-height: 600px; }
 
 .palette { background: var(--bg-top, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 12px; overflow-y: auto; }
 .palette h4 { margin: 0 0 8px; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
@@ -1152,7 +1159,7 @@ onMounted(() => {
 @keyframes flow { 0% { offset-distance: 0%; } 100% { offset-distance: 100%; } }
 
 .wf-node {
-  position: absolute; width: 240px;
+  position: absolute; width: 200px;
   background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px;
   box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.1);
   transition: all 0.2s; cursor: grab;
