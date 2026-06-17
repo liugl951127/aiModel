@@ -15,6 +15,7 @@
       <el-menu
         class="side-menu"
         :default-active="$route.path"
+        :default-openeds="defaultOpenedMenus"
         :collapse="collapsed"
         router
         background-color="transparent"
@@ -26,53 +27,105 @@
           <el-icon><DataLine /></el-icon>
           <template #title>工作台</template>
         </el-menu-item>
-        <el-menu-item index="/workflow">
-          <el-icon><Connection /></el-icon>
-          <template #title>工作流编排</template>
-        </el-menu-item>
-        <el-menu-item index="/workflow-list">
-          <el-icon><Tickets /></el-icon>
-          <template #title>工作流管理</template>
-        </el-menu-item>
-        <el-menu-item index="/model-versions">
-          <el-icon><Box /></el-icon>
-          <template #title>模型版本</template>
-        </el-menu-item>
-        <el-menu-item index="/models">
-          <el-icon><Cpu /></el-icon>
-          <template #title>大模型</template>
-        </el-menu-item>
-        <el-menu-item index="/datasets">
-          <el-icon><Files /></el-icon>
-          <template #title>数据集</template>
-        </el-menu-item>
-        <el-menu-item index="/train">
-          <el-icon><VideoPlay /></el-icon>
-          <template #title>训练任务</template>
-        </el-menu-item>
-        <el-menu-item index="/agents">
-          <el-icon><UserFilled /></el-icon>
-          <template #title>智能体</template>
-        </el-menu-item>
-        <el-menu-item index="/tools">
-          <el-icon><Tools /></el-icon>
-          <template #title>工具</template>
-        </el-menu-item>
-        <el-menu-item index="/knowledge">
-          <el-icon><Reading /></el-icon>
-          <template #title>知识库</template>
-        </el-menu-item>
-        <el-menu-item index="/inference">
-          <el-icon><ChatDotRound /></el-icon>
-          <template #title>推理测试</template>
-        </el-menu-item>
-        <el-menu-item index="/chat">
-          <el-icon><ChatDotRound /></el-icon>
-          <template #title>智能对话</template>
-        </el-menu-item>
 
+        <!-- ============ AI 能力 (一级) - 按依赖顺序组织 ============ -->
+        <el-sub-menu index="/ai">
+          <template #title>
+            <el-icon><MagicStick /></el-icon>
+            <span>AI 能力</span>
+          </template>
+
+          <!-- 二级: 数据准备 (基础) -->
+          <el-sub-menu index="/ai-data">
+            <template #title>
+              <el-icon><Files /></el-icon>
+              <span>📦 数据准备</span>
+            </template>
+            <el-menu-item index="/datasets">
+              <el-icon><Files /></el-icon>
+              <template #title>数据集</template>
+            </el-menu-item>
+            <el-menu-item index="/knowledge">
+              <el-icon><Reading /></el-icon>
+              <template #title>知识库</template>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <!-- 二级: 模型管理 -->
+          <el-sub-menu index="/ai-model">
+            <template #title>
+              <el-icon><Cpu /></el-icon>
+              <span>🤖 模型管理</span>
+            </template>
+            <el-menu-item index="/models">
+              <el-icon><Cpu /></el-icon>
+              <template #title>大模型</template>
+            </el-menu-item>
+            <el-menu-item index="/model-versions">
+              <el-icon><Box /></el-icon>
+              <template #title>模型版本</template>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <!-- 二级: 训练 (依赖数据+模型) -->
+          <el-sub-menu index="/ai-train">
+            <template #title>
+              <el-icon><VideoPlay /></el-icon>
+              <span>⚙️ 训练任务</span>
+            </template>
+            <el-menu-item index="/train">
+              <el-icon><VideoPlay /></el-icon>
+              <template #title>训练任务</template>
+            </el-menu-item>
+            <el-menu-item index="/agents">
+              <el-icon><UserFilled /></el-icon>
+              <template #title>智能体</template>
+            </el-menu-item>
+            <el-menu-item index="/tools">
+              <el-icon><Tools /></el-icon>
+              <template #title>工具</template>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <!-- 二级: 推理部署 (依赖模型+训练) -->
+          <el-sub-menu index="/ai-deploy">
+            <template #title>
+              <el-icon><Aim /></el-icon>
+              <span>🚀 推理服务</span>
+            </template>
+            <el-menu-item index="/inference">
+              <el-icon><ChatDotRound /></el-icon>
+              <template #title>推理测试</template>
+            </el-menu-item>
+            <el-menu-item index="/chat">
+              <el-icon><ChatDotRound /></el-icon>
+              <template #title>智能对话</template>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <!-- 二级: 工作流编排 (依赖上面所有) -->
+          <el-sub-menu index="/ai-workflow">
+            <template #title>
+              <el-icon><Connection /></el-icon>
+              <span>🔀 流程编排</span>
+            </template>
+            <el-menu-item index="/workflow">
+              <el-icon><MagicStick /></el-icon>
+              <template #title>编排画布</template>
+            </el-menu-item>
+            <el-menu-item index="/workflow-list">
+              <el-icon><Tickets /></el-icon>
+              <template #title>工作流管理</template>
+            </el-menu-item>
+          </el-sub-menu>
+        </el-sub-menu>
+
+        <!-- ============ 业务 (独立, 不依赖 AI 能力) ============ -->
         <el-sub-menu index="/biz">
-          <template #title><el-icon><OfficeBuilding /></el-icon><span>业务</span></template>
+          <template #title>
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>业务</span>
+          </template>
           <el-menu-item index="/customers">客户</el-menu-item>
           <el-menu-item index="/chats">洽谈</el-menu-item>
           <el-menu-item index="/opportunities">商机</el-menu-item>
@@ -83,8 +136,12 @@
           <el-menu-item index="/services">服务</el-menu-item>
         </el-sub-menu>
 
+        <!-- ============ 系统 (独立) ============ -->
         <el-sub-menu index="/system">
-          <template #title><el-icon><Setting /></el-icon><span>系统</span></template>
+          <template #title>
+            <el-icon><Setting /></el-icon>
+            <span>系统</span>
+          </template>
           <el-menu-item index="/users">用户</el-menu-item>
           <el-menu-item index="/tenants">租户</el-menu-item>
           <el-menu-item index="/roles">角色</el-menu-item>
@@ -301,6 +358,22 @@ const avatarLetter = computed(() =>
 // ============== 侧栏折叠 ==============
 const collapsed = ref(false)
 
+// 默认展开的菜单 (AI 能力 + 当前路由所在的二级)
+const defaultOpenedMenus = computed(() => {
+  const path = route.path
+  const opens = new Set(['/ai'])
+  if (path.startsWith('/datasets') || path.startsWith('/knowledge')) opens.add('/ai-data')
+  else if (path.startsWith('/models') || path.startsWith('/model-versions')) opens.add('/ai-model')
+  else if (path.startsWith('/train') || path.startsWith('/agents') || path.startsWith('/tools')) opens.add('/ai-train')
+  else if (path.startsWith('/inference') || path.startsWith('/chat')) opens.add('/ai-deploy')
+  else if (path.startsWith('/workflow') || path.startsWith('/workflow-list')) opens.add('/ai-workflow')
+  if (path.startsWith('/customers') || path.startsWith('/opportunities') || path.startsWith('/chats') ||
+      path.startsWith('/quotes') || path.startsWith('/contracts') || path.startsWith('/orders') ||
+      path.startsWith('/products') || path.startsWith('/services')) opens.add('/biz')
+  if (['/users','/tenants','/roles','/menus','/audit','/dist-tx','/monitor'].some(p => path.startsWith(p))) opens.add('/system')
+  return [...opens]
+})
+
 // ============== 全局搜索 (el-autocomplete) ==============
 const searchKey = ref('')
 const onSearchSuggest = (queryString, cb) => {
@@ -479,6 +552,34 @@ onMounted(() => {
   background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
   color: #fff !important;
   box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.4);
+}
+/* 二级菜单背景区分 (依赖关系层级) */
+.side-menu :deep(.el-menu .el-menu) {
+  background: rgba(99, 102, 241, 0.04) !important;
+  border-radius: 8px;
+  margin: 2px 6px;
+  padding: 4px 0;
+}
+.side-menu :deep(.el-menu .el-menu .el-menu-item) {
+  padding-left: 36px !important;
+  font-size: 12px;
+  height: 34px; line-height: 34px;
+  color: #64748b !important;
+}
+.side-menu :deep(.el-menu .el-menu .el-menu-item.is-active) {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+.side-menu :deep(.el-menu .el-menu .el-sub-menu__title) {
+  padding-left: 28px !important;
+  font-size: 12px;
+  height: 36px; line-height: 36px;
+  color: #475569 !important;
+}
+/* 一级菜单标题加重点颜色 (AI 能力 / 业务 / 系统) */
+.side-menu :deep(.el-sub-menu > .el-sub-menu__title) {
+  font-weight: 600;
 }
 
 .sidebar-foot { padding: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
