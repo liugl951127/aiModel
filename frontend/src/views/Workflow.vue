@@ -98,7 +98,7 @@
           </el-button>
         </div>
 
-        <!-- 节点卡片 -->
+        <!-- 节点卡片: 只显示名称, 右上角 ? 提示 + X 删除 -->
         <div
           v-for="n in nodes"
           :key="n.id"
@@ -110,19 +110,37 @@
           }"
           :style="{ left: n.x + 'px', top: n.y + 'px' }"
           @mousedown.stop="onNodeMouseDown($event, n)"
+          @dblclick.stop="openConfig(n)"
         >
-          <div class="wn-head">
-            <el-icon><component :is="iconOf(n)" /></el-icon>
-            <span class="wn-name">{{ n.name }}</span>
-            <span class="wn-id">{{ n.id }}</span>
-            <el-icon class="wn-del" @click.stop="removeNode(n.id)"><Close /></el-icon>
-          </div>
-          <div class="wn-cfg">
-            <div v-for="(v, k) in n.params" :key="k" class="wn-cfg-row">
-              <label>{{ k }}</label>
-              <code>{{ v }}</code>
+          <el-icon class="wn-ico"><component :is="iconOf(n)" /></el-icon>
+          <span class="wn-name">{{ n.name }}</span>
+          <el-popover
+            placement="right"
+            :width="320"
+            trigger="hover"
+            :show-after="200"
+            popper-class="node-tip-popper"
+          >
+            <template #reference>
+              <el-icon class="wn-help" @click.stop><QuestionFilled /></el-icon>
+            </template>
+            <div class="tip-box">
+              <div class="tip-title">
+                <el-icon><component :is="iconOf(n)" /></el-icon>
+                {{ n.name }}
+                <el-tag size="small" effect="plain" type="info">{{ n.id }}</el-tag>
+              </div>
+              <p class="tip-desc">{{ n.desc || tplDesc(n) }}</p>
+              <div v-if="Object.keys(n.params).length" class="tip-params">
+                <strong>当前参数:</strong>
+                <code v-for="(v, k) in n.params" :key="k">{{ k }}=<span>{{ v }}</span></code>
+              </div>
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e5e7eb; font-size: 11px; color: #94a3b8;">
+                💡 双击节点可改参数
+              </div>
             </div>
-          </div>
+          </el-popover>
+          <el-icon class="wn-del" @click.stop="removeNode(n.id)"><Close /></el-icon>
           <span
             v-for="p in n.outPorts"
             :key="p"
@@ -260,6 +278,22 @@
         </ol>
       </div>
     </el-drawer>
+
+    <!-- 双击节点: 改参数 dialog -->
+    <el-dialog v-model="configVisible" :title="configTitle" width="520px" align-center>
+      <el-form v-if="configNode" label-position="top" size="default">
+        <el-form-item v-for="p in configSchema" :key="p.key" :label="p.label">
+          <el-input v-if="p.type === 'string' || !p.type" v-model="configNode.params[p.key]" :placeholder="String(p.default || '')" />
+          <el-input-number v-else-if="p.type === 'number'" v-model="configNode.params[p.key]" :min="p.min" :max="p.max" :step="p.step || 1" style="width: 100%" />
+          <el-switch v-else-if="p.type === 'boolean'" v-model="configNode.params[p.key]" />
+        </el-form-item>
+      </el-form>
+      <p v-if="configNode && Object.keys(configNode.params).length === 0" class="muted" style="text-align:center;">该节点没有可配置参数</p>
+      <template #footer>
+        <el-button @click="configVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveConfig">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -376,6 +410,10 @@ const iconOf = (n) => {
   for (const g of palette) for (const x of g.nodes) if (x.id === n.id || x.name === n.name) return x.icon
   return 'Cpu'
 }
+const tplDesc = (n) => {
+  for (const g of palette) for (const x of g.nodes) if (x.id === n.id || x.name === n.name) return x.desc || ''
+  return ''
+}
 const paramSchema = (n) => {
   for (const g of palette) for (const x of g.nodes) if (x.id === n.id) {
     return Object.keys(x.params).map(k => ({ key: k, label: k, type: typeof x.params[k] === 'number' ? 'number' : 'string', default: x.params[k] }))
@@ -443,6 +481,22 @@ const onNodeMouseDown = (e, n) => {
 }
 
 let _connectFrom = ref(null)
+// ============== 节点配置 dialog (双击触发) ==============
+const configVisible = ref(false)
+const configNode = ref(null)
+const configSchema = computed(() => configNode.value ? paramSchema(configNode.value) : [])
+const configTitle = computed(() => configNode.value ? `配置: ${configNode.value.name} (${configNode.value.id})` : '')
+const openConfig = (n) => {
+  configNode.value = n
+  configVisible.value = true
+}
+const saveConfig = () => {
+  if (!configNode.value) return
+  pushHistory(`config ${configNode.value.id}`, { nodes: nodes.value, edges: edges.value })
+  addLog('配置', `已更新 ${configNode.value.name} (${configNode.value.id}) 参数`, 'success')
+  configVisible.value = false
+}
+
 const onPortMouseDown = (e, node, port, dir) => {
   if (!_connectFrom.value) {
     _connectFrom.value = { id: node.id, port, dir }
@@ -717,16 +771,19 @@ onBeforeUnmount(() => {
 .canvas-empty > * { pointer-events: auto; }
 .wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
-.wf-node { position: absolute; width: 200px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 8px; box-shadow: 0 2px 6px -2px rgba(0,0,0,0.08); transition: all 0.15s; cursor: grab; font-size: 11px; }
-.wf-node:hover { box-shadow: 0 4px 10px -2px rgba(0,0,0,0.12); }
+.wf-node { position: absolute; min-width: 120px; max-width: 180px; height: 32px; padding: 0 4px; display: flex; align-items: center; gap: 4px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 6px; box-shadow: 0 1px 4px -1px rgba(0,0,0,0.08); transition: all 0.15s; cursor: grab; font-size: 11px; }
+.wf-node:hover { box-shadow: 0 3px 8px -1px rgba(0,0,0,0.12); border-color: #c7d2fe; }
 .wf-node.running { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2); }
 .wf-node.done { border-color: #10b981; }
 .wf-node.selected { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); }
-.wn-head { display: flex; align-items: center; gap: 4px; padding: 4px 6px; background: linear-gradient(135deg, #f0f4ff, #fdf4ff); border-bottom: 1px solid #f0f0f0; }
-.wn-name { font-weight: 600; flex: 1; }
-.wn-id { font-size: 9px; color: #94a3b8; }
-.wn-del { color: #ef4444; cursor: pointer; }
-.wn-cfg { padding: 4px 6px; }
+.wn-ico { color: #6366f1; flex-shrink: 0; }
+.wn-name { font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wn-help { color: #94a3b8; cursor: help; flex-shrink: 0; font-size: 12px; padding: 2px; border-radius: 3px; transition: all 0.15s; }
+.wn-help:hover { color: #6366f1; background: rgba(99, 102, 241, 0.1); }
+.wn-del { color: #cbd5e1; cursor: pointer; flex-shrink: 0; font-size: 12px; padding: 2px; border-radius: 3px; transition: all 0.15s; }
+.wn-del:hover { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.tip-params strong { display: block; font-size: 10px; color: #94a3b8; margin: 4px 0 2px; }
+.tip-params code { display: inline-block; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 10px; margin: 1px 2px 1px 0; }
 .wn-cfg-row { display: flex; align-items: center; gap: 4px; font-size: 10px; }
 .wn-cfg-row label { color: #94a3b8; flex-shrink: 0; min-width: 40px; }
 .wn-cfg-row code { background: #f1f5f9; padding: 0 4px; border-radius: 3px; }
