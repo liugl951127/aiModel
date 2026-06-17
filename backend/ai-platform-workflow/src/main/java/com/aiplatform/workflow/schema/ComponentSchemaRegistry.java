@@ -265,6 +265,151 @@ public class ComponentSchemaRegistry {
                         null, false)
         ));
 
+        // ============== 补充节点 (12) ==============
+        list.add(s("agent_chat", "Agent 对话", "Agent", "agent", "minigpt2",
+                "Agent 带多轮 chat + 上下文",
+                f("systemPrompt", "系统提示", "textarea", "你是一个助手",
+                        null, null, null, null, List.of("你是一个助手"), null, true),
+                f("maxRounds", "轮数", "number", 5, 1, 20, 1, null, List.of("5", "10"), "上下文轮数", false)
+        ));
+        list.add(s("agent_list", "Agent 列表", "Agent", "agent", null,
+                "列出可用的 Agent 实例",
+                f("status", "状态过滤", "select", "all", null, null, null,
+                        List.of("all", "active", "inactive"),
+                        List.of("all"), null, false)
+        ));
+        list.add(s("code_exec", "代码执行", "工具", "tool", "python-3.11",
+                "沙箱内执行 Python 代码",
+                f("timeout", "超时秒", "number", 30, 1, 600, 10,
+                        null, List.of("30", "60"), "防止脚本死循环", true),
+                f("memory", "内存 MB", "number", 256, 64, 2048, 64,
+                        null, List.of("256", "512"), "防止 OOM", false)
+        ));
+        list.add(s("eval_human", "人工评估", "评估", "tool", null,
+                "把样例发送到标注平台, 人工打标",
+                f("sampleCount", "样例数", "number", 20, 1, 1000, 10,
+                        null, List.of("20", "50"), "20 个够统计意义", true)
+        ));
+        list.add(s("eval_rouge", "ROUGE 评估", "评估", "tool", null,
+                "ROUGE-L 评估, 长文本摘要场景",
+                f("useStemmer", "词干化", "boolean", true, null, null, null, null,
+                        List.of("true"), "默认开, 提升准确率", false)
+        ));
+        list.add(s("if_branch", "条件分支", "控制流", "tool", null,
+                "根据条件分叉, 类似 informatic 的 Router",
+                f("expression", "条件表达式", "textarea", "{{upstream.score}} > 0.7",
+                        null, null, null, null,
+                        List.of("{{upstream.score}} > 0.7", "{{upstream.flag}} == true"),
+                        "支持 {{upstream.xxx}} 占位符, 返回 true/false", true)
+        ));
+        list.add(s("log", "日志输出", "控制流", "tool", null,
+                "输出日志到前端, 不影响数据流",
+                f("level", "级别", "select", "info", null, null, null,
+                        List.of("debug", "info", "warn", "error"),
+                        List.of("info"), null, false),
+                f("message", "日志内容", "textarea", "{{upstream}}", null, null, null, null,
+                        List.of("{{upstream}}"), "支持 {{upstream}}", true)
+        ));
+        list.add(s("loop", "循环", "控制流", "tool", null,
+                "循环执行子图 N 次",
+                f("iterations", "迭代次数", "number", 3, 1, 100, 1,
+                        null, List.of("3", "5"), "防止无限循环", true)
+        ));
+        list.add(s("merge", "合并", "控制流", "tool", null,
+                "合并多个上游输入为一个",
+                f("strategy", "合并策略", "select", "concat", null, null, null,
+                        List.of("concat", "first", "last", "join"),
+                        List.of("concat", "first"), "concat 拼接, first/last 取一, join 用逗号拼接", true)
+        ));
+        list.add(s("parallel", "并行", "控制流", "tool", null,
+                "并行执行多个分支, 都完成后合并",
+                f("workers", "并发数", "number", 4, 1, 16, 1,
+                        null, List.of("4", "8"), "CPU 密集任务 2-4, IO 8+", false)
+        ));
+        list.add(s("tokenize", "分词", "工具", "tool", "minigpt-bpe",
+                "BPE 分词, 跟训练用一致",
+                f("vocab", "词表", "string", "default", null, null, null, null,
+                        List.of("default"), null, false),
+                f("addBos", "加 BOS", "boolean", true, null, null, null, null,
+                        List.of("true"), "训练一致, 推理也加", false)
+        ));
+        list.add(s("web_search", "Web 搜索", "工具", "tool", null,
+                "实时联网搜索 (按用户需求 '菜蔬' 即 query)",
+                f("query", "查询", "string", "{{input}}", null, null, null, null,
+                        List.of("{{input}}"), "用户问题", true),
+                f("maxResults", "结果数", "number", 5, 1, 20, 1,
+                        null, List.of("5"), null, false)
+        ));
+        list.add(s("webhook", "Webhook", "工具", "tool", null,
+                "调用外部 HTTP 接口",
+                f("url", "URL", "string", "https://api.example.com/hook", null, null, null, null,
+                        List.of("https://api.example.com/hook"), "支持 https", true),
+                f("method", "HTTP 方法", "select", "POST", null, null, null,
+                        List.of("GET", "POST", "PUT", "DELETE"),
+                        List.of("POST"), null, false)
+        ));
+        list.add(s("chunker", "通用切片", "工具", "tool", null,
+                "按字符/token 切块, 带 overlap",
+                f("size", "块大小", "number", 256, 16, 2048, 32,
+                        null, List.of("256", "512"), null, true),
+                f("overlap", "重叠", "number", 32, 0, 256, 8, null,
+                        List.of("32"), null, false)
+        ));
+        list.add(s("vector_index", "向量索引", "知识库", "knowledge", null,
+                "创建/更新 ES 向量索引",
+                f("indexName", "索引名", "string", "kb_default", null, null, null, null,
+                        List.of("kb_default", "kb_faq"), null, true),
+                f("dim", "维度", "number", 512, 256, 3072, 256, null,
+                        List.of("512"), "跟 embed 模型一致", false)
+        ));
+        list.add(s("kb_index", "KB 索引", "知识库", "knowledge", null,
+                "创建/刷新知识库 (ES 索引 + 别名)",
+                f("kbId", "知识库", "string", "default", null, null, null, null,
+                        List.of("default", "kb_doc"), null, true)
+        ));
+        list.add(s("model_list", "模型列表", "部署", "model", null,
+                "列出已注册模型",
+                f("stage", "阶段过滤", "select", "all", null, null, null,
+                        List.of("all", "staging", "prod"), null, false)
+        ));
+        list.add(s("tool_list", "工具列表", "工具", "tool", null,
+                "列出可用工具",
+                f("category", "类别", "select", "all", null, null, null,
+                        List.of("all", "search", "kb", "code", "http"),
+                        List.of("all"), null, false)
+        ));
+        list.add(s("train_start", "训练起始", "控制流", "trainer", null,
+                "训练流水线的起始标记节点",
+                f("note", "备注", "string", "RAG fine-tune", null, null, null, null,
+                        List.of("RAG fine-tune"), "注释本次训练目的", false)
+        ));
+        list.add(s("lora_train", "LoRA 训练 v2", "训练", "trainer", "minigpt2",
+                "LoRA v2 训练, 支持 rank/alpha 控制",
+                f("rank", "LoRA rank", "number", 8, 4, 64, 4,
+                        null, List.of("8", "16"), "rank 越大越强, 但参数越多", true),
+                f("alpha", "alpha", "number", 16, 4, 128, 4,
+                        null, List.of("16"), "alpha 通常是 rank * 2", true)
+        ));
+        list.add(s("dpo_train", "DPO 训练 v2", "训练", "trainer", "minigpt2",
+                "DPO 训练, 偏好对齐",
+                f("beta", "DPO beta", "number", 0.1, 0.01, 1.0, 0.05,
+                        null, List.of("0.1"), null, true)
+        ));
+        list.add(s("embed", "Embedding 通用", "推理", "inference", "BAAI/bge-small-zh-v1.5",
+                "通用 embedding 节点",
+                f("model", "模型", "select", "BAAI/bge-small-zh-v1.5", null, null, null,
+                        List.of("BAAI/bge-small-zh-v1.5", "BAAI/bge-large-zh-v1.5"),
+                        List.of("BAAI/bge-small-zh-v1.5"), null, true)
+        ));
+        list.add(s("infer", "通用推理", "推理", "inference", "minigpt",
+                "通用推理, 自动选模型",
+                f("model", "模型", "select", "minigpt", null, null, null,
+                        List.of("minigpt", "minigpt2", "llama-mini"),
+                        List.of("minigpt"), null, true),
+                f("maxTokens", "最大长度", "number", 100, 10, 2048, 10,
+                        null, List.of("100"), null, true)
+        ));
+
         return list;
     }
 
