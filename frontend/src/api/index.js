@@ -158,6 +158,10 @@ export const workflowApi = {
   listRuns: () => request.get('/api/workflow/runs'),
   getRun: (id) => request.get(`/api/workflow/run/${id}`),
   run: (data) => request.post('/api/workflow/run', data),
+  // 实时调用: 同步执行某个节点, 返回结果
+  exec: (data) => request.post('/api/workflow/exec', data),
+  // 批量执行
+  execBatch: (data) => request.post('/api/workflow/exec/batch', data),
   template: () => request.get('/api/workflow/templates/train-eval-deploy')
 }
 
