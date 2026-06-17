@@ -52,7 +52,7 @@
               <span v-if="m.actor" class="dot">·</span>
               <span>{{ m.timeAgo }}</span>
               <span v-if="m.action" class="dot">·</span>
-              <el-link v-if="m.action" type="primary" :underline="false" size="small" @click="m.action && m.action.handler && m.action.handler()">
+              <el-link v-if="m.action" type="primary" underline="never" size="small" @click="m.action && m.action.handler && m.action.handler()">
                 {{ m.action.label }}
               </el-link>
             </div>

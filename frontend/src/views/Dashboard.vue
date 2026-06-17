@@ -63,7 +63,7 @@
           <template #header>
             <div class="card-hd">
               <h3>🚀 平台能力</h3>
-              <el-link type="primary" :underline="false" @click="$router.push('/workflow')">编排工作流 →</el-link>
+              <el-link type="primary" underline="never" @click="$router.push('/workflow')">编排工作流 →</el-link>
             </div>
           </template>
           <div class="cap-graph">
@@ -103,9 +103,9 @@
           <template v-if="!recentEvents.length">
             <p class="text-muted text-sm" style="text-align:center; margin-top: 8px;">
               试试去
-              <el-link type="primary" :underline="false" @click="$router.push('/train')">训练任务</el-link>
+              <el-link type="primary" underline="never" @click="$router.push('/train')">训练任务</el-link>
               或
-              <el-link type="primary" :underline="false" @click="$router.push('/chat')">智能对话</el-link>
+              <el-link type="primary" underline="never" @click="$router.push('/chat')">智能对话</el-link>
             </p>
           </template>
         </el-card>
@@ -132,7 +132,7 @@
             </el-descriptions-item>
           </el-descriptions>
           <div class="sys-tip">
-            <el-link type="primary" :underline="false" size="small" @click="checkAll">
+            <el-link type="primary" underline="never" size="small" @click="checkAll">
               <el-icon><Refresh /></el-icon>
               重新检查
             </el-link>

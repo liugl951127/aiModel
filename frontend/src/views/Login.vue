@@ -5,7 +5,7 @@
       <div class="tb-left"></div>
       <div class="tb-right">
         <el-dropdown trigger="click" @command="onLang">
-          <el-link :underline="false" class="tb-link">
+          <el-link underline="never" class="tb-link">
             <el-icon><Position /></el-icon>
             {{ currentLang.label }}
             <el-icon><ArrowDown /></el-icon>
@@ -21,13 +21,13 @@
         </el-dropdown>
         <el-divider direction="vertical" />
         <el-tooltip content="主题" placement="bottom">
-          <el-link :underline="false" class="tb-link" @click="cycleTheme">
+          <el-link underline="never" class="tb-link" @click="cycleTheme">
             <el-icon :size="14"><component :is="themeIcon" /></el-icon>
           </el-link>
         </el-tooltip>
         <el-divider direction="vertical" />
         <el-tooltip content="登录审计" placement="bottom">
-          <el-link :underline="false" class="tb-link" @click="showAudit = true">
+          <el-link underline="never" class="tb-link" @click="showAudit = true">
             <el-icon :size="14"><Document /></el-icon>
           </el-link>
         </el-tooltip>
@@ -121,7 +121,7 @@
               </div>
             </div>
             <el-dropdown trigger="click" @command="onLang">
-              <el-link :underline="false" class="tb-link">
+              <el-link underline="never" class="tb-link">
                 <el-icon><Position /></el-icon>
                 {{ currentLang.label }}
               </el-link>
@@ -191,7 +191,7 @@
 
                 <div class="form-extras">
                   <el-checkbox v-model="loginForm.remember">7 天自动登录</el-checkbox>
-                  <el-link type="primary" :underline="false" @click="onForgot">忘记密码？</el-link>
+                  <el-link type="primary" underline="never" @click="onForgot">忘记密码？</el-link>
                 </div>
 
                 <!-- 开发模式: 明文密码 bypass BCrypt (后端需开 AI_AUTH_DEV_PLAIN_PASSWORD=true) -->
@@ -201,7 +201,7 @@
                 <div class="dev-toggle">
                   <el-switch v-model="devPlainMode" size="small" />
                   <span class="dev-label">开发模式（明文密码）</span>
-                  <el-link :underline="false" type="primary" size="small" @click="showDevTip = true">说明</el-link>
+                  <el-link underline="never" type="primary" size="small" @click="showDevTip = true">说明</el-link>
                 </div>
 
                 <el-button type="primary" :loading="loading" @click="onLogin" class="submit-btn" size="large" round>
@@ -235,7 +235,7 @@
               </el-form>
 
               <p class="bottom-tip">
-                没有账号？<el-link type="primary" :underline="false" @click="switchTab('register')">立即注册</el-link>
+                没有账号？<el-link type="primary" underline="never" @click="switchTab('register')">立即注册</el-link>
               </p>
             </div>
 
@@ -298,9 +298,9 @@
                 <el-form-item prop="agree" class="agree-item">
                   <el-checkbox v-model="regForm.agree">
                     我已阅读并同意
-                    <el-link type="primary" :underline="false">《来也用户协议》</el-link>
+                    <el-link type="primary" underline="never">《来也用户协议》</el-link>
                     与
-                    <el-link type="primary" :underline="false">《隐私协议》</el-link>
+                    <el-link type="primary" underline="never">《隐私协议》</el-link>
                   </el-checkbox>
                 </el-form-item>
                 <el-button type="primary" :loading="loading" @click="onRegister" class="submit-btn" size="large" round>
@@ -309,7 +309,7 @@
               </el-form>
 
               <p class="bottom-tip">
-                已有账号？<el-link type="primary" :underline="false" @click="switchTab('login')">立即登录</el-link>
+                已有账号？<el-link type="primary" underline="never" @click="switchTab('login')">立即登录</el-link>
               </p>
             </div>
 
@@ -338,7 +338,7 @@
                 </el-button>
               </el-form>
               <p class="bottom-tip">
-                想起密码了？<el-link type="primary" :underline="false" @click="switchTab('login')">返回登录</el-link>
+                想起密码了？<el-link type="primary" underline="never" @click="switchTab('login')">返回登录</el-link>
               </p>
             </div>
           </transition>
@@ -417,7 +417,7 @@
         </el-table-column>
       </el-table>
       <template #footer>
-        <el-link :underline="false" type="primary" @click="loadAudit"><el-icon><Refresh /></el-icon>刷新</el-link>
+        <el-link underline="never" type="primary" @click="loadAudit"><el-icon><Refresh /></el-icon>刷新</el-link>
         <el-button @click="showAudit = false">关闭</el-button>
       </template>
     </el-dialog>
