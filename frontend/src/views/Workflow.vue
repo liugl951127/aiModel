@@ -473,7 +473,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch, watchEffect } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   QuestionFilled, Back, RefreshRight, VideoPlay, Document, FolderOpened, Download, Plus, Close, Delete, Refresh, Promotion,
