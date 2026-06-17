@@ -145,6 +145,7 @@
         <div
           v-for="n in nodes"
           :key="n.id"
+          :ref="(el) => setNodeRef(el, n.id)"
           class="wf-node"
           :class="{
             running: currentNode === n.id,
@@ -470,6 +471,7 @@
           <div
             v-for="n in nodes"
             :key="n.id"
+            :ref="(el) => setNodeRef(el, n.id)"
             class="zoom-node"
             :class="{
               'is-start': validation.starts.includes(n.id),
@@ -509,6 +511,18 @@ defineOptions({ name: 'Workflow' })
 
 const bus = useGlobalBus()
 const logEl = ref(null)
+// 节点 DOM ref map (用于计算真实宽度, 精确连线)
+const nodeMap = ref(new Map())
+const setNodeRef = (el, id) => {
+  if (el) {
+    nodeMap.value.set(id, el)
+    // 测实际宽度, 存到 node._renderW
+    const n = nodes.value.find(x => x.id === id)
+    if (n) n._renderW = el.offsetWidth
+  } else {
+    nodeMap.value.delete(id)
+  }
+}
 
 // 监听全局 AI 助手发出的事件 (在其它页点'生成/诊断/建议'后会跳到本页)
 onMounted(() => {
@@ -923,14 +937,29 @@ const onCanvasMouseDown = (e) => {
 }
 
 // ============== 边 ==============
+// 节点常量 (跟 CSS .wf-node 一致, 保持同步)
+const NODE_W_DEFAULT = 140
+const NODE_H = 32
+const PORT_R = 6      // 端口半径 10/2 = 5, 加 1 圈描边
+const PORT_OFFSET = 5 // 端口突出节点边的像素
+
+// 算某节点某方向端口的画布坐标
+const portCoord = (node, dir) => {
+  const w = node._renderW || NODE_W_DEFAULT
+  const y = node.y + NODE_H / 2  // 垂直中点
+  if (dir === 'out') return { x: node.x + w + PORT_OFFSET, y }
+  if (dir === 'in')  return { x: node.x - PORT_OFFSET, y }
+  return { x: node.x, y }
+}
+
 const edgePath = (e) => {
   const a = findNode(e.from)
   const b = findNode(e.to)
   if (!a || !b) return ''
-  const x1 = a.x + 200, y1 = a.y + 30
-  const x2 = b.x, y2 = b.y + 30
-  const dx = (x2 - x1) / 2
-  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
+  const p1 = portCoord(a, 'out')
+  const p2 = portCoord(b, 'in')
+  const dx = Math.max(40, (p2.x - p1.x) / 2)  // 最低 40px 弧度
+  return `M ${p1.x} ${p1.y} C ${p1.x + dx} ${p1.y}, ${p2.x - dx} ${p2.y}, ${p2.x} ${p2.y}`
 }
 
 // ============== 模板 (调后端 /api/workflow/templates) ==============
@@ -963,7 +992,13 @@ const onAiApply = (data) => {
   if (data.description) {
     specForm.value.description = data.description
   }
-  selectedNode.value = null
+  selectedNode.value = null  // computed, 这行无效 (下面重置数组)
+  selectedIds.value = []
+  selectedEdge.value = null
+  configNode.value = null
+  configVisible.value = false
+  // 强制刷新 (新增/删除节点)
+  nextTick(() => { /* trigger re-render */ })
   ElMessage.success(`已填充 ${data.nodes.length} 个节点 / ${data.edges.length} 条边 (场景: ${data.scenario})`)
 }
 

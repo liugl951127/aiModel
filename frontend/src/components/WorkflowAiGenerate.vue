@@ -29,6 +29,23 @@
         <el-button @click="onReset" plain>{{ hasCurrent ? '重置对话' : '清空' }}</el-button>
       </div>
 
+      <!-- 进度条 -->
+      <div v-if="loading || progressVisible" class="progress-box">
+        <div class="progress-label">
+          <el-icon class="rotating"><Loading v-if="loading" /><Check v-else /></el-icon>
+          <span>{{ progressLabel }}</span>
+          <span class="progress-pct">{{ progressPct }}%</span>
+        </div>
+        <el-progress :percentage="progressPct" :stroke-width="14" :show-text="false"
+          :color="progressColor" :duration="6" />
+        <div class="progress-steps">
+          <span :class="{ done: progressPct > 0, active: progressStep === 0 }">① 思考需求</span>
+          <span :class="{ done: progressPct > 25, active: progressStep === 1 }">② 查询知识</span>
+          <span :class="{ done: progressPct > 50, active: progressStep === 2 }">③ 生成节点</span>
+          <span :class="{ done: progressPct > 80, active: progressStep === 3 }">④ 检查参数</span>
+        </div>
+      </div>
+
       <!-- 预设场景 (无当前画布时显示) -->
       <div v-if="!hasCurrent" class="scenarios">
         <div class="sc-label">📦 预设场景 (一键填):</div>
@@ -102,7 +119,7 @@ import { ref, watch, onMounted, nextTick, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   MagicStick, Right, Check, VideoPlay, Plus, Delete, Refresh, Setting,
-  InfoFilled
+  InfoFilled, Loading
 } from '@element-plus/icons-vue'
 import { workflowApi } from '@/api'
 import { useGlobalBus } from '@/composables/useGlobalBus'
@@ -124,6 +141,61 @@ const userInput = ref('')
 const loading = ref(false)
 const result = ref(null)
 const scenarios = ref([])
+
+// 进度条状态
+const progressPct = ref(0)
+const progressStep = ref(-1)  // -1 = 未开始
+const progressLabel = ref('')
+const progressVisible = ref(false)
+
+let progressTimer = null
+
+const progressColor = computed(() => {
+  if (progressPct.value >= 100) return '#10b981'
+  if (progressPct.value >= 50) return '#6366f1'
+  return '#94a3b8'
+})
+
+const startProgress = () => {
+  progressPct.value = 0
+  progressStep.value = 0
+  progressVisible.value = true
+  progressLabel.value = '正在理解需求...'
+  if (progressTimer) clearInterval(progressTimer)
+  // 模拟 4 个阶段, 每个 0.6s, 总 2.4s 后 100%
+  progressTimer = setInterval(() => {
+    if (progressPct.value < 30) {
+      progressPct.value += 5
+      progressStep.value = 0
+      progressLabel.value = '① 思考需求...'
+    } else if (progressPct.value < 55) {
+      progressPct.value += 4
+      progressStep.value = 1
+      progressLabel.value = '② 查询知识库...'
+    } else if (progressPct.value < 85) {
+      progressPct.value += 3
+      progressStep.value = 2
+      progressLabel.value = '③ 生成节点中...'
+    } else if (progressPct.value < 99) {
+      progressPct.value += 1
+      progressStep.value = 3
+      progressLabel.value = '④ 检查参数...'
+    }
+  }, 200)
+}
+
+const stopProgress = (success) => {
+  if (progressTimer) { clearInterval(progressTimer); progressTimer = null }
+  if (success) {
+    progressPct.value = 100
+    progressStep.value = 3
+    progressLabel.value = '✓ 生成完成'
+    // 3s 后隐藏
+    setTimeout(() => { progressVisible.value = false }, 3000)
+  } else {
+    progressLabel.value = '✗ 生成失败'
+  }
+}
 
 // 当前画布状态
 const hasCurrent = computed(() => props.current && (props.current.nodes?.length || 0) > 0)
@@ -181,7 +253,9 @@ const onOpen = async () => {
   if (!hasCurrent.value) {
     try {
       const r = await workflowApi.aiScenarios()
-      if (r.data?.code === 200) scenarios.value = r.data.data
+      // 兼容两种格式: {code,message,data:Array} 或 {data:Array}
+      const list = r?.data?.data || r?.data
+      if (Array.isArray(list)) scenarios.value = list
     } catch (e) { scenarios.value = [] }
   }
 }
@@ -204,6 +278,7 @@ const onGenerate = async () => {
     return
   }
   loading.value = true
+  startProgress()
   try {
     let r
     if (hasCurrent.value) {
@@ -216,17 +291,36 @@ const onGenerate = async () => {
     } else {
       r = await workflowApi.aiGenerate(userInput.value.trim())
     }
-    if (r.data?.code === 200) {
-      result.value = r.data.data
-      if (result.value.nodes.length === 0) {
-        ElMessage.info('未识别到场景, 请描述更具体')
-      } else {
-        const a = result.value.action || 'replace'
-        const label = { replace: '已重生成', add_node: '已新增节点', delete_node: '已删除节点', update_params: '已更新参数' }[a]
-        ElMessage.success(`${label}: ${result.value.nodes.length} 节点 / ${result.value.edges.length} 边`)
-      }
+    // axios 拦截器: code===200 已经剥了一层, r = {code, message, data: <workflow>}
+    // 防御性: 3 种可能
+    //   1. r = {code, message, data: <workflow>}     - 拦截器扒了
+    //   2. r = {data: <Result>}                       - 未拦截
+    //   3. r = <workflow>                             - 直接返
+    let payload = null
+    if (r?.data?.nodes && Array.isArray(r.data.nodes)) {
+      // case 2 or 3
+      payload = r.data
+    } else if (r?.data?.data?.nodes && Array.isArray(r.data.data.nodes)) {
+      // case 1 (interceptor 抓过)
+      payload = r.data.data
+    } else {
+      console.warn('[AI] 返回格式识别不出, 完整 r:', JSON.stringify(r).slice(0, 500))
+      ElMessage.error('返回格式不对, 请看 console')
+      stopProgress(false)
+      return
+    }
+    stopProgress(true)
+    result.value = payload
+    if (result.value.nodes.length === 0) {
+      ElMessage.info('未识别到场景, 请描述更具体')
+    } else {
+      const a = result.value.action || 'replace'
+      const label = { replace: '已重生成', add_node: '已新增节点', delete_node: '已删除节点', update_params: '已更新参数' }[a]
+      ElMessage.success(`${label}: ${result.value.nodes.length} 节点 / ${result.value.edges.length} 边`)
     }
   } catch (e) {
+    console.error('AI 生成失败:', e)
+    stopProgress(false)
     ElMessage.error('生成失败: ' + (e?.message || '网络错误'))
   } finally {
     loading.value = false
@@ -272,7 +366,40 @@ const onReset = () => { userInput.value = ''; result.value = null }
 
 .input-box { margin-bottom: 10px; }
 .hint { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-.gen-btn-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.gen-btn-row { display: flex; gap: 8px; margin-bottom: 12px; }
+
+.progress-box {
+  background: linear-gradient(135deg, #f0f9ff, #eef2ff);
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  animation: progress-in 0.3s ease-out;
+}
+@keyframes progress-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.progress-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #4338ca; font-weight: 500;
+  margin-bottom: 6px;
+}
+.progress-pct { margin-left: auto; font-weight: 700; color: #6366f1; font-size: 13px; }
+.rotating { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.progress-steps {
+  display: flex; gap: 6px; margin-top: 6px;
+  font-size: 10px; color: #94a3b8;
+  flex-wrap: wrap;
+}
+.progress-steps span {
+  padding: 2px 6px; border-radius: 4px; background: #fff;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+.progress-steps span.done { background: #d1fae5; color: #047857; border-color: #a7f3d0; }
+.progress-steps span.active { background: #6366f1; color: #fff; border-color: #4f46e5; font-weight: 600; }
 
 .scenarios { margin-bottom: 16px; }
 .sc-label { font-size: 13px; color: #475569; margin-bottom: 8px; font-weight: 600; }
