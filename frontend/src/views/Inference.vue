@@ -46,6 +46,14 @@
         <el-button type="primary" :loading="loading" @click="run" style="width: 100%" size="large">
           <el-icon><VideoPlay /></el-icon> 运行推理
         </el-button>
+        <div style="display: flex; gap: 6px; margin-top: 6px;">
+          <el-button type="success" plain size="small" @click="goWorkflow" style="flex: 1">
+            <el-icon><Connection /></el-icon> 用干编排
+          </el-button>
+          <el-button type="warning" plain size="small" @click="goTrain" style="flex: 1">
+            <el-icon><VideoPlay /></el-icon> 训练同模型
+          </el-button>
+        </div>
       </el-card>
 
       <!-- 右: 输入 / 输出 -->
@@ -80,6 +88,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Connection, VideoPlay } from '@element-plus/icons-vue'
 import { modelApi, inferenceApi } from '@/api'
@@ -181,6 +190,21 @@ watch(() => form.model, ping)
 
 import { useRoute } from 'vue-router'
 const route = useRoute()
+const router = useRouter()
+// ★ 贯通: 当前推理用的模型 → 编排页 (在画布加载为起始节点)
+const goWorkflow = () => {
+  router.push({
+    path: '/workflow',
+    query: { presetModel: form.model, presetTask: form.task }
+  })
+}
+// ★ 贯通: 当前模型 → 训练页 (继续微调)
+const goTrain = () => {
+  router.push({
+    path: '/train',
+    query: { modelCode: form.model }
+  })
+}
 onMounted(() => {
   loadModels().then(() => {
     const modelCode = route.query.modelCode

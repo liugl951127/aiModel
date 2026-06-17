@@ -109,6 +109,12 @@
         </el-form-item>
         <el-form-item>
           <el-button @click="onSample" :disabled="!jobId || !running">生成样本</el-button>
+          <el-button type="success" plain :disabled="!jobId" @click="goInference">
+            <el-icon><ChatDotRound /></el-icon> 去推理
+          </el-button>
+          <el-button type="primary" plain @click="goModels">
+            <el-icon><Cpu /></el-icon> 看模型库
+          </el-button>
         </el-form-item>
       </el-form>
 
@@ -148,6 +154,8 @@
 defineOptions({ name: 'Train' })
 
 import { ref, reactive, onMounted, onBeforeUnmount, computed, nextTick, markRaw } from 'vue'
+import { useRouter } from 'vue-router'
+import { ChatDotRound, Cpu } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { trainerApi } from '@/api'
 import { useGlobalBus } from '@/composables/useGlobalBus'
@@ -171,6 +179,16 @@ const currentHyperParams = computed(() => {
 })
 
 const jobId = ref('')
+const router = useRouter()
+// ★ 贯通: 训练完 → 推理页 (带 modelCode, 自动选中刚训练的模型)
+const goInference = () => {
+  router.push({
+    path: '/inference',
+    query: { modelCode: form.trainerId, jobId: jobId.value }
+  })
+}
+// ★ 贯通: 看模型库
+const goModels = () => router.push('/models')
 const running = ref(false)
 const loading = ref(false)  // 提交中 (跟 running 区分, running 是后端在跑)
 const connected = ref(false)

@@ -508,6 +508,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch, watchEffect } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   QuestionFilled, Back, RefreshRight, VideoPlay, Document, FolderOpened, Download, Plus, Close, Delete, Refresh, Promotion,
@@ -565,6 +566,23 @@ const setupResizeObserver = () => {
 // 监听全局 AI 助手发出的事件 (在其它页点'生成/诊断/建议'后会跳到本页)
 onMounted(() => {
   setupResizeObserver()  // ★ 启动 ResizeObserver, 节点名字变长箭头立即重算
+  const route = useRoute()
+  // ★ 贯通: 从其他页跳过来, 带 presetModel / presetTask
+  if (route.query.presetModel) {
+    specName.value = '推理闭环: ' + route.query.presetModel
+    specDesc.value = '从推理页跳入, 预设模型: ' + route.query.presetModel
+    // 加一个 infer 节点
+    setTimeout(() => {
+      try {
+        const tpl = palette.find(p => p.nodes?.some(n => n.type === 'infer_chat'))?.nodes?.find(n => n.type === 'infer_chat')
+        if (tpl) {
+          addNode(tpl, 60, 60)
+          addLog('贯通', '已从 [推理] 页带模型入参: ' + route.query.presetModel, 'success')
+          ElMessage.success('已加载预设模型节点, 可点 [▶ 运行] 直接推理')
+        }
+      } catch (e) { /* ignore */ }
+    }, 300)
+  }
   bus.on('workflow:ai-generate', ({ input }) => {
     aiGenOpen.value = true
     // 如果 input 已在弹窗填好就直接触发

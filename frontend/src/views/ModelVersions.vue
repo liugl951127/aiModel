@@ -32,6 +32,12 @@
               <div class="vt-actions">
                 <el-button size="small" type="primary" plain @click="setA(v)">设为 A</el-button>
                 <el-button size="small" plain @click="setB(v)">设为 B</el-button>
+                <el-button size="small" type="success" plain @click="useInInference(v)">
+                  <el-icon><ChatDotRound /></el-icon> 推理
+                </el-button>
+                <el-button size="small" type="primary" plain @click="exportVersion(v)">
+                  <el-icon><Download /></el-icon> 导出
+                </el-button>
                 <el-button v-if="i !== 0" size="small" type="warning" @click="activate(v)">
                   <el-icon><Top /></el-icon> 激活
                 </el-button>
@@ -73,10 +79,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, DataLine, Plus, Top } from '@element-plus/icons-vue'
+import { Refresh, DataLine, Plus, Top, ChatDotRound, Download } from '@element-plus/icons-vue'
 import { modelApi } from '@/api'
 
+const router = useRouter()
 const modelList = ref([])
 const modelCode = ref('')
 const versions = ref([])
@@ -143,6 +151,40 @@ const loadModels = async () => {
 }
 
 onMounted(loadModels)
+
+// ★ 贯通: 版本 → 推理 (带 version 预填)
+const useInInference = (v) => {
+  router.push({
+    path: '/inference',
+    query: { modelCode: modelCode.value, version: v.version, versionId: v.id }
+  })
+}
+
+// ★ 贯通: 版本 → 导出 (复用 Models.vue 的 exportFormat 逻辑)
+const exportVersion = async (v) => {
+  // 先根据 modelCode 查 modelId (后端用 id 导出)
+  const m = modelList.value.find(x => x.modelCode === modelCode.value)
+  if (!m) { ElMessage.error('未找到模型记录, 请去 [大模型] 页导出'); return }
+  try {
+    const r = await modelApi.export(m.id, 'onnx', { includeTokenizer: true, includeSample: true, version: v.version })
+    if (r.code !== 200) { ElMessage.error('导出失败: ' + (r.message || '')); return }
+    const d = r.data
+    ElMessage.success(`ONNX v${v.version} 已生成, 下载中 (${(d.sizeBytes/1024).toFixed(1)} KB)`)
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || ''
+    fetch(d.downloadUrl, { headers: token ? { 'Authorization': 'Bearer ' + token } : {} })
+      .then(res => res.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = d.fileName || `model-${m.modelCode}-v${v.version}.zip`
+        document.body.appendChild(a); a.click(); a.remove()
+        URL.revokeObjectURL(url)
+      })
+  } catch (e) {
+    ElMessage.error('导出异常: ' + (e?.response?.data?.message || e?.message || '网络错误'))
+  }
+}
 </script>
 
 <style scoped>
