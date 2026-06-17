@@ -179,7 +179,22 @@ const formatEmbed = (emb) => {
 
 watch(() => form.model, ping)
 
-onMounted(() => { loadModels(); ping() })
+import { useRoute } from 'vue-router'
+const route = useRoute()
+onMounted(() => {
+  loadModels().then(() => {
+    const modelCode = route.query.modelCode
+    const modelId = route.query.modelId
+    if (modelCode) {
+      const m = models.value.find(x => x.id === modelCode || x.code === modelCode || x.modelCode === modelCode)
+      if (m) { form.model = m.id; ElMessage.success('已自动选中模型: ' + (m.modelName || m.name || m.id)) }
+    } else if (modelId) {
+      const m = models.value.find(x => String(x.id) === String(modelId))
+      if (m) { form.model = m.id; ElMessage.success('已自动选中模型: ' + (m.modelName || m.name || m.id)) }
+    }
+  })
+  ping()
+})
 </script>
 
 <style scoped>

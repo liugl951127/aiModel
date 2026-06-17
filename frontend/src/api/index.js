@@ -42,7 +42,12 @@ export const modelApi = {
   create: (data) => request.post('/api/model', data),
   update: (data) => request.put('/api/model', data),
   remove: (id) => request.delete(`/api/model/${id}`),
-  export: (id) => request.post(`/api/model/export/${id}`),
+  // 企业级导出: 支持 ONNX / GGUF / PyTorch, 返回 zip + downloadUrl
+  export: (id, format = 'onnx', opts = {}) => request.post(`/api/model/export/${id}?format=${format}`, opts),
+  exportFormats: (id) => request.get(`/api/model/export/${id}/formats`),
+  exportManifest: (id) => request.get(`/api/model/export/${id}/manifest`),
+  // 本地下载 (浏览器直接拿, response.blob)
+  downloadUrl: (id, format = 'onnx') => `/api/model/export/${id}/download?format=${format}`,
   versions: (modelCode) => request.get(`/api/model/versions/${modelCode}`),
   activate: (id) => request.post(`/api/model/${id}/activate`),
   compare: (a, b) => request.get('/api/model/compare', { params: { a, b } }),

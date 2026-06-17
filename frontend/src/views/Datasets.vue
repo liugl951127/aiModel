@@ -12,6 +12,14 @@
         <el-table-column prop="sampleCount" label="样本数" width="120" />
         <el-table-column prop="language" label="语言" width="80" />
         <el-table-column prop="status" label="状态" width="100" />
+        <el-table-column label="操作" width="180" fixed="right">
+          <template #default="{ row }">
+            <el-button size="small" type="primary" plain @click="useInTrain(row)">
+              <el-icon><VideoPlay /></el-icon> 训练
+            </el-button>
+            <el-button size="small" @click="useInWorkflow(row)">用干编排</el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </el-card>
 
@@ -33,9 +41,14 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { VideoPlay } from '@element-plus/icons-vue'
 import { datasetApi } from '@/api'
+import { useGlobalBus } from '@/composables/useGlobalBus'
 
+const router = useRouter()
+const bus = useGlobalBus()
 const rows = ref([])
 const loading = ref(false)
 const dialog = ref(false)
@@ -58,4 +71,24 @@ const submit = async () => {
 }
 
 onMounted(load)
+
+// ★ 贯通: 数据集 → 训练页 (带 datasetName/Path 自动填)
+const useInTrain = (row) => {
+  router.push({
+    path: '/train',
+    query: {
+      datasetId: row.id,
+      datasetName: row.datasetName,
+      datasetPath: row.storagePath || ('/opt/ai-platform/corpus/' + row.datasetCode + '.' + (row.format || 'jsonl'))
+    }
+  })
+}
+
+// ★ 贯通: 数据集 → 流程编排 (发 bus 事件, AI 助手跳过去)
+const useInWorkflow = (row) => {
+  bus.emit('workflow:ai-generate', {
+    input: `使用数据集 ${row.datasetName} (格式: ${row.format}) 训练模型`
+  })
+  router.push('/workflow')
+}
 </script>

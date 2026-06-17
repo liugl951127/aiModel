@@ -211,23 +211,27 @@
         <!-- SVG 连线 -->
         <svg v-if="edges.length" class="wires" :viewBox="`0 0 ${canvasW} ${canvasH}`" preserveAspectRatio="none">
           <defs>
-            <!-- 普通箭头 (流程合法) -->
+            <!-- 默认箭头 (紫蓝) — 流程合法 -->
             <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#6366f1" />
             </marker>
-            <!-- 错误箭头 (检测到环) -->
+            <!-- 错误箭头 (红) — 环 -->
             <marker id="arrow-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+            </marker>
+            <!-- 选中箭头 (橙) — 高亮选中边 -->
+            <marker id="arrow-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b" />
             </marker>
           </defs>
           <path
             v-for="(e, i) in edges"
             :key="i"
             :d="edgePath(e)"
-            :stroke="validation.valid ? '#6366f1' : '#ef4444'"
-            :stroke-width="validation.valid ? 2 : 3"
+            :stroke="edgeColor(i)"
+            :stroke-width="selectedEdge === i ? 3.5 : (validation.valid ? 2 : 3)"
             fill="none"
-            :marker-end="validation.valid ? 'url(#arrow)' : 'url(#arrow-err)'"
+            :marker-end="selectedEdge === i ? 'url(#arrow-sel)' : (validation.valid ? 'url(#arrow)' : 'url(#arrow-err)')"
             :class="['edge-path', { 'edge-cycle': !validation.valid, 'edge-selected': selectedEdge === i }]"
             @click.stop="selectEdge(i)"
             style="cursor: pointer; pointer-events: stroke;"
@@ -459,15 +463,18 @@
               <marker id="z-arrow-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                 <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
               </marker>
+              <marker id="z-arrow-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b" />
+              </marker>
             </defs>
             <path
               v-for="(e, i) in edges"
               :key="i"
               :d="edgePath(e)"
-              :stroke="validation.valid ? '#6366f1' : '#ef4444'"
-              :stroke-width="validation.valid ? 2 : 3"
+              :stroke="edgeColor(i)"
+              :stroke-width="selectedEdge === i ? 3.5 : (validation.valid ? 2 : 3)"
               fill="none"
-              :marker-end="validation.valid ? 'url(#z-arrow)' : 'url(#z-arrow-err)'"
+              :marker-end="selectedEdge === i ? 'url(#z-arrow-sel)' : (validation.valid ? 'url(#z-arrow)' : 'url(#z-arrow-err)')"
             />
           </svg>
           <div
@@ -1001,6 +1008,14 @@ const portCoord = (node, dir) => {
   return { x: node.x, y }
 }
 
+// 边的颜色: 选中> 环> 默认
+const edgeColor = (i) => {
+  if (selectedEdge.value === i) return '#f59e0b'  // 选中橙
+  if (!validation.value.valid) return '#ef4444'    // 环 红
+  return '#6366f1'                                // 默认紫蓝
+}
+
+// 计算路径: 同行用 bezier, 跨行用正交折线 (L型 + 圆角)
 const edgePath = (e) => {
   // 读 renderVersion 驱动重算 (节点尺寸变化时主动重算)
   void renderVersion.value
@@ -1009,8 +1024,44 @@ const edgePath = (e) => {
   if (!a || !b) return ''
   const p1 = portCoord(a, 'out')
   const p2 = portCoord(b, 'in')
-  const dx = Math.max(40, (p2.x - p1.x) / 2)  // 最低 40px 弧度
-  return `M ${p1.x} ${p1.y} C ${p1.x + dx} ${p1.y}, ${p2.x - dx} ${p2.y}, ${p2.x} ${p2.y}`
+
+  // 判断同行 (y 差小于 6px)
+  const sameRow = Math.abs(p1.y - p2.y) < 6
+  if (sameRow) {
+    // 同行: Bezier 曲线 (平滑)
+    const dx = Math.max(40, (p2.x - p1.x) / 2)
+    return `M ${p1.x} ${p1.y} C ${p1.x + dx} ${p1.y}, ${p2.x - dx} ${p2.y}, ${p2.x} ${p2.y}`
+  }
+
+  // 跨行: 正交折线 L 型 (出 → 横 → 纵 → 入)
+  // 起点向右走 30px, 中点到两边中点水平对齐, 转弯走 圆角 (R=8)
+  const R = 8  // 圆角半径
+  const dx1 = 30  // 出节点走 30px
+  const midX = (p1.x + p2.x) / 2
+  // 出端
+  const x1 = p1.x
+  const y1 = p1.y
+  const x2 = x1 + dx1
+  const y2 = y1
+  // 转角
+  const x3 = midX
+  const y3 = y2
+  const x4 = midX
+  const y4 = p2.y
+  // 入端
+  const x5 = p2.x
+  const y5 = p2.y
+
+  // L 型路径 + 圆角
+  // 从 (x1,y1) 走到 (x2,y2), 转弯 (R), 走到 (x4,y4), 转弯 (R), 走到 (x5,y5)
+  return [
+    `M ${x1} ${y1}`,
+    `L ${x3 - R} ${y2}`,  // 走到转角前
+    `Q ${x3} ${y2} ${x3} ${y2 + Math.sign(y4 - y2) * R}`,  // 转弯 1
+    `L ${x4} ${y4 - Math.sign(y4 - y2) * R}`,  // 走到入端转角前
+    `Q ${x4} ${y4} ${x4 + Math.sign(x5 - x4) * R} ${y4}`,  // 转弯 2
+    `L ${x5} ${y5}`  // 走到入点
+  ].join(' ')
 }
 
 // ============== 模板 (调后端 /api/workflow/templates) ==============
@@ -1038,10 +1089,10 @@ const onAiApply = (data) => {
   }))
   // 画布名称 + 描述
   if (data.name) {
-    specForm.value.name = data.name
+    specName.value = data.name
   }
   if (data.description) {
-    specForm.value.description = data.description
+    specDesc.value = data.description
   }
   selectedNode.value = null  // computed, 这行无效 (下面重置数组)
   selectedIds.value = []

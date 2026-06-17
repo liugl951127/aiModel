@@ -69,9 +69,25 @@
           </div>
         </div>
         <div class="mc-foot">
-          <el-button size="small" type="primary" plain @click.stop="exportOnnx(m)">
-            <el-icon><Download /></el-icon> ONNX
+          <el-button size="small" type="warning" plain @click.stop="goTrain(m)">
+            <el-icon><VideoPlay /></el-icon> 训练
           </el-button>
+          <el-button size="small" type="success" plain :disabled="m.status !== 'ready'" @click.stop="goInference(m)">
+            <el-icon><ChatDotRound /></el-icon> 推理
+          </el-button>
+          <el-dropdown size="small" @command="(cmd) => exportFormat(m, cmd)">
+            <el-button size="small" type="primary" plain>
+              <el-icon><Download /></el-icon> 导出
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="onnx">📦 ONNX (通用)</el-dropdown-item>
+                <el-dropdown-item command="gguf">🦙 GGUF (Ollama/llama.cpp)</el-dropdown-item>
+                <el-dropdown-item command="pytorch">🐍 PyTorch (transformers)</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <el-button size="small" @click.stop="openDetail(m)">详情</el-button>
           <el-button size="small" @click.stop="newVersion(m)">
             <el-icon><Promotion /></el-icon> 新版本
@@ -163,10 +179,12 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Plus, Files, Download, Promotion } from '@element-plus/icons-vue'
+import { Refresh, Plus, Files, Download, Promotion, VideoPlay, ChatDotRound, ArrowDown } from '@element-plus/icons-vue'
 import { modelApi } from '@/api'
 
+const router = useRouter()
 const rows = ref([])
 const stats = ref({})
 const kw = ref('')
@@ -241,12 +259,49 @@ const remove = async (m) => {
   } catch (e) { /* cancel */ }
 }
 
-const exportOnnx = async (m) => {
+const exportOnnx = async (m) => exportFormat(m, 'onnx')
+
+// ★ 企业级: 三种格式导出 (ONNX 通用 / GGUF Ollama/llama.cpp / PyTorch transformers)
+// 流程: POST 生成 zip → 拿到 downloadUrl → 浏览器自动下载
+const exportFormat = async (m, format) => {
   try {
-    const r = await modelApi.export(m.id)
-    if (r.code === 200) ElMessage.success('已导出 ONNX: ' + (r.data || ''))
-    else ElMessage.error(r.message)
-  } catch (e) { ElMessage.error(e.message) }
+    const r = await modelApi.export(m.id, format, { includeTokenizer: true, includeSample: true })
+    if (r.code !== 200) {
+      ElMessage.error('导出失败: ' + (r.message || ''))
+      return
+    }
+    const d = r.data
+    ElMessage.success(`${format.toUpperCase()} 已生成, 开始下载 (${(d.sizeBytes/1024).toFixed(1)} KB)`)
+    // 浏览器触发下载: 用 a 标签 + token (从 cookie 拿不了, 所以给个临时 fetch)
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token') || ''
+    fetch(d.downloadUrl, { headers: token ? { 'Authorization': 'Bearer ' + token } : {} })
+      .then(res => res.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = d.fileName || `model.${format}.zip`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+      })
+      .catch(err => {
+        ElMessage.warning('下载触发失败, 请检查后端: ' + err.message)
+      })
+  } catch (e) {
+    ElMessage.error('导出异常: ' + (e?.response?.data?.message || e?.message || '网络错误'))
+  }
+}
+
+// ★ 贯通: 模型 → 训练页 (带 modelCode 预填)
+const goTrain = (m) => {
+  router.push({ path: '/train', query: { modelId: m.id, modelCode: m.modelCode, baseModel: m.baseModel || m.modelCode } })
+}
+
+// ★ 贯通: 模型 (ready 状态) → 推理页 (带 modelId 自动选)
+const goInference = (m) => {
+  router.push({ path: '/inference', query: { modelId: m.id, modelCode: m.modelCode } })
 }
 
 const newVersion = async (m) => {

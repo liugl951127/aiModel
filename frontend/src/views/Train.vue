@@ -320,7 +320,21 @@ watch(() => ({ ...form.params }), (newP, oldP) => {
   if (Object.keys(delta).length) trainerApi.updateParams(jobId.value, delta).catch(() => {})
 }, { deep: true })
 
-onMounted(loadModels)
+// ★ 贯通: 从路由 query 取 modelCode / datasetId 自动填
+import { useRoute } from 'vue-router'
+const route = useRoute()
+onMounted(() => {
+  loadModels().then(() => {
+    const modelCode = route.query.modelCode
+    if (modelCode) {
+      const m = models.value.find(x => x.id === modelCode || x.code === modelCode)
+      if (m) { form.trainerId = m.id; onModelChange() }
+    }
+    // 数据集路径如果传过来, 预填
+    if (route.query.datasetPath) form.corpusPath = String(route.query.datasetPath)
+    else if (route.query.datasetName) form.corpusPath = '/opt/ai-platform/corpus/' + route.query.datasetName
+  })
+})
 onBeforeUnmount(() => { if (es) es.close() })
 </script>
 
