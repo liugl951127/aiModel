@@ -1025,7 +1025,16 @@ const topoOrder = () => {
   return { order, cycle, starts, orphans: [] }
 }
 
-// 当前流水线是否合法 (没环)
+// 当前流水线是否合法 (没环) — 先定义, 供 canvasContext 引用
+const validation = computed(() => {
+  const v = topoOrder()
+  const valid = v.cycle.length === 0 && v.order.length > 0
+  const reason = v.cycle.length > 0
+    ? `检测到环或闭环依赖: ${v.cycle.join(', ')}`
+    : (v.order.length === 0 ? '画布为空' : '流程合法')
+  return { valid, reason, ...v }
+})
+
 // 画布上下文 -> 推送全局 AI 助手 (跨页面统一使用全局实例)
 const canvasContext = computed(() => ({
   nodeCount: nodes.value.length,
@@ -1037,15 +1046,6 @@ const canvasContext = computed(() => ({
 // 变化时推送到全局 (全局 Assistant 订阅 'assistant:context')
 watchEffect(() => {
   bus.emit('assistant:context', { type: 'canvas', data: canvasContext.value })
-})
-
-const validation = computed(() => {
-  const v = topoOrder()
-  const valid = v.cycle.length === 0 && v.order.length > 0
-  const reason = v.cycle.length > 0
-    ? `检测到环或闭环依赖: ${v.cycle.join(', ')}`
-    : (v.order.length === 0 ? '画布为空' : '流程合法')
-  return { valid, reason, ...v }
 })
 
 // ============== 放大画布 (仅 CSS transform, 不动节点数据) ==============
