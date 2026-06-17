@@ -821,6 +821,8 @@ const onPortMouseUp = (e, nodeId, port, dir) => {
     _connectFrom.value = null
   }
 }
+const findNode = (id) => nodes.value.find(n => n.id === id)
+
 const edgePath = (e) => {
   const a = findNode(e.from)
   const b = findNode(e.to)
