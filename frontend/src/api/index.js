@@ -204,3 +204,87 @@ export const distributedApi = {
   schedulerLeader: () => request.post('/api/distributed/scheduler/leader'),
   schedulerInfo: () => request.get('/api/distributed/scheduler/info')
 }
+
+// ---------- 业务模块 (客户/洽谈/商机/报价/合同/订单/产品/服务) ----------
+export const bizApi = {
+  // Dashboard
+  dashboard: () => request.get('/api/biz/dashboard'),
+
+  // 客户
+  customerPage: (params) => request.get('/api/biz/customer/page', { params }),
+  customerList: () => request.get('/api/biz/customer/list'),
+  customerGet: (id) => request.get(`/api/biz/customer/${id}`),
+  customerCreate: (data) => request.post('/api/biz/customer', data),
+  customerUpdate: (data) => request.put('/api/biz/customer', data),
+  customerRemove: (id) => request.delete(`/api/biz/customer/${id}`),
+  customerStats: () => request.get('/api/biz/customer/stats'),
+
+  // 洽谈
+  chatPage: (params) => request.get('/api/biz/chat/page', { params }),
+  chatList: () => request.get('/api/biz/chat/list'),
+  chatGet: (id) => request.get(`/api/biz/chat/${id}`),
+  chatCreate: (data) => request.post('/api/biz/chat', data),
+  chatUpdate: (data) => request.put('/api/biz/chat', data),
+  chatRemove: (id) => request.delete(`/api/biz/chat/${id}`),
+
+  // 商机
+  opportunityPage: (params) => request.get('/api/biz/opportunity/page', { params }),
+  opportunityList: () => request.get('/api/biz/opportunity/list'),
+  opportunityGet: (id) => request.get(`/api/biz/opportunity/${id}`),
+  opportunityCreate: (data) => request.post('/api/biz/opportunity', data),
+  opportunityUpdate: (data) => request.put('/api/biz/opportunity', data),
+  opportunityRemove: (id) => request.delete(`/api/biz/opportunity/${id}`),
+  opportunityStats: () => request.get('/api/biz/opportunity/stats'),
+
+  // 报价
+  quotePage: (params) => request.get('/api/biz/quote/page', { params }),
+  quoteList: () => request.get('/api/biz/quote/list'),
+  quoteGet: (id) => request.get(`/api/biz/quote/${id}`),
+  quoteCreate: (data) => request.post('/api/biz/quote', data),
+  quoteUpdate: (data) => request.put('/api/biz/quote', data),
+  quoteRemove: (id) => request.delete(`/api/biz/quote/${id}`),
+
+  // 合同
+  contractPage: (params) => request.get('/api/biz/contract/page', { params }),
+  contractList: () => request.get('/api/biz/contract/list'),
+  contractGet: (id) => request.get(`/api/biz/contract/${id}`),
+  contractCreate: (data) => request.post('/api/biz/contract', data),
+  contractUpdate: (data) => request.put('/api/biz/contract', data),
+  contractRemove: (id) => request.delete(`/api/biz/contract/${id}`),
+
+  // 订单
+  orderPage: (params) => request.get('/api/biz/order/page', { params }),
+  orderList: () => request.get('/api/biz/order/list'),
+  orderGet: (id) => request.get(`/api/biz/order/${id}`),
+  orderCreate: (data) => request.post('/api/biz/order', data),
+  orderUpdate: (data) => request.put('/api/biz/order', data),
+  orderRemove: (id) => request.delete(`/api/biz/order/${id}`),
+
+  // 回款
+  paymentPage: (params) => request.get('/api/biz/payment/page', { params }),
+  paymentCreate: (data) => request.post('/api/biz/payment', data),
+
+  // 产品
+  productPage: (params) => request.get('/api/biz/product/page', { params }),
+  productList: () => request.get('/api/biz/product/list'),
+  productCreate: (data) => request.post('/api/biz/product', data),
+  productUpdate: (data) => request.put('/api/biz/product', data),
+  productRemove: (id) => request.delete(`/api/biz/product/${id}`),
+
+  // 服务
+  servicePage: (params) => request.get('/api/biz/service/page', { params }),
+  serviceList: () => request.get('/api/biz/service/list'),
+  serviceCreate: (data) => request.post('/api/biz/service', data),
+  serviceUpdate: (data) => request.put('/api/biz/service', data),
+  serviceRemove: (id) => request.delete(`/api/biz/service/${id}`),
+
+  // 费用
+  expensePage: (params) => request.get('/api/biz/expense/page', { params }),
+  expenseCreate: (data) => request.post('/api/biz/expense', data)
+}
+
+// ---------- 分布式事务配置 (Seata) ----------
+export const distTxApi = {
+  get: () => request.get('/api/distributed-tx'),
+  update: (data) => request.post('/api/distributed-tx', data)
+}

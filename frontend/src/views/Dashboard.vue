@@ -111,6 +111,30 @@
         </el-card>
       </el-col>
 
+      <!-- 中右: 业务总览 -->
+      <el-col :xs="24" :md="8" :lg="8">
+        <el-card shadow="never" class="panel">
+          <template #header>
+            <div class="card-hd">
+              <h3>💰 业务总览</h3>
+              <small class="text-muted">实时</small>
+            </div>
+          </template>
+          <el-statistic title="客户数" :value="bizStats.customerTotal || 0" :value-style="{ color: '#6366f1' }" />
+          <el-statistic title="商机数" :value="bizStats.opportunityTotal || 0" :value-style="{ color: '#f59e0b' }" style="margin-top: 8px;" />
+          <el-statistic title="合同总金额" :value="bizStats.contractAmount || 0" :precision="2" prefix="¥" :value-style="{ color: '#10b981' }" style="margin-top: 8px;" />
+          <el-statistic title="已回款" :value="bizStats.paidAmount || 0" :precision="2" prefix="¥" :value-style="{ color: '#ec4899' }" style="margin-top: 8px;" />
+          <el-divider style="margin: 12px 0;" />
+          <el-link type="primary" underline="never" size="small" @click="$router.push('/customers')">客户管理</el-link>
+          <el-divider direction="vertical" />
+          <el-link type="primary" underline="never" size="small" @click="$router.push('/opportunities')">商机</el-link>
+          <el-divider direction="vertical" />
+          <el-link type="primary" underline="never" size="small" @click="$router.push('/contracts')">合同</el-link>
+          <el-divider direction="vertical" />
+          <el-link type="primary" underline="never" size="small" @click="$router.push('/orders')">订单</el-link>
+        </el-card>
+      </el-col>
+
       <!-- 右: 系统状态 -->
       <el-col :xs="24" :md="8" :lg="8">
         <el-card shadow="never" class="panel">
@@ -172,6 +196,7 @@ import {
   OfficeBuilding, User, Clock, Connection, ArrowRight, Refresh
 } from '@element-plus/icons-vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
+import { bizApi } from '@/api'
 import { modelApi, datasetApi, agentApi, knowledgeApi } from '@/api'
 
 const router = useRouter()
@@ -191,6 +216,15 @@ const stats = ref([
   { key: 'kb',      label: '知识库',   value: '—', icon: Reading,    tone: 'green',  path: '/knowledge' },
   { key: 'train',   label: '训练任务', value: '—', icon: VideoPlay,  tone: 'orange', path: '/train' }
 ])
+// 业务数据 (客户/商机/合同/订单)
+const bizStats = ref({ customerTotal: 0, opportunityTotal: 0, contractAmount: 0, paidAmount: 0 })
+const loadBiz = async () => {
+  try {
+    const r = await bizApi.dashboard()
+    if (r.code === 200) bizStats.value = r.data
+  } catch (e) { /* ignore */ }
+}
+
 const loadStats = async () => {
   const tries = [
     { k: 'models', fn: () => modelApi.list().then(r => r.data?.data?.length || r.data?.length || 0) },
@@ -274,6 +308,7 @@ onMounted(() => {
   clockTimer = setInterval(() => { now.value = new Date().toLocaleString('zh-CN') }, 1000)
   loadStats()
   checkAll()
+  loadBiz()
   _off1 = bus.on('train:event', onEvent)
   _off2 = bus.on('agent:event', onEvent)
   _off3 = bus.on('kb:event', onEvent)

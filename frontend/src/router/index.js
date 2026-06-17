@@ -27,7 +27,18 @@ const routes = [
       { path: 'tenants', name: 'Tenants', component: () => import('@/views/Tenants.vue'), meta: { title: '租户' } },
       { path: 'roles', name: 'Roles', component: () => import('@/views/Role.vue'), meta: { title: '角色' } },
       { path: 'menus', name: 'Menus', component: () => import('@/views/Menu.vue'), meta: { title: '菜单' } },
-      { path: 'audit', name: 'Audit', component: () => import('@/views/AuditLog.vue'), meta: { title: '审计' } }
+      { path: 'audit', name: 'Audit', component: () => import('@/views/AuditLog.vue'), meta: { title: '审计' } },
+
+      // 业务模块
+      { path: 'customers', name: 'Customers', component: () => import('@/views/Customers.vue'), meta: { title: '客户' } },
+      { path: 'chats', name: 'Chats', component: () => import('@/views/Chats.vue'), meta: { title: '洽谈' } },
+      { path: 'opportunities', name: 'Opportunities', component: () => import('@/views/Opportunities.vue'), meta: { title: '商机' } },
+      { path: 'quotes', name: 'Quotes', component: () => import('@/views/Quotes.vue'), meta: { title: '报价' } },
+      { path: 'contracts', name: 'Contracts', component: () => import('@/views/Contracts.vue'), meta: { title: '合同' } },
+      { path: 'orders', name: 'Orders', component: () => import('@/views/Orders.vue'), meta: { title: '订单' } },
+      { path: 'products', name: 'Products', component: () => import('@/views/Products.vue'), meta: { title: '产品' } },
+      { path: 'services', name: 'Services', component: () => import('@/views/Services.vue'), meta: { title: '服务' } },
+      { path: 'dist-tx', name: 'DistributedTx', component: () => import('@/views/DistributedTx.vue'), meta: { title: '分布式事务' } }
     ]
   }
 ]

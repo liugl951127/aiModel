@@ -70,6 +70,19 @@
           <el-icon><ChatDotRound /></el-icon>
           <template #title>智能对话</template>
         </el-menu-item>
+
+        <el-sub-menu index="/biz">
+          <template #title><el-icon><OfficeBuilding /></el-icon><span>业务</span></template>
+          <el-menu-item index="/customers">客户</el-menu-item>
+          <el-menu-item index="/chats">洽谈</el-menu-item>
+          <el-menu-item index="/opportunities">商机</el-menu-item>
+          <el-menu-item index="/quotes">报价</el-menu-item>
+          <el-menu-item index="/contracts">合同</el-menu-item>
+          <el-menu-item index="/orders">订单</el-menu-item>
+          <el-menu-item index="/products">产品</el-menu-item>
+          <el-menu-item index="/services">服务</el-menu-item>
+        </el-sub-menu>
+
         <el-sub-menu index="/system">
           <template #title><el-icon><Setting /></el-icon><span>系统</span></template>
           <el-menu-item index="/users">用户</el-menu-item>
@@ -77,6 +90,7 @@
           <el-menu-item index="/roles">角色</el-menu-item>
           <el-menu-item index="/menus">菜单</el-menu-item>
           <el-menu-item index="/audit">审计</el-menu-item>
+          <el-menu-item index="/dist-tx">分布式事务</el-menu-item>
         </el-sub-menu>
       </el-menu>
 

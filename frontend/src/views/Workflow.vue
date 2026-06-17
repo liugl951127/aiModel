@@ -207,7 +207,9 @@
             :stroke-width="validation.valid ? 2 : 3"
             fill="none"
             :marker-end="validation.valid ? 'url(#arrow)' : 'url(#arrow-err)'"
-            :class="{ 'edge-cycle': !validation.valid }"
+            :class="['edge-path', { 'edge-cycle': !validation.valid, 'edge-selected': selectedEdge === i }]"
+            @click.stop="selectEdge(i)"
+            style="cursor: pointer; pointer-events: stroke;"
           />
         </svg>
       </main>
@@ -307,7 +309,7 @@
         <ul>
           <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> 撤销</li>
           <li><kbd>Ctrl</kbd>+<kbd>Y</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> 重做</li>
-          <li><kbd>Delete</kbd> 删除选中节点</li>
+          <li><kbd>Delete</kbd> 删除选中节点/边</li>
           <li><kbd>Esc</kbd> 取消选择</li>
           <li>画布空白处拖动 = 框选多个节点</li>
         </ul>
@@ -490,7 +492,20 @@ const specName = ref('我的工作流')
 const nodes = ref([])
 const edges = ref([])
 const selectedIds = ref([])
+const selectedEdge = ref(null)        // 选中的边索引
 const selectedNode = computed(() => nodes.value.find(n => n.id === selectedIds.value[0]) || null)
+
+const selectEdge = (i) => {
+  selectedEdge.value = i
+  selectedIds.value = []  // 互斥
+}
+const removeEdge = (i) => {
+  if (i == null || i < 0) return
+  edges.value.splice(i, 1)
+  selectedEdge.value = null
+  pushHistory('remove edge', { nodes: nodes.value, edges: edges.value })
+  addLog('连线', `✓ 边已删除`, 'success')
+}
 const isSelected = (id) => selectedIds.value.includes(id)
 const currentNode = ref(null)
 const doneSet = ref(new Set())
@@ -1079,12 +1094,16 @@ const onKey = (e) => {
   if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) { e.preventDefault(); undo() }
   else if ((e.key === 'y' && (e.metaKey || e.ctrlKey)) || (e.key === 'Z' && e.shiftKey && (e.metaKey || e.ctrlKey))) { e.preventDefault(); redo() }
   else if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (selectedIds.value.length) {
+    if (selectedEdge.value != null) {
+      e.preventDefault()
+      removeEdge(selectedEdge.value)
+    } else if (selectedIds.value.length) {
       e.preventDefault()
       selectedIds.value.forEach(removeNode)
     }
   } else if (e.key === 'Escape') {
     selectedIds.value = []
+    selectedEdge.value = null
   }
 }
 
@@ -1146,6 +1165,8 @@ onBeforeUnmount(() => {
 .zoom-hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 16px; font-size: 11px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); z-index: 5; }
 .wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .wires path.edge-cycle { stroke-dasharray: 6 4; animation: dash-flow 0.8s linear infinite; }
+.wires path.edge-path:hover { stroke-width: 4; }
+.wires path.edge-selected { stroke-width: 5 !important; stroke: #f59e0b !important; }
 @keyframes dash-flow { to { stroke-dashoffset: -20; } }
 
 .wf-node { position: absolute; min-width: 120px; max-width: 180px; height: 32px; padding: 0 4px; display: flex; align-items: center; gap: 4px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 6px; box-shadow: 0 1px 4px -1px rgba(0,0,0,0.08); transition: all 0.15s; cursor: grab; font-size: 11px; }

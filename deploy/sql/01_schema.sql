@@ -356,3 +356,181 @@ CREATE TABLE kb_document (
     PRIMARY KEY (id),
     KEY idx_kb (kb_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '知识库文档';
+
+-- ====================================================
+-- 业务表 (洽谈/商机/合同/报价/订单/费用/产品/服务)
+-- ====================================================
+
+CREATE TABLE IF NOT EXISTS biz_customer (
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tenant_id       BIGINT NOT NULL DEFAULT 1,
+  name            VARCHAR(128) NOT NULL,
+  industry        VARCHAR(64),
+  scale           VARCHAR(32),                  -- 小/中/大/超
+  contact_name    VARCHAR(64),
+  contact_phone   VARCHAR(32),
+  contact_email   VARCHAR(128),
+  address         VARCHAR(256),
+  source          VARCHAR(32),                  -- 官网/活动/推荐/广告
+  level           VARCHAR(16) DEFAULT 'C',     -- S/A/B/C
+  status          INT DEFAULT 1,               -- 1=正常 0=停用
+  owner_user_id   BIGINT,
+  notes           TEXT,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_tenant (tenant_id),
+  INDEX idx_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户表';
+
+CREATE TABLE IF NOT EXISTS biz_chat (
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tenant_id       BIGINT NOT NULL DEFAULT 1,
+  customer_id     BIGINT NOT NULL,
+  owner_user_id   BIGINT,
+  subject         VARCHAR(256),
+  type            VARCHAR(16),                  -- 面谈/电话/微信/邮件
+  status          VARCHAR(16) DEFAULT '进行中',  -- 进行中/已成交/已搁置
+  next_step       VARCHAR(256),
+  next_date       DATETIME,
+  summary         TEXT,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_customer (customer_id),
+  INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='洽谈记录';
+
+CREATE TABLE IF NOT EXISTS biz_opportunity (
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tenant_id       BIGINT NOT NULL DEFAULT 1,
+  customer_id     BIGINT NOT NULL,
+  name            VARCHAR(256) NOT NULL,
+  amount          DECIMAL(15,2) DEFAULT 0,
+  currency        VARCHAR(8) DEFAULT 'CNY',
+  stage           VARCHAR(16) DEFAULT '线索',   -- 线索/接触/方案/谈判/成交/输单
+  probability     INT DEFAULT 10,              -- 0-100
+  expected_date   DATETIME,
+  source          VARCHAR(32),
+  owner_user_id   BIGINT,
+  products        TEXT,                          -- JSON 关联产品
+  notes           TEXT,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_customer (customer_id),
+  INDEX idx_stage (stage)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商机';
+
+CREATE TABLE IF NOT EXISTS biz_quote (
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tenant_id       BIGINT NOT NULL DEFAULT 1,
+  customer_id     BIGINT NOT NULL,
+  opportunity_id  BIGINT,
+  code            VARCHAR(32) UNIQUE,
+  title           VARCHAR(256),
+  total_amount    DECIMAL(15,2) DEFAULT 0,
+  discount        DECIMAL(5,2) DEFAULT 0,       -- 折扣率
+  final_amount    DECIMAL(15,2) DEFAULT 0,
+  currency        VARCHAR(8) DEFAULT 'CNY',
+  valid_until     DATETIME,
+  status          VARCHAR(16) DEFAULT '草稿',    -- 草稿/审批中/已发送/已接受/已拒绝
+  items           TEXT,                          -- JSON 报价明细
+  notes           TEXT,
+  created_by      BIGINT,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_customer (customer_id),
+  INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='报价单';
+
+CREATE TABLE IF NOT EXISTS biz_contract (
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tenant_id       BIGINT NOT NULL DEFAULT 1,
+  customer_id     BIGINT NOT NULL,
+  opportunity_id  BIGINT,
+  quote_id        BIGINT,
+  code            VARCHAR(32) UNIQUE,
+  title           VARCHAR(256),
+  amount          DECIMAL(15,2) DEFAULT 0,
+  currency        VARCHAR(8) DEFAULT 'CNY',
+  sign_date       DATETIME,
+  start_date      DATETIME,
+  end_date        DATETIME,
+  status          VARCHAR(16) DEFAULT '执行中',  -- 草签/执行中/已完结/已终止
+  payment_terms   TEXT,
+  attachments     TEXT,                          -- JSON 附件
+  notes           TEXT,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_customer (customer_id),
+  INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='合同';
+
+CREATE TABLE IF NOT EXISTS biz_order (
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tenant_id       BIGINT NOT NULL DEFAULT 1,
+  customer_id     BIGINT NOT NULL,
+  contract_id     BIGINT,
+  code            VARCHAR(32) UNIQUE,
+  amount          DECIMAL(15,2) DEFAULT 0,
+  paid            DECIMAL(15,2) DEFAULT 0,
+  status          VARCHAR(16) DEFAULT '待付款',  -- 待付款/部分付款/已付款/已发货/已完成
+  delivery_date   DATETIME,
+  notes           TEXT,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_customer (customer_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单';
+
+CREATE TABLE IF NOT EXISTS biz_payment (
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tenant_id       BIGINT NOT NULL DEFAULT 1,
+  order_id        BIGINT NOT NULL,
+  amount          DECIMAL(15,2) NOT NULL,
+  method          VARCHAR(32),                  -- 银行转账/支付宝/微信
+  status          VARCHAR(16) DEFAULT '已收款',  -- 待收款/已收款/已退款
+  paid_at         DATETIME,
+  notes           TEXT,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_order (order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='回款';
+
+CREATE TABLE IF NOT EXISTS biz_product (
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tenant_id       BIGINT NOT NULL DEFAULT 1,
+  code            VARCHAR(32) UNIQUE,
+  name            VARCHAR(128) NOT NULL,
+  category        VARCHAR(64),
+  price           DECIMAL(15,2) DEFAULT 0,
+  unit             VARCHAR(16) DEFAULT '元',
+  description     TEXT,
+  status          INT DEFAULT 1,
+  stock           INT DEFAULT 0,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='产品/SKU';
+
+CREATE TABLE IF NOT EXISTS biz_service (
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tenant_id       BIGINT NOT NULL DEFAULT 1,
+  code            VARCHAR(32) UNIQUE,
+  name            VARCHAR(128) NOT NULL,
+  category        VARCHAR(64),
+  price           DECIMAL(15,2) DEFAULT 0,
+  description     TEXT,
+  sla_hours       INT DEFAULT 24,
+  status          INT DEFAULT 1,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='服务';
+
+CREATE TABLE IF NOT EXISTS biz_expense (
+  id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+  tenant_id       BIGINT NOT NULL DEFAULT 1,
+  order_id        BIGINT,
+  category        VARCHAR(32),                  -- 差旅/招待/物料
+  amount          DECIMAL(15,2) NOT NULL,
+  happened_at     DATETIME,
+  notes           TEXT,
+  created_by      BIGINT,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_order (order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='费用';
