@@ -534,3 +534,113 @@ CREATE TABLE IF NOT EXISTS biz_expense (
   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_order (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='费用';
+
+-- ====================================================
+-- 漏补: 5 张表 (上线前关键)
+-- ====================================================
+
+-- ---------------------------------------------------------------------------
+-- 多智能体案例 (Agent 案例库, 首页推荐用)
+-- ---------------------------------------------------------------------------
+DROP TABLE IF EXISTS agent_multi_agent_case;
+CREATE TABLE agent_multi_agent_case (
+    id              BIGINT       NOT NULL,
+    tenant_id       BIGINT       NOT NULL DEFAULT 1,
+    case_key        VARCHAR(64)  NOT NULL COMMENT '业务唯一 key, 前端按它索引',
+    title           VARCHAR(255) NOT NULL,
+    summary         VARCHAR(512),
+    description     TEXT,
+    domain          VARCHAR(64)  COMMENT '行业 marketing/legal/research/training/...',
+    agent_spec      TEXT         COMMENT 'JSON: 智能体节点列表 + 工具 + 流程图',
+    flow_spec       TEXT         COMMENT 'JSON: 可执行的 workflow 步骤',
+    final_output    TEXT         COMMENT 'JSON: 完整产出 (最终报告/训练数据/部署清单)',
+    kpis            TEXT         COMMENT 'JSON: 效果指标 (耗时/准确率/拒答率)',
+    featured        INT          DEFAULT 0 COMMENT '是否首页推荐 1=是 0=否',
+    create_by       BIGINT,
+    update_by       BIGINT,
+    create_time     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted         INT          DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_case_key (case_key),
+    KEY idx_domain (domain),
+    KEY idx_featured (featured)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '多智能体案例';
+
+-- ---------------------------------------------------------------------------
+-- 文件元数据 (ai-platform-files 服务, 分片上传/OSS 抽象)
+-- ---------------------------------------------------------------------------
+DROP TABLE IF EXISTS file_object;
+CREATE TABLE file_object (
+    file_id         BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键, 自增',
+    object_key      VARCHAR(512) NOT NULL COMMENT 'Provider 无关的存储 key (例: kb/2025/12/abc.pdf)',
+    original_name   VARCHAR(255) NOT NULL COMMENT '上传时的原始文件名',
+    content_type    VARCHAR(128) COMMENT 'MIME (Tika 嗅探)',
+    size_bytes      BIGINT       NOT NULL COMMENT '文件大小, 字节',
+    bucket          VARCHAR(64)  COMMENT '逻辑桶 (kb/corpus/agent-asset/...)',
+    sha256          VARCHAR(64)  COMMENT 'SHA-256 hex, 去重 + 完整性校验',
+    uploader        VARCHAR(64)  COMMENT '上传者 username',
+    description     VARCHAR(512) COMMENT '上传者描述 / 标签',
+    status          INT          DEFAULT 1 COMMENT '1=正常 0=已删除',
+    create_by       BIGINT,
+    update_by       BIGINT,
+    create_time     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted         INT          DEFAULT 0,
+    PRIMARY KEY (file_id),
+    UNIQUE KEY uk_object_key (object_key),
+    KEY idx_bucket (bucket),
+    KEY idx_sha256 (sha256)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '文件元数据 (字节存 OSS/本地)';
+
+-- ---------------------------------------------------------------------------
+-- Seata 演示: 智能体调用日志 (ReAct 每跑一次一行, traceId 聚合)
+-- ---------------------------------------------------------------------------
+DROP TABLE IF EXISTS agent_invoke_log;
+CREATE TABLE agent_invoke_log (
+    id              BIGINT       NOT NULL,
+    trace_id        VARCHAR(64)  NOT NULL COMMENT '链路追踪 ID (ELK / Loki 聚合用)',
+    user_id         BIGINT       COMMENT '调用人 userId',
+    agent_code      VARCHAR(64)  COMMENT '智能体编码',
+    prompt          TEXT         COMMENT '用户 prompt',
+    response        TEXT         COMMENT 'AI 回答',
+    tokens          BIGINT       COMMENT '消耗 token',
+    status          INT          DEFAULT 1 COMMENT '1=成功 0=失败',
+    create_time     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_trace (trace_id),
+    KEY idx_user (user_id),
+    KEY idx_agent (agent_code),
+    KEY idx_time (create_time)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '智能体调用日志';
+
+-- ---------------------------------------------------------------------------
+-- Seata 演示: 使用统计 (每日一行, Dashboard 报表)
+-- ---------------------------------------------------------------------------
+DROP TABLE IF EXISTS usage_stats;
+CREATE TABLE usage_stats (
+    id              BIGINT       NOT NULL,
+    stat_date       VARCHAR(16)  NOT NULL COMMENT 'yyyy-MM-dd',
+    agent_code      VARCHAR(64)  NOT NULL,
+    invoke_count    BIGINT       DEFAULT 0,
+    token_total     BIGINT       DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_date_agent (stat_date, agent_code),
+    KEY idx_date (stat_date)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '使用统计 (按日)';
+
+-- ---------------------------------------------------------------------------
+-- Seata 演示: 用户积分 (每次 ReAct 结束扣减, 余额不足触发全局回滚)
+-- ---------------------------------------------------------------------------
+DROP TABLE IF EXISTS user_credits;
+CREATE TABLE user_credits (
+    id              BIGINT       NOT NULL,
+    user_id         BIGINT       NOT NULL,
+    username        VARCHAR(64)  NOT NULL,
+    credits         BIGINT       DEFAULT 0 COMMENT '剩余可用',
+    consumed        BIGINT       DEFAULT 0 COMMENT '累计已消耗',
+    update_time     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user (user_id),
+    KEY idx_username (username)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户 AI 额度';
