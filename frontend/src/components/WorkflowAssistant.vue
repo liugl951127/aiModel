@@ -13,6 +13,11 @@
         </div>
       </div>
       <div class="wfa-actions">
+        <el-tooltip content="清空对话 (Ctrl+L)" placement="bottom">
+          <el-button link size="small" @click="clearMessages" title="清空对话">
+            <el-icon><Delete /></el-icon>
+          </el-button>
+        </el-tooltip>
         <el-button link size="small" @click="minimized = !minimized" :title="minimized ? '展开' : '收起'">
           <el-icon><component :is="minimized ? 'Plus' : 'Minus'" /></el-icon>
         </el-button>
@@ -101,10 +106,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, nextTick, watch, onMounted } from 'vue'
+import { ref, reactive, computed, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { MagicStick, Close, Plus, Minus, Promotion } from '@element-plus/icons-vue'
+import { MagicStick, Close, Plus, Minus, Promotion, Delete } from '@element-plus/icons-vue'
 import { getPageKnowledge } from '@/composables/pageKnowledge'
 import { useGlobalBus } from '@/composables/useGlobalBus'
 
@@ -194,19 +199,55 @@ const pageWelcome = computed(() => {
   return `你好! 我是「${meta.name}」智能助手, 懂这页的每个功能. 试试问我任何问题!`
 })
 
-// 监听路由变化, 重置消息
+// 监听路由变化, 不再重置消息 — 持久到 localStorage, 跨页面/跨刷新保留
+// ★ 旧代码: 每次切换路由都清空, 现在保持对话连续性
 watch(() => route.path, (newPath) => {
-  // 切换页面时, 重置消息 (只留欢迎语)
-  messages.value = [
-    { role: 'assistant', title: `👋 欢迎来到「${pageMeta.value.name}」`, content: pageWelcome.value, actions: pageMeta.value.qa?.[0]?.actions || [] }
-  ]
+  // 轻量提示: 不清空, 仅添加一条页面变更提示 (避免冗余, 跳过)
+  // 如果用户想清, 点 [清空对话] 按钮 或 Ctrl+L
 }, { immediate: false })
 
-// ====== 消息 ======
-const messages = ref([
-  { role: 'assistant', title: '👋 你好!', content: '我是 AI 助手, 懂这页每个功能. 试试问我任何问题!' }
-])
+// ====== 消息 (localStorage 持久化, 跨页面/跨刷新保留) ======
+const STORAGE_KEY = 'ai_assistant_messages_v1'
+const loadMessages = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr) && arr.length) return arr
+    }
+  } catch (e) { /* 容错 */ }
+  // 默认: 欢迎语
+  return [{ role: 'assistant', title: '👋 你好!', content: '我是 AI 助手, 懂这页每个功能. 试试问我任何问题!' }]
+}
+const messages = ref(loadMessages())
+
+// messages 变化时同步到 localStorage (debounce)
+let saveTimer = null
+watch(messages, () => {
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    try {
+      // 只保留最近 50 条 (避免 localStorage 满)
+      const arr = messages.value.slice(-50)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(arr))
+    } catch (e) { /* quota 等异常容错 */ }
+  }, 500)
+}, { deep: true })
+
+// 清空对话
+const clearMessages = () => {
+  messages.value = [{ role: 'assistant', title: '🗑️ 已清空对话', content: '你好! 试试问我任何问题. (Ctrl+L 也可清空)' }]
+  ElMessage.success('对话已清空')
+}
 const input = ref('')
+
+// 快捷键 Ctrl+L 清空
+const onKey = (e) => {
+  if (e.ctrlKey && e.key === 'l' && visible.value && !e.shiftKey) {
+    clearMessages()
+    e.preventDefault()
+  }
+}
 const status = ref('ready')
 const msgEl = ref(null)
 const hint = ref(false)
@@ -352,10 +393,19 @@ watch(() => [effectiveContext.value?.cycleCount, effectiveContext.value?.valid, 
 })
 
 onMounted(() => {
-  // 首次进入时, 把欢迎消息替换为页面专属
-  messages.value = [
-    { role: 'assistant', title: `👋 欢迎来到「${pageMeta.value.name}」`, content: pageWelcome.value, actions: pageMeta.value.qa?.[0]?.actions || [] }
-  ]
+  // ★ 不再覆盖消息: localStorage 已经有对话历史, 保留
+  // 只在 localStorage 为空 (首次访问) 才推欢迎语
+  if (messages.value.length <= 1) {
+    messages.value = [
+      { role: 'assistant', title: `👋 欢迎来到「${pageMeta.value.name}」`, content: pageWelcome.value, actions: pageMeta.value.qa?.[0]?.actions || [] }
+    ]
+  }
+  // 快捷键 (Ctrl+L 清空)
+  window.addEventListener('keydown', onKey)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey)
 })
 </script>
 

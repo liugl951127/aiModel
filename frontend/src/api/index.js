@@ -154,6 +154,33 @@ export const auditApi = {
   trend: (days = 7) => request.get('/api/audit/login/trend', { params: { days } })
 }
 
+// ---------- 文件 / 分片上传 ----------
+export const fileApi = {
+  // 简单 multipart 上传 (一文件一次上传, 不分片)
+  upload: (formData, onProgress) => request.post('/api/files/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: onProgress ? (e) => onProgress(e) : undefined
+  }),
+  // 分片上传: init / put chunk / complete / status
+  chunkInit: (params) => request.post('/api/files/chunk/init', null, { params }),
+  chunkPut: (uploadId, index, blob) => request.put(`/api/files/chunk/${uploadId}?index=${index}`, blob, {
+    headers: { 'Content-Type': 'application/octet-stream' },
+    // 分片上传不放 axios timeout 默认 (60s) 里, 走大文件超时
+    timeout: 0
+  }),
+  chunkStatus: (uploadId) => request.get(`/api/files/chunk/${uploadId}`),
+  chunkComplete: (uploadId) => request.post(`/api/files/chunk/${uploadId}/complete`),
+  // 文件对象 CRUD
+  list: (params) => request.get('/api/files/list', { params }),
+  get: (id) => request.get(`/api/files/${id}`),
+  remove: (id) => request.delete(`/api/files/${id}`),
+  downloadUrl: (id) => `/api/files/${id}/download`,
+  // 流式上传 (另一套, 占位不用)
+  streamInit: () => request.post('/api/files/init'),
+  streamPut: (id) => request.put(`/api/files-stream/${id}`),
+  health: () => request.get('/api/files/health')
+}
+
 export const workflowApi = {
   listSpecs: () => request.get('/api/workflow/spec/list'),
   getSpec: (id) => request.get(`/api/workflow/spec/${id}`),

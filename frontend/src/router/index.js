@@ -28,6 +28,7 @@ const routes = [
       { path: 'roles', name: 'Roles', component: () => import('@/views/Role.vue'), meta: { title: '角色' } },
       { path: 'menus', name: 'Menus', component: () => import('@/views/Menu.vue'), meta: { title: '菜单' } },
       { path: 'audit', name: 'Audit', component: () => import('@/views/AuditLog.vue'), meta: { title: '审计' } },
+      { path: 'files', name: 'Files', component: () => import('@/views/Files.vue'), meta: { title: '文件管理' } },
 
       // 业务模块
       { path: 'customers', name: 'Customers', component: () => import('@/views/Customers.vue'), meta: { title: '客户' } },

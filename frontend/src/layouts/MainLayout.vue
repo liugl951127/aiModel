@@ -49,6 +49,10 @@
               <el-icon><Reading /></el-icon>
               <template #title>知识库</template>
             </el-menu-item>
+            <el-menu-item index="/files">
+              <el-icon><Folder /></el-icon>
+              <template #title>文件管理</template>
+            </el-menu-item>
           </el-sub-menu>
 
           <!-- 二级: 模型管理 -->
@@ -316,7 +320,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   DataLine, Cpu, Files, VideoPlay, UserFilled, Tools, Reading, ChatDotRound, Setting,
   Connection, Refresh, Search, Fold, Expand, CaretBottom, User, SwitchButton,
-  OfficeBuilding, Document, Sunny, Moon, MagicStick, Tickets, Box, HomeFilled, BellFilled
+  OfficeBuilding, Document, Sunny, Moon, MagicStick, Tickets, Box, HomeFilled, BellFilled,
+  Folder
 } from '@element-plus/icons-vue'
 import LiveTickerBar from '@/components/LiveTickerBar.vue'
 import WorkflowAssistant from '@/components/WorkflowAssistant.vue'
@@ -362,7 +367,7 @@ const collapsed = ref(false)
 const defaultOpenedMenus = computed(() => {
   const path = route.path
   const opens = new Set(['/ai'])
-  if (path.startsWith('/datasets') || path.startsWith('/knowledge')) opens.add('/ai-data')
+  if (path.startsWith('/datasets') || path.startsWith('/knowledge') || path.startsWith('/files')) opens.add('/ai-data')
   else if (path.startsWith('/models') || path.startsWith('/model-versions')) opens.add('/ai-model')
   else if (path.startsWith('/train') || path.startsWith('/agents') || path.startsWith('/tools')) opens.add('/ai-train')
   else if (path.startsWith('/inference') || path.startsWith('/chat')) opens.add('/ai-deploy')
