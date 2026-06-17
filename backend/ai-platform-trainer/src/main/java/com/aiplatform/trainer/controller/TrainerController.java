@@ -174,15 +174,89 @@ public class TrainerController {
     }
 
     @GetMapping("/job/{id}")
-    public Result<TrainingService.JobState> get(@PathVariable String id) {
-        TrainingService.JobState job = trainingService.get(id);
-        if (job == null) return Result.fail(404, "Job not found: " + id);
-        return Result.success(job);
+    public Result<Map<String, Object>> get(@PathVariable String id) {
+        // 优先取内存 (实时 SSE), 没取 DB (历史快照)
+        TrainingService.JobState live = trainingService.get(id);
+        if (live != null) {
+            Map<String, Object> r = new java.util.LinkedHashMap<>();
+            r.put("source", "memory");
+            r.put("jobId", live.getJobId());
+            r.put("status", live.getStatus());
+            r.put("progress", live.getProgress());
+            r.put("finalLoss", live.getFinalLoss());
+            r.put("error", live.getError());
+            r.put("startedAt", live.getStartedAt());
+            r.put("finishedAt", live.getFinishedAt());
+            return Result.success(r);
+        }
+        // DB 快照 (服务重启后)
+        com.aiplatform.trainer.entity.TrainJobEntity dbJob = trainingService.getFromDb(id);
+        if (dbJob == null) return Result.fail(404, "Job not found: " + id);
+        Map<String, Object> r = new java.util.LinkedHashMap<>();
+        r.put("source", "db");
+        r.put("jobId", dbJob.getJobCode());
+        r.put("status", dbJob.getStatus());
+        r.put("progress", dbJob.getProgress());
+        r.put("metrics", dbJob.getMetrics());
+        r.put("errorMessage", dbJob.getErrorMessage());
+        r.put("startedAt", dbJob.getStartedAt());
+        r.put("finishedAt", dbJob.getFinishedAt());
+        r.put("outputPath", dbJob.getOutputPath());
+        return Result.success(r);
     }
 
+    /**
+     * 训练任务列表 — 优先 DB (重启不丢), 叠加内存 (实时状态).
+     */
     @GetMapping("/jobs")
-    public Result<Map<String, TrainingService.JobState>> list() {
-        return Result.success(trainingService.all());
+    public Result<List<Map<String, Object>>> list(@RequestParam(defaultValue = "100") int limit) {
+        List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        // 1. DB 历史
+        for (com.aiplatform.trainer.entity.TrainJobEntity e : trainingService.listFromDb(limit)) {
+            Map<String, Object> r = new java.util.LinkedHashMap<>();
+            r.put("id", e.getJobCode());
+            r.put("modelCode", e.getModelCode());
+            r.put("algorithm", e.getAlgorithm());
+            r.put("status", e.getStatus());
+            r.put("progress", e.getProgress());
+            r.put("epochs", e.getEpochs());
+            r.put("batchSize", e.getBatchSize());
+            r.put("learningRate", e.getLearningRate());
+            r.put("startedAt", e.getStartedAt());
+            r.put("finishedAt", e.getFinishedAt());
+            r.put("outputPath", e.getOutputPath());
+            r.put("errorMessage", e.getErrorMessage());
+            // metrics JSON 提取 finalLoss
+            if (e.getMetrics() != null) {
+                try {
+                    com.alibaba.fastjson2.JSONObject m = com.alibaba.fastjson2.JSON.parseObject(e.getMetrics());
+                    if (m != null) r.put("finalLoss", m.getDoubleValue("finalLoss"));
+                } catch (Exception ignore) { /* not json */ }
+            }
+            r.put("source", "db");
+            rows.add(r);
+        }
+        // 2. 内存 (实时, 覆盖 DB 同 jobCode)
+        Map<String, TrainingService.JobState> live = trainingService.all();
+        for (Map.Entry<String, TrainingService.JobState> en : live.entrySet()) {
+            TrainingService.JobState j = en.getValue();
+            Map<String, Object> r = new java.util.LinkedHashMap<>();
+            r.put("id", j.getJobId());
+            r.put("status", j.getStatus());
+            r.put("progress", j.getProgress());
+            r.put("finalLoss", j.getFinalLoss());
+            r.put("startedAt", j.getStartedAt());
+            r.put("finishedAt", j.getFinishedAt());
+            r.put("source", "memory");
+            // 覆盖 DB 行
+            rows.removeIf(x -> id_equals(x, j.getJobId()));
+            rows.add(0, r);  // 实时状态放最前
+        }
+        return Result.success(rows);
+    }
+
+    private static boolean id_equals(Map<String, Object> row, String id) {
+        return id.equals(row.get("id"));
     }
 
     @GetMapping("/health")

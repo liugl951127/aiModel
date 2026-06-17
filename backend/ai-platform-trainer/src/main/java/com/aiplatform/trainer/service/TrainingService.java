@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,12 +60,29 @@ public class TrainingService {
     private final PreviewService preview;
     private final com.aiplatform.trainer.checkpoint.CheckpointService checkpointService;
     private final com.aiplatform.trainer.version.ModelRegistry modelRegistry;
+    private final com.aiplatform.trainer.mapper.TrainJobMapper jobMapper;  // ★ DB 持久化
 
     public JobState submit(String corpusPath, MiniTransformerTrainer.Config cfg) {
         String jobId = UUID.randomUUID().toString().substring(0, 8);
         JobState state = new JobState(jobId, corpusPath, cfg,
                 cfg.guard == null ? HallucinationGuardConfig.defaults() : cfg.guard);
         jobs.put(jobId, state);
+        // ★ 同步写 DB (重启服务不丢训练记录)
+        try {
+            com.aiplatform.trainer.entity.TrainJobEntity e = new com.aiplatform.trainer.entity.TrainJobEntity();
+            e.setJobCode(jobId);
+            e.setAlgorithm(cfg.modelType == null ? "minigpt" : cfg.modelType);
+            e.setEpochs(cfg.maxIters / Math.max(1, cfg.evalInterval));
+            e.setBatchSize(cfg.batchSize);
+            e.setLearningRate(cfg.learningRate);
+            e.setStatus("queued");
+            e.setProgress(0);
+            e.setConfig(com.alibaba.fastjson2.JSON.toJSONString(cfg));
+            e.setLogPath(corpusPath);
+            jobMapper.insert(e);
+        } catch (Exception ex) {
+            log.warn("[TRAIN-JOB] 写 DB 失败 (走内存): {}", ex.getMessage());
+        }
         runAsync(state);
         return state;
     }
@@ -72,12 +90,61 @@ public class TrainingService {
     public JobState get(String id) { return jobs.get(id); }
     public Map<String, JobState> all() { return jobs; }
 
+    /**
+     * 从 DB 列训练历史 (重启服务不丢).
+     */
+    public java.util.List<com.aiplatform.trainer.entity.TrainJobEntity> listFromDb(int limit) {
+        try {
+            return jobMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.aiplatform.trainer.entity.TrainJobEntity>()
+                    .eq("deleted", 0)
+                    .orderByDesc("create_time")
+                    .last("LIMIT " + Math.max(1, Math.min(500, limit)))
+            );
+        } catch (Exception e) {
+            log.warn("[TRAIN-DB] listFromDb 失败, 返空: {}", e.getMessage());
+            return java.util.Collections.emptyList();
+        }
+    }
+
+    /**
+     * 从 DB 单查 (页面刷新也能拿到老任务状态).
+     */
+    public com.aiplatform.trainer.entity.TrainJobEntity getFromDb(String jobCode) {
+        try {
+            return jobMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.aiplatform.trainer.entity.TrainJobEntity>()
+                    .eq("job_code", jobCode)
+                    .eq("deleted", 0)
+                    .last("LIMIT 1")
+            );
+        } catch (Exception e) {
+            log.warn("[TRAIN-DB] getFromDb 失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
     @Async
     public void runAsync(JobState state) {
         try {
             state.status = "running";
             state.startedAt = System.currentTimeMillis();
             state.progress = 5;
+            // ★ DB: 记 started_at + status=running
+            try { jobMapper.updateProgress(state.jobId, 5, "running"); } catch (Exception e) { log.debug("[TRAIN-DB] updateProgress 失败: {}", e.getMessage()); }
+            try {
+                com.aiplatform.trainer.entity.TrainJobEntity ue = new com.aiplatform.trainer.entity.TrainJobEntity();
+                ue.setJobCode(state.jobId);
+                ue.setStartedAt(LocalDateTime.now());
+                // 用 queryWrapper update (entity 字段是 null 不更新)
+                com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<com.aiplatform.trainer.entity.TrainJobEntity> uw =
+                        new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<>();
+                uw.eq("job_code", state.jobId).eq("deleted", 0)
+                  .set("status", "running")
+                  .set("progress", 5)
+                  .set("started_at", LocalDateTime.now());
+                jobMapper.update(null, uw);
+            } catch (Exception ex) { log.debug("[TRAIN-DB] update status=running 失败: {}", ex.getMessage()); }
 
             // Optional KB-grounded corpus augmentation
             byte[] raw;
@@ -105,6 +172,7 @@ public class TrainingService {
             trainer.bindJobId(state.jobId);
             MiniTransformerTrainer.TrainResult result = trainer.train(tmpCorpus, state.config);
             state.progress = 90;
+            try { jobMapper.updateProgress(state.jobId, 90, "running"); } catch (Exception e) { /* ignore */ }
 
             Path outDir = Paths.get(exportRoot, "java-" + state.jobId);
             Files.createDirectories(outDir);
@@ -134,6 +202,17 @@ public class TrainingService {
             state.bundleName = "java-" + state.jobId;
             state.finalLoss = result.finalLoss;
             state.finishedAt = System.currentTimeMillis();
+            // ★ DB: 写最终状态
+            try {
+                String metrics = com.alibaba.fastjson2.JSON.toJSONString(java.util.Map.of(
+                    "finalLoss", result.finalLoss,
+                    "iters", result.steps,
+                    "factualSupport", result.metrics == null ? 0.0 : result.metrics.getOrDefault("factual_support", 0.0)
+                ));
+                jobMapper.updateFinish(state.jobId, "succeeded", 100,
+                        outDir.toAbsolutePath().toString(), null, metrics,
+                        LocalDateTime.now(), LocalDateTime.now());
+            } catch (Exception ex) { log.debug("[TRAIN-DB] updateFinish 失败: {}", ex.getMessage()); }
             log.info("[TRAIN-JOB] {} succeeded: loss={} -> {}",
                     state.jobId, String.format("%.4f", state.finalLoss), outDir);
         } catch (Throwable th) {
@@ -141,6 +220,11 @@ public class TrainingService {
             state.status = "failed";
             state.error = th.getMessage() == null ? th.getClass().getName() : th.getMessage();
             state.finishedAt = System.currentTimeMillis();
+            // ★ DB: 写失败状态
+            try {
+                jobMapper.updateFinish(state.jobId, "failed", state.progress,
+                        null, state.error, null, null, LocalDateTime.now());
+            } catch (Exception ex) { log.debug("[TRAIN-DB] updateFinish(failed) 失败: {}", ex.getMessage()); }
         }
     }
 }
