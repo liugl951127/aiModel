@@ -115,7 +115,7 @@ export const trainerApi = {
   sample: (id, prompt, maxTokens = 60) =>
     request.post(`/api/trainer/job/${id}/sample?prompt=${encodeURIComponent(prompt)}&maxTokens=${maxTokens}`),
   // SSE 事件流
-  streamUrl: (id) => `/api/trainer/job/${id}/stream`,
+  streamUrl: (id) => `/api/trainer/preview/${id}/subscribe`,
   health: () => request.get('/api/trainer/health')
 }
 

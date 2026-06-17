@@ -328,7 +328,7 @@
     </el-drawer>
 
     <!-- 双击节点: 改参数 dialog (后端拉 schema + AI 建议) -->
-    <el-dialog v-model="configVisible" :title="configTitle" width="720px" align-center>
+    <el-dialog v-model="configVisible" :title="configTitle" width="720px" align-center @close="cancelConfig">
       <div v-loading="configLoading" v-if="configNode">
         <el-row :gutter="16">
           <!-- 左: 参数表单 -->
@@ -385,7 +385,7 @@
         </el-row>
       </div>
       <template #footer>
-        <el-button @click="configVisible = false">取消</el-button>
+        <el-button @click="cancelConfig">取消</el-button>
         <el-button type="primary" @click="saveConfig">确定保存</el-button>
       </template>
     </el-dialog>
@@ -723,13 +723,14 @@ const configTitle = computed(() => configNode.value ? `配置: ${configNode.valu
 
 // 打开双击节点 config: 调后端 schema
 const openConfig = async (n) => {
-  configNode.value = n
+  // 浅拷贝避免 selectedNode <-> configNode reactive 循环引用
+  configNode.value = { ...n, params: { ...(n.params || {}) } }
   configVisible.value = true
   configSchema.value = []
   configSuggestions.value = []
   configLoading.value = true
   try {
-    const r = await workflowApi.getComponentSchema(n.id || n.type)
+    const r = await workflowApi.getComponentSchema(n.type || n.id)
     if (r.code === 200 && r.data) {
       configSchema.value = r.data.fields || []
     } else {
@@ -749,7 +750,7 @@ const askAI = async () => {
   if (!configNode.value) return
   suggestLoading.value = true
   try {
-    const r = await workflowApi.suggestComponentParams(configNode.value.id || configNode.value.type, {
+    const r = await workflowApi.suggestComponentParams(configNode.value.type || configNode.value.id, {
       ...configNode.value.params
     })
     if (r.code === 200 && r.data) {
@@ -779,11 +780,22 @@ const applyAllSuggestions = () => {
   ElMessage.success(`已应用全部 ${configSuggestions.value.length} 项建议`)
 }
 
+const cancelConfig = () => {
+  configVisible.value = false
+  // 清除选中和当前配置节点, 避免下次双击时 reactive 循环
+  configNode.value = null
+  configSuggestions.value = []
+}
+
 const saveConfig = () => {
   if (!configNode.value) return
+  // 写回原节点 (因为 openConfig 浅拷了 params, 避免 selectedNode <-> configNode 循环)
+  const orig = nodes.value.find(n => n.id === configNode.value.id)
+  if (orig) orig.params = { ...configNode.value.params }
   pushHistory(`config ${configNode.value.id}`, { nodes: nodes.value, edges: edges.value })
   addLog('配置', `已更新 ${configNode.value.name} (${configNode.value.id}) 参数`, 'success')
   configVisible.value = false
+  configNode.value = null
 }
 
 // 边自检: 检测重复边 / 自连 / 输入输出同向
