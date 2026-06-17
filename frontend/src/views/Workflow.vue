@@ -342,6 +342,14 @@ import {
 const bus = useGlobalBus()
 const logEl = ref(null)
 
+// ============== 画布状态 ==============
+const nodes = ref([])        // 节点列表 [{id, type, name, x, y, params}]
+const edges = ref([])        // 连接列表 [{from, fromPort, to, toPort}]
+const doneSet = ref(new Set())  // 已执行完成的节点 id (运行中状态)
+const canvasW = ref(2000)    // 画布逻辑宽度
+const canvasH = ref(1200)    // 画布逻辑高度
+const currentNode = ref(null)  // 正在执行的节点 id (高亮用)
+
 let _id = 0
 const nid = () => `n${++_id}`
 
@@ -1023,7 +1031,7 @@ const runWorkflow = async () => {
   if (!nodes.value.length) return ElMessage.warning('画布为空')
   if (running.value) return
   running.value = true
-  doneSet.clear()
+  doneSet.value.clear()
   logs.value = []
 
   bus.emit('wf:event', { text: `工作流启动: ${nodes.value.length} 节点` })
@@ -1060,7 +1068,7 @@ const runWorkflow = async () => {
       addLog('ERR', `${n.name} 失败: ${n.statusText}`)
       bus.emit('sys:event', { text: `${n.name} 失败: ${n.statusText}` })
     }
-    doneSet.add(n.id)
+    doneSet.value.add(n.id)
   }
 
   currentNode.value = null
