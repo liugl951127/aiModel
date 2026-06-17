@@ -85,10 +85,19 @@
       <!-- 中: 画布 -->
       <main
         class="canvas"
+        :class="{ 'canvas-invalid': !validation.valid && nodes.length > 0 }"
         @drop="onDrop"
         @dragover.prevent
         @mousedown="onCanvasMouseDown"
       >
+        <!-- 顶部流程状态条 -->
+        <div v-if="nodes.length" class="canvas-status" :class="validation.valid ? 'ok' : 'err'">
+          <el-icon><CircleCheckFilled v-if="validation.valid" /><CircleCloseFilled v-else /></el-icon>
+          <span v-if="validation.valid">
+            ✓ 流程合法 · 起点: {{ validation.starts.map(id => nodes.find(n => n.id === id)?.name).filter(Boolean).join(', ') || '无' }} · 节点数: {{ nodes.length }}
+          </span>
+          <span v-else>✗ {{ validation.reason }}</span>
+        </div>
         <div v-if="!nodes.length" class="canvas-empty">
           <el-icon :size="48" color="#cbd5e1"><Plus /></el-icon>
           <h3>拖入节点开始编排</h3>
@@ -106,7 +115,10 @@
           :class="{
             running: currentNode === n.id,
             done: doneSet.has(n.id),
-            selected: isSelected(n.id)
+            selected: isSelected(n.id),
+            'is-start': validation.starts.includes(n.id),
+            'is-end': !edges.some(e => e.from === n.id) && edges.some(e => e.to === n.id),
+            'is-cycle': validation.cycle.includes(n.id)
           }"
           :style="{ left: n.x + 'px', top: n.y + 'px' }"
           @mousedown.stop="onNodeMouseDown($event, n)"
@@ -153,18 +165,24 @@
         <!-- SVG 连线 -->
         <svg v-if="edges.length" class="wires" :viewBox="`0 0 ${canvasW} ${canvasH}`" preserveAspectRatio="none">
           <defs>
+            <!-- 普通箭头 (流程合法) -->
             <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#6366f1" />
+            </marker>
+            <!-- 错误箭头 (检测到环) -->
+            <marker id="arrow-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
             </marker>
           </defs>
           <path
             v-for="(e, i) in edges"
             :key="i"
             :d="edgePath(e)"
-            stroke="#6366f1"
-            stroke-width="2"
+            :stroke="validation.valid ? '#6366f1' : '#ef4444'"
+            :stroke-width="validation.valid ? 2 : 3"
             fill="none"
-            marker-end="url(#arrow)"
+            :marker-end="validation.valid ? 'url(#arrow)' : 'url(#arrow-err)'"
+            :class="{ 'edge-cycle': !validation.valid }"
           />
         </svg>
       </main>
@@ -660,7 +678,13 @@ const run = async () => {
   const t0 = Date.now()
   try {
     // 1. 拓扑排序, 按连线顺序执行
-    const order = topoOrder()
+    const v = validation.value
+    if (!v.valid) {
+      ElMessage.error(`流程不合法: ${v.reason}`)
+      addLog('运行', `✗ ${v.reason}`, 'error')
+      return
+    }
+    const order = v.order
     addLog('运行', `共 ${order.length} 节点, 开始顺序执行...`, 'info')
     let upstream = {}
     for (const id of order) {
@@ -699,7 +723,10 @@ const run = async () => {
 }
 
 const topoOrder = () => {
-  // Kahn 算法
+  // Kahn 算法: 返回 { order, cycle, orphans }
+  //   order: 拓扑顺序里的节点 id
+  //   cycle:  不能加入拓扑序的节点 id (说明有环 / 受环影响)
+  //   orphans: 不连通 / 无依赖的节点 id
   const inDeg = {}
   const adj = {}
   for (const n of nodes.value) { inDeg[n.id] = 0; adj[n.id] = [] }
@@ -707,18 +734,33 @@ const topoOrder = () => {
     if (adj[e.from]) adj[e.from].push(e.to)
     if (inDeg[e.to] != null) inDeg[e.to]++
   }
-  const q = nodes.value.filter(n => inDeg[n.id] === 0).map(n => n.id)
-  const out = []
+  // 起点: 入度为 0 的节点
+  const starts = nodes.value.filter(n => inDeg[n.id] === 0).map(n => n.id)
+  const q = [...starts]
+  const order = []
   while (q.length) {
     const id = q.shift()
-    out.push(id)
+    order.push(id)
     for (const next of (adj[id] || [])) {
       inDeg[next]--
       if (inDeg[next] === 0) q.push(next)
     }
   }
-  return out
+  const allIds = nodes.value.map(n => n.id)
+  const inOrder = new Set(order)
+  const cycle = allIds.filter(id => !inOrder.has(id))
+  return { order, cycle, starts, orphans: [] }
 }
+
+// 当前流水线是否合法 (没环)
+const validation = computed(() => {
+  const v = topoOrder()
+  const valid = v.cycle.length === 0 && v.order.length > 0
+  const reason = v.cycle.length > 0
+    ? `检测到环或闭环依赖: ${v.cycle.join(', ')}`
+    : (v.order.length === 0 ? '画布为空' : '流程合法')
+  return { valid, reason, ...v }
+})
 
 // ============== 快捷键 ==============
 const onKey = (e) => {
@@ -767,15 +809,26 @@ onBeforeUnmount(() => {
 
 /* 中: 画布 */
 .canvas { position: relative; background: var(--bg-top, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 8px; overflow: hidden; min-height: 600px; }
+.canvas-invalid { border: 2px solid #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15); }
+
+.canvas-status { position: absolute; top: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; font-weight: 500; }
+.canvas-status.ok { background: linear-gradient(90deg, #ecfdf5, #f0fdf4); color: #047857; border-bottom: 1px solid #a7f3d0; }
+.canvas-status.err { background: linear-gradient(90deg, #fef2f2, #fee2e2); color: #b91c1c; border-bottom: 1px solid #fca5a5; }
 .canvas-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; pointer-events: none; }
 .canvas-empty > * { pointer-events: auto; }
 .wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.wires path.edge-cycle { stroke-dasharray: 6 4; animation: dash-flow 0.8s linear infinite; }
+@keyframes dash-flow { to { stroke-dashoffset: -20; } }
 
 .wf-node { position: absolute; min-width: 120px; max-width: 180px; height: 32px; padding: 0 4px; display: flex; align-items: center; gap: 4px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 6px; box-shadow: 0 1px 4px -1px rgba(0,0,0,0.08); transition: all 0.15s; cursor: grab; font-size: 11px; }
 .wf-node:hover { box-shadow: 0 3px 8px -1px rgba(0,0,0,0.12); border-color: #c7d2fe; }
 .wf-node.running { border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2); }
 .wf-node.done { border-color: #10b981; }
 .wf-node.selected { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); }
+.wf-node.is-start { border-color: #10b981; border-left-width: 4px; }
+.wf-node.is-end { border-color: #f43f5e; border-right-width: 4px; }
+.wf-node.is-cycle { border-color: #ef4444; border-width: 2px; background: #fef2f2; animation: pulse-err 1.5s ease-in-out infinite; }
+@keyframes pulse-err { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2); } }
 .wn-ico { color: #6366f1; flex-shrink: 0; }
 .wn-name { font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wn-help { color: #94a3b8; cursor: help; flex-shrink: 0; font-size: 12px; padding: 2px; border-radius: 3px; transition: all 0.15s; }
