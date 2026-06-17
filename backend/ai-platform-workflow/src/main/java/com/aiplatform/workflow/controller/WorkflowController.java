@@ -134,28 +134,84 @@ public class WorkflowController {
     }
 
     @GetMapping("/runs")
-    public Result<List<Map<String, Object>>> listRuns() {
+    public Result<List<Map<String, Object>>> listRuns(@RequestParam(defaultValue = "100") int limit) {
+        List<Map<String, Object>> rows = new java.util.ArrayList<>();
+        // 1. DB 历史 (优先, 重启不丢)
+        for (com.aiplatform.workflow.entity.WorkflowRunEntity e : engine.listFromDb(limit)) {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", e.getRunId());
+            m.put("specId", e.getSpecId());
+            m.put("specName", e.getSpecName());
+            m.put("status", e.getStatus());
+            m.put("progress", e.getProgress());
+            m.put("currentStep", e.getCurrentStep());
+            m.put("failedNodeId", e.getFailedNodeId());
+            m.put("failedNodeName", e.getFailedNodeName());
+            m.put("failedReason", e.getFailedReason());
+            m.put("durationMs", e.getDurationMs());
+            m.put("startedAt", e.getStartedAt());
+            m.put("finishedAt", e.getFinishedAt());
+            m.put("source", "db");
+            rows.add(m);
+        }
+        // 2. 内存 (实时, 覆盖 DB 同 runId)
         Map<String, WorkflowRun> runs = engine.all();
-        return Result.success(runs.values().stream().map(r -> {
+        for (Map.Entry<String, WorkflowRun> en : runs.entrySet()) {
+            WorkflowRun r = en.getValue();
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("id", r.getRunId());
-            m.put("workflowId", r.getWorkflowId());
             m.put("specName", r.getWorkflowName());
-            m.put("status", r.getStatus());
+            m.put("status", r.getStatus() == null ? null : r.getStatus().name());
             m.put("progress", r.getProgress());
             m.put("currentStep", r.getCurrentStep());
             m.put("error", r.getError());
             m.put("startedAt", r.getStartedAt());
             m.put("finishedAt", r.getFinishedAt());
-            return m;
-        }).collect(java.util.stream.Collectors.toList()));
+            m.put("source", "memory");
+            // 实时状态放最前 + 覆盖 DB 同 runId
+            rows.removeIf(x -> java.util.Objects.equals(x.get("id"), r.getRunId()));
+            rows.add(0, m);
+        }
+        return Result.success(rows);
     }
 
     @GetMapping("/run/{id}")
-    public Result<WorkflowRun> getRun(@PathVariable String id) {
-        WorkflowRun r = engine.get(id);
-        if (r == null) return Result.fail(404, "run not found: " + id);
-        return Result.success(r);
+    public Result<Map<String, Object>> getRun(@PathVariable String id) {
+        // 优先内存 (实时), 没取 DB (历史)
+        WorkflowRun live = engine.get(id);
+        if (live != null) {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("source", "memory");
+            m.put("runId", live.getRunId());
+            m.put("workflowId", live.getWorkflowId());
+            m.put("specName", live.getWorkflowName());
+            m.put("status", live.getStatus() == null ? null : live.getStatus().name());
+            m.put("progress", live.getProgress());
+            m.put("currentStep", live.getCurrentStep());
+            m.put("error", live.getError());
+            m.put("startedAt", live.getStartedAt());
+            m.put("finishedAt", live.getFinishedAt());
+            return Result.success(m);
+        }
+        // DB 历史 (重启后能查)
+        com.aiplatform.workflow.entity.WorkflowRunEntity dbRun = engine.getFromDb(id);
+        if (dbRun == null) return Result.fail(404, "run not found: " + id);
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("source", "db");
+        m.put("runId", dbRun.getRunId());
+        m.put("specId", dbRun.getSpecId());
+        m.put("specName", dbRun.getSpecName());
+        m.put("status", dbRun.getStatus());
+        m.put("progress", dbRun.getProgress());
+        m.put("currentStep", dbRun.getCurrentStep());
+        m.put("output", dbRun.getOutput());
+        m.put("failedNodeId", dbRun.getFailedNodeId());
+        m.put("failedNodeName", dbRun.getFailedNodeName());
+        m.put("failedReason", dbRun.getFailedReason());
+        m.put("durationMs", dbRun.getDurationMs());
+        m.put("startedAt", dbRun.getStartedAt());
+        m.put("finishedAt", dbRun.getFinishedAt());
+        return Result.success(m);
     }
 
     // ============== 单节点 exec (供编排运行实时调) ==============
