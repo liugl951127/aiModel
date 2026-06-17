@@ -162,7 +162,12 @@ export const workflowApi = {
   exec: (data) => request.post('/api/workflow/exec', data),
   // 批量执行
   execBatch: (data) => request.post('/api/workflow/exec/batch', data),
-  template: () => request.get('/api/workflow/templates/train-eval-deploy')
+  template: () => request.get('/api/workflow/templates/train-eval-deploy'),
+  // 组件参数 schema (后台可配, 不是前端 hardcode)
+  listComponentSchemas: () => request.get('/api/workflow/component-schemas'),
+  getComponentSchema: (nodeId) => request.get(`/api/workflow/component-schemas/${nodeId}`),
+  // AI 智能建议: 用户输入部分参数, 后端按 schema 给推荐
+  suggestComponentParams: (nodeId, body) => request.post(`/api/workflow/component-schemas/${nodeId}/suggest`, body)
 }
 
 // ---------- 知识库流程编排 ----------

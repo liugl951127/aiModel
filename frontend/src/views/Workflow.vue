@@ -322,19 +322,66 @@
       </div>
     </el-drawer>
 
-    <!-- 双击节点: 改参数 dialog -->
-    <el-dialog v-model="configVisible" :title="configTitle" width="520px" align-center>
-      <el-form v-if="configNode" label-position="top" size="default">
-        <el-form-item v-for="p in configSchema" :key="p.key" :label="p.label">
-          <el-input v-if="p.type === 'string' || !p.type" v-model="configNode.params[p.key]" :placeholder="String(p.default || '')" />
-          <el-input-number v-else-if="p.type === 'number'" v-model="configNode.params[p.key]" :min="p.min" :max="p.max" :step="p.step || 1" style="width: 100%" />
-          <el-switch v-else-if="p.type === 'boolean'" v-model="configNode.params[p.key]" />
-        </el-form-item>
-      </el-form>
-      <p v-if="configNode && Object.keys(configNode.params).length === 0" class="muted" style="text-align:center;">该节点没有可配置参数</p>
+    <!-- 双击节点: 改参数 dialog (后端拉 schema + AI 建议) -->
+    <el-dialog v-model="configVisible" :title="configTitle" width="720px" align-center>
+      <div v-loading="configLoading" v-if="configNode">
+        <el-row :gutter="16">
+          <!-- 左: 参数表单 -->
+          <el-col :span="14">
+            <h4 style="margin: 0 0 8px; color: #6366f1;">📝 参数配置</h4>
+            <el-form label-position="top" size="default">
+              <el-form-item v-for="p in configSchema" :key="p.key" :label="p.label + (p.required ? ' *' : '')">
+                <template v-if="p.type === 'select'">
+                  <el-select v-model="configNode.params[p.key]" placeholder="选择" style="width: 100%">
+                    <el-option v-for="opt in (p.options || [])" :key="opt" :label="opt" :value="opt" />
+                  </el-select>
+                </template>
+                <template v-else-if="p.type === 'number'">
+                  <el-input-number v-model="configNode.params[p.key]" :min="p.min" :max="p.max" :step="p.step || 1" style="width: 100%" />
+                </template>
+                <template v-else-if="p.type === 'boolean'">
+                  <el-switch v-model="configNode.params[p.key]" />
+                </template>
+                <template v-else-if="p.type === 'textarea'">
+                  <el-input v-model="configNode.params[p.key]" type="textarea" :rows="3" :placeholder="String(p.defaultValue || '')" />
+                </template>
+                <template v-else>
+                  <el-input v-model="configNode.params[p.key]" :placeholder="String(p.defaultValue || '')" />
+                </template>
+                <div v-if="p.description" class="field-tip">{{ p.description }}</div>
+              </el-form-item>
+              <el-empty v-if="!configSchema.length" description="该节点无参数" />
+            </el-form>
+          </el-col>
+          <!-- 右: AI 建议 -->
+          <el-col :span="10">
+            <h4 style="margin: 0 0 8px; color: #10b981;">🤖 AI 智能建议</h4>
+            <el-button type="success" plain :loading="suggestLoading" @click="askAI" size="small" style="width: 100%">
+              <el-icon><MagicStick /></el-icon> 根据当前输入给建议
+            </el-button>
+            <el-button v-if="configSuggestions.length" type="primary" plain size="small" @click="applyAllSuggestions" style="width: 100%; margin-top: 4px">
+              全部应用
+            </el-button>
+            <el-scrollbar height="380px" style="margin-top: 8px;">
+              <div v-if="!configSuggestions.length && !suggestLoading" class="empty-tip">
+                💡 点击上面按钮, AI 会根据节点类型 + 你的当前输入给出每个参数的最佳推荐
+              </div>
+              <el-card v-for="s in configSuggestions" :key="s.key" shadow="never" class="suggestion-card">
+                <div class="sug-head">
+                  <strong>{{ s.key }}</strong>
+                  <el-button type="primary" link size="small" @click="applySuggestion(s)">采用</el-button>
+                </div>
+                <div class="sug-row"><span class="lbl">当前:</span><code>{{ s.current || '(空)' }}</code></div>
+                <div class="sug-row"><span class="lbl">推荐:</span><code class="rec">{{ s.recommended }}</code></div>
+                <div v-if="s.reason" class="sug-reason">💡 {{ s.reason }}</div>
+              </el-card>
+            </el-scrollbar>
+          </el-col>
+        </el-row>
+      </div>
       <template #footer>
         <el-button @click="configVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveConfig">确定</el-button>
+        <el-button type="primary" @click="saveConfig">确定保存</el-button>
       </template>
     </el-dialog>
 
@@ -608,20 +655,86 @@ const onNodeMouseDown = (e, n) => {
 }
 
 let _connectFrom = ref(null)
-// ============== 节点配置 dialog (双击触发) ==============
+// ============== 节点配置 dialog (双击触发) — 从后端拉 schema ==============
 const configVisible = ref(false)
 const configNode = ref(null)
-const configSchema = computed(() => configNode.value ? paramSchema(configNode.value) : [])
+const configSchema = ref([])          // 当前节点的 schema.fields (从后端拉)
+const configLoading = ref(false)
+const configSuggestions = ref([])     // AI 智能建议
+const suggestLoading = ref(false)
 const configTitle = computed(() => configNode.value ? `配置: ${configNode.value.name} (${configNode.value.id})` : '')
-const openConfig = (n) => {
+
+// 打开双击节点 config: 调后端 schema
+const openConfig = async (n) => {
   configNode.value = n
   configVisible.value = true
+  configSchema.value = []
+  configSuggestions.value = []
+  configLoading.value = true
+  try {
+    const r = await workflowApi.getComponentSchema(n.id || n.type)
+    if (r.code === 200 && r.data) {
+      configSchema.value = r.data.fields || []
+    } else {
+      // 兌底: 走本地 paramSchema
+      configSchema.value = paramSchema(n)
+    }
+  } catch (e) {
+    addLog('schema', `拉取失败, 用本地兌底: ${e.message}`, 'error')
+    configSchema.value = paramSchema(n)
+  } finally {
+    configLoading.value = false
+  }
 }
+
+// AI 智能建议: 调后端 /suggest
+const askAI = async () => {
+  if (!configNode.value) return
+  suggestLoading.value = true
+  try {
+    const r = await workflowApi.suggestComponentParams(configNode.value.id || configNode.value.type, {
+      ...configNode.value.params
+    })
+    if (r.code === 200 && r.data) {
+      configSuggestions.value = r.data.suggestions || []
+      ElMessage.success(`已获得 ${configSuggestions.value.length} 项 AI 建议`)
+    }
+  } catch (e) {
+    ElMessage.error(`AI 建议拉取失败: ${e.message}`)
+  } finally {
+    suggestLoading.value = false
+  }
+}
+
+// 应用单条 AI 建议
+const applySuggestion = (s) => {
+  if (!configNode.value) return
+  if (s.recommended === undefined || s.recommended === null) return
+  // 尝试转类型 (string / number)
+  const num = Number(s.recommended)
+  configNode.value.params[s.key] = !isNaN(num) && s.recommended !== '' ? num : s.recommended
+  ElMessage.success(`已应用: ${s.key} = ${s.recommended}`)
+}
+
+// 应用全部 AI 建议
+const applyAllSuggestions = () => {
+  configSuggestions.value.forEach(applySuggestion)
+  ElMessage.success(`已应用全部 ${configSuggestions.value.length} 项建议`)
+}
+
 const saveConfig = () => {
   if (!configNode.value) return
   pushHistory(`config ${configNode.value.id}`, { nodes: nodes.value, edges: edges.value })
   addLog('配置', `已更新 ${configNode.value.name} (${configNode.value.id}) 参数`, 'success')
   configVisible.value = false
+}
+
+// 边自检: 检测重复边 / 自连 / 输入输出同向
+const edgeConflict = (fromId, fromPort, toId, toPort) => {
+  if (fromId === toId) return '不能连接自己'
+  if (!fromId || !toId) return null
+  if (edges.value.some(e => e.from === fromId && e.to === toId)) return '重复连线'
+  return null
 }
 
 const onPortMouseDown = (e, node, port, dir) => {
@@ -631,9 +744,23 @@ const onPortMouseDown = (e, node, port, dir) => {
     const from = _connectFrom.value
     const to = { id: node.id, port, dir }
     if (from.dir === 'out' && to.dir === 'in') {
+      const conflict = edgeConflict(from.id, from.port, to.id, to.port)
+      if (conflict) {
+        ElMessage.warning(conflict)
+        addLog('连线', `✗ 拒绝: ${conflict} (${from.id}→${to.id})`, 'error')
+        _connectFrom.value = null
+        return
+      }
       edges.value.push({ from: from.id, fromPort: from.port, to: to.id, toPort: to.port })
       pushHistory('connect', { nodes: nodes.value, edges: edges.value })
     } else if (from.dir === 'in' && to.dir === 'out') {
+      const conflict = edgeConflict(to.id, to.port, from.id, from.port)
+      if (conflict) {
+        ElMessage.warning(conflict)
+        addLog('连线', `✗ 拒绝: ${conflict} (${to.id}→${from.id})`, 'error')
+        _connectFrom.value = null
+        return
+      }
       edges.value.push({ from: to.id, fromPort: to.port, to: from.id, toPort: from.port })
     }
     _connectFrom.value = null
@@ -1057,6 +1184,16 @@ onBeforeUnmount(() => {
 .log-msg { color: #1e293b; flex: 1; word-break: break-all; }
 .spec-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 4px; border-bottom: 1px solid #f0f0f0; }
 .spec-name { font-weight: 500; font-size: 12px; }
+
+/* 节点配置 dialog 字段提示 */
+.field-tip { font-size: 10px; color: #94a3b8; margin-top: 2px; line-height: 1.4; }
+.suggestion-card { margin-bottom: 6px; padding: 6px 8px !important; }
+.suggestion-card .sug-head { display: flex; align-items: center; justify-content: space-between; }
+.suggestion-card .sug-row { display: flex; align-items: center; gap: 4px; font-size: 11px; margin-top: 2px; }
+.suggestion-card .lbl { color: #94a3b8; min-width: 36px; }
+.suggestion-card code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+.suggestion-card code.rec { background: #ecfdf5; color: #047857; }
+.suggestion-card .sug-reason { font-size: 10px; color: #6366f1; margin-top: 3px; }
 
 /* 抽屉说明 */
 .guide h3 { margin: 16px 0 6px; font-size: 14px; color: #6366f1; }
