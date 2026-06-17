@@ -163,6 +163,9 @@ export const workflowApi = {
   // 批量执行
   execBatch: (data) => request.post('/api/workflow/exec/batch', data),
   template: () => request.get('/api/workflow/templates/train-eval-deploy'),
+  // AI 自然语言 → workflow JSON
+  aiGenerate: (input) => request.post('/api/workflow/ai-generate', { input }),
+  aiScenarios: () => request.get('/api/workflow/ai-scenarios'),
   // 组件参数 schema (后台可配, 不是前端 hardcode)
   listComponentSchemas: () => request.get('/api/workflow/component-schemas'),
   getComponentSchema: (nodeId) => request.get(`/api/workflow/component-schemas/${nodeId}`),

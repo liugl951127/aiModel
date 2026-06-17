@@ -50,7 +50,10 @@
         <el-button text @click="loadSpecList">
           <el-icon><FolderOpened /></el-icon> 我的工作流
         </el-button>
-        <el-button text type="primary" @click="loadTemplate('rag')">
+        <el-button text type="primary" @click="aiGenOpen = true">
+          <el-icon><MagicStick /></el-icon> AI 极速生成
+        </el-button>
+        <el-button text @click="loadTemplate('rag')">
           <el-icon><Download /></el-icon> 加载 RAG 模板
         </el-button>
       </div>
@@ -469,6 +472,9 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- AI 极速生成流程 (一句话 → 画布) -->
+    <WorkflowAiGenerate v-model="aiGenOpen" @apply="onAiApply" />
   </div>
 </template>
 
@@ -481,6 +487,7 @@ import {
   CircleCheckFilled, CircleCloseFilled, MagicStick
 } from '@element-plus/icons-vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
+import WorkflowAiGenerate from '@/components/WorkflowAiGenerate.vue'
 import { workflowApi } from '@/api'
 
 defineOptions({ name: 'Workflow' })
@@ -828,6 +835,38 @@ const edgePath = (e) => {
 
 // ============== 模板 (调后端 /api/workflow/templates) ==============
 const showGuide = ref(false)
+const aiGenOpen = ref(false)
+// AI 生成后填充到画布
+const onAiApply = (data) => {
+  if (!data || !data.nodes || !data.nodes.length) {
+    ElMessage.warning('没有可填充的节点')
+    return
+  }
+  // 清空画布后重新填充
+  nodes.value = data.nodes.map(n => ({
+    id: n.id,
+    type: n.type,
+    name: n.name,
+    x: n.x,
+    y: n.y,
+    params: n.params || {}
+  }))
+  edges.value = (data.edges || []).map((e, i) => ({
+    id: 'e' + (i + 1),
+    from: e.from,
+    to: e.to
+  }))
+  // 画布名称 + 描述
+  if (data.name) {
+    specForm.value.name = data.name
+  }
+  if (data.description) {
+    specForm.value.description = data.description
+  }
+  selectedNode.value = null
+  ElMessage.success(`已填充 ${data.nodes.length} 个节点 / ${data.edges.length} 条边 (场景: ${data.scenario})`)
+}
+
 const loadTemplate = async (name) => {
   try {
     const r = await workflowApi.template()

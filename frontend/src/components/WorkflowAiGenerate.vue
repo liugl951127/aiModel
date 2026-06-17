@@ -1,0 +1,212 @@
+<template>
+  <el-dialog v-model="visible" title="🪄 AI 极速生成流程" width="640px" :close-on-click-modal="false"
+    @open="onOpen" @close="onClose">
+    <div class="ai-gen">
+      <!-- 用户输入 -->
+      <div class="input-box">
+        <el-input v-model="userInput" type="textarea" :rows="3"
+          placeholder="一句话描述你的需求, 例: 做一个 RAG 知识库问答, 用 BGE 中文嵌入, topK=5"
+          @keyup.ctrl.enter="onGenerate" />
+        <div class="hint">💡 Ctrl+Enter 快速生成</div>
+      </div>
+
+      <!-- 生成按钮 -->
+      <div class="gen-btn-row">
+        <el-button type="primary" :loading="loading" @click="onGenerate" size="large">
+          <el-icon><MagicStick /></el-icon>
+          AI 一键生成
+        </el-button>
+        <el-button @click="onReset" plain>清空</el-button>
+      </div>
+
+      <!-- 预设场景 -->
+      <div class="scenarios">
+        <div class="sc-label">📦 预设场景 (一键填):</div>
+        <div class="sc-grid">
+          <div v-for="s in scenarios" :key="s.key" class="sc-card" @click="useScenario(s)">
+            <div class="sc-icon">{{ s.icon }}</div>
+            <div class="sc-name">{{ s.name }}</div>
+            <div class="sc-desc">{{ s.desc }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 生成结果预览 -->
+      <div v-if="result" class="result">
+        <div class="r-head">
+          <div>
+            <span class="r-name">✅ {{ result.name }}</span>
+            <el-tag v-if="result.confidence" size="small" type="success" style="margin-left: 8px;">
+              置信度 {{ result.confidence }}
+            </el-tag>
+            <el-tag v-else size="small" type="info">自定义</el-tag>
+          </div>
+          <div class="r-meta">
+            {{ result.nodes.length }} 节点 · {{ result.edges.length }} 边
+          </div>
+        </div>
+        <div class="r-desc">{{ result.description }}</div>
+
+        <!-- 节点预览 -->
+        <div class="r-nodes">
+          <div v-for="(n, i) in result.nodes" :key="n.id" class="r-node">
+            <div class="r-num">{{ i + 1 }}</div>
+            <div class="r-info">
+              <div class="r-node-name">{{ n.name }}</div>
+              <div class="r-node-type">{{ n.type }}</div>
+            </div>
+            <el-icon v-if="i < result.nodes.length - 1" class="r-arrow"><Right /></el-icon>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <template #footer>
+      <el-button @click="visible = false">取消</el-button>
+      <el-button v-if="result && result.nodes.length" type="primary" @click="onApply">
+        <el-icon><Check /></el-icon>
+        应用到画布
+      </el-button>
+    </template>
+  </el-dialog>
+</template>
+
+<script setup>
+import { ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
+import { MagicStick, Right, Check } from '@element-plus/icons-vue'
+import { workflowApi } from '@/api'
+
+const props = defineProps({
+  modelValue: { type: Boolean, default: false }
+})
+const emit = defineEmits(['update:modelValue', 'apply'])
+
+const visible = ref(props.modelValue)
+watch(() => props.modelValue, v => visible.value = v)
+watch(visible, v => emit('update:modelValue', v))
+
+const userInput = ref('')
+const loading = ref(false)
+const result = ref(null)
+const scenarios = ref([])
+
+const onOpen = async () => {
+  result.value = null
+  userInput.value = ''
+  // 加载预设场景
+  try {
+    const r = await workflowApi.aiScenarios()
+    if (r.data?.code === 200) scenarios.value = r.data.data
+  } catch (e) {
+    scenarios.value = []
+  }
+}
+
+const onClose = () => { result.value = null; userInput.value = '' }
+
+const useScenario = (s) => {
+  userInput.value = s.input
+  onGenerate()
+}
+
+const onGenerate = async () => {
+  if (!userInput.value.trim()) {
+    ElMessage.warning('请先描述你的需求')
+    return
+  }
+  loading.value = true
+  try {
+    const r = await workflowApi.aiGenerate(userInput.value.trim())
+    if (r.data?.code === 200) {
+      result.value = r.data.data
+      if (result.value.nodes.length === 0) {
+        ElMessage.info('未识别到场景, 请描述更具体 (例: RAG 知识库 / LoRA 训练 / 营销文案)')
+      } else {
+        ElMessage.success(`识别为 [${result.value.scenario}], 生成 ${result.value.nodes.length} 个节点`)
+      }
+    }
+  } catch (e) {
+    ElMessage.error('生成失败: ' + (e?.message || '网络错误'))
+  } finally {
+    loading.value = false
+  }
+}
+
+const onApply = () => {
+  if (!result.value || !result.value.nodes.length) {
+    ElMessage.warning('没有可应用的节点')
+    return
+  }
+  emit('apply', result.value)
+  visible.value = false
+}
+
+const onReset = () => { userInput.value = ''; result.value = null }
+</script>
+
+<style scoped>
+.ai-gen { padding: 0 4px; }
+.input-box { margin-bottom: 12px; }
+.hint { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+.gen-btn-row { display: flex; gap: 8px; margin-bottom: 20px; }
+
+.scenarios { margin-bottom: 20px; }
+.sc-label { font-size: 13px; color: #475569; margin-bottom: 10px; font-weight: 600; }
+.sc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.sc-card {
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sc-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px -4px rgba(99, 102, 241, 0.2);
+  border-color: #6366f1;
+  background: linear-gradient(135deg, #eef2ff, #ede9fe);
+}
+.sc-icon { font-size: 24px; margin-bottom: 4px; }
+.sc-name { font-size: 13px; font-weight: 600; color: #1e293b; margin-bottom: 2px; }
+.sc-desc { font-size: 11px; color: #64748b; line-height: 1.4; }
+
+.result {
+  background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 14px;
+}
+.r-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.r-name { font-size: 15px; font-weight: 700; color: #15803d; }
+.r-meta { font-size: 11px; color: #16a34a; }
+.r-desc { font-size: 12px; color: #475569; margin-bottom: 12px; }
+
+.r-nodes { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.r-node {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 6px 10px;
+  gap: 8px;
+}
+.r-num {
+  width: 20px; height: 20px;
+  background: #22c55e;
+  color: #fff;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+}
+.r-info { display: flex; flex-direction: column; }
+.r-node-name { font-size: 12px; font-weight: 600; color: #1e293b; }
+.r-node-type { font-size: 10px; color: #94a3b8; }
+.r-arrow { color: #22c55e; font-size: 16px; }
+</style>
