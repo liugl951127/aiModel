@@ -96,8 +96,8 @@
     <!-- 主区                                       -->
     <!-- ============================================ -->
     <main class="main">
-      <!-- 顶栏 (el-affix 钉顶部) -->
-      <el-affix :offset="0" target=".main" class="topbar-affix">
+      <!-- 顶栏 (el-affix 钉屏幕顶部, 不设 target 避免路由切换时 main 元素卸载报错) -->
+      <el-affix :offset="0" class="topbar-affix">
         <header class="topbar">
           <div class="topbar-left">
             <el-tooltip :content="collapsed ? '展开侧栏' : '折叠侧栏'" placement="bottom">
