@@ -469,6 +469,9 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- AI 编排助手 (右上浮动) -->
+    <WorkflowAssistant :context="assistantContext" @action="onAssistantAction" />
   </div>
 </template>
 
@@ -480,6 +483,7 @@ import {
   FullScreen, ZoomIn, ZoomOut, Position, Aim
 } from '@element-plus/icons-vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
+import WorkflowAssistant from '@/components/WorkflowAssistant.vue'
 import { workflowApi } from '@/api'
 
 defineOptions({ name: 'Workflow' })
@@ -1026,6 +1030,24 @@ const topoOrder = () => {
 }
 
 // 当前流水线是否合法 (没环)
+// AI 助手上下文 (根据画布状态动态变)
+const assistantContext = computed(() => ({
+  nodeCount: nodes.value.length,
+  edgeCount: edges.value.length,
+  cycleCount: validation.value.cycle.length,
+  valid: validation.value.valid
+}))
+
+const onAssistantAction = (a) => {
+  if (a.event === 'loadRag') {
+    loadTemplate('rag')
+    ElMessage.success('已加载 RAG 模板')
+  } else if (a.event === 'diagnose') {
+    // 诊断后发一个总结 (可以扩展)
+    ElMessage.info('画布状态: ' + JSON.stringify(assistantContext.value))
+  }
+}
+
 const validation = computed(() => {
   const v = topoOrder()
   const valid = v.cycle.length === 0 && v.order.length > 0
