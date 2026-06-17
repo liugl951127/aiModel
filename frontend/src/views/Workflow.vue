@@ -38,6 +38,10 @@
         <el-button :disabled="historyIdx < 0" @click="redo">
           <el-icon><RefreshRight /></el-icon> 重做
         </el-button>
+        <el-divider direction="vertical" />
+        <el-button @click="zoomOpen = true" :disabled="!nodes.length">
+          <el-icon><FullScreen /></el-icon> 放大画布
+        </el-button>
       </div>
       <div class="tb-right">
         <el-button text @click="showGuide = true">
@@ -333,6 +337,89 @@
         <el-button type="primary" @click="saveConfig">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 放大画布: 全屏 dialog, 不动节点数据, 仅 CSS transform 缩放/拖动 -->
+    <el-dialog
+      v-model="zoomOpen"
+      title="🔍 放大画布"
+      fullscreen
+      :show-close="false"
+      :modal="true"
+      class="zoom-dialog"
+    >
+      <div class="zoom-toolbar">
+        <span class="muted">画布缩放 (滚轮 / 按键) · 拖动画布移动</span>
+        <el-button-group>
+          <el-button @click="zoomOut" size="small"><el-icon><ZoomOut /></el-icon></el-button>
+          <el-button @click="zoomReset" size="small">{{ Math.round(zoom * 100) }}%</el-button>
+          <el-button @click="zoomIn" size="small"><el-icon><ZoomIn /></el-icon></el-button>
+        </el-button-group>
+        <el-button-group>
+          <el-button @click="panReset" size="small" type="primary" plain>
+            <el-icon><Aim /></el-icon> 重置视图
+          </el-button>
+        </el-button-group>
+        <el-button type="danger" plain @click="zoomOpen = false" size="small">
+          <el-icon><Close /></el-icon> 关闭放大 (还原)
+        </el-button>
+      </div>
+      <div
+        class="zoom-viewport"
+        ref="zoomViewport"
+        @wheel.prevent="onZoomWheel"
+        @mousedown="onZoomPanStart"
+      >
+        <div
+          class="zoom-stage"
+          :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})`, transformOrigin: '0 0' }"
+        >
+          <!-- 复用画布: SVG + 节点 -->
+          <svg
+            v-if="edges.length"
+            class="zoom-wires"
+            :viewBox="`0 0 ${canvasW} ${canvasH}`"
+            :width="canvasW"
+            :height="canvasH"
+            :style="{ left: 0, top: 0 }"
+          >
+            <defs>
+              <marker id="z-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#6366f1" />
+              </marker>
+              <marker id="z-arrow-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+              </marker>
+            </defs>
+            <path
+              v-for="(e, i) in edges"
+              :key="i"
+              :d="edgePath(e)"
+              :stroke="validation.valid ? '#6366f1' : '#ef4444'"
+              :stroke-width="validation.valid ? 2 : 3"
+              fill="none"
+              :marker-end="validation.valid ? 'url(#z-arrow)' : 'url(#z-arrow-err)'"
+            />
+          </svg>
+          <div
+            v-for="n in nodes"
+            :key="n.id"
+            class="zoom-node"
+            :class="{
+              'is-start': validation.starts.includes(n.id),
+              'is-end': !edges.some(e => e.from === n.id) && edges.some(e => e.to === n.id),
+              'is-cycle': validation.cycle.includes(n.id)
+            }"
+            :style="{ left: n.x + 'px', top: n.y + 'px' }"
+          >
+            <el-icon><component :is="iconOf(n)" /></el-icon>
+            <span>{{ n.name }}</span>
+          </div>
+        </div>
+        <div class="zoom-hint muted">
+          提示: 滚轮缩放 · 空白处拖动 · Ctrl+0 还原 · 右上“还原”可关闭本窗口
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -340,7 +427,8 @@
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  QuestionFilled, Back, RefreshRight, VideoPlay, Document, FolderOpened, Download, Plus, Close, Delete, Refresh, Promotion
+  QuestionFilled, Back, RefreshRight, VideoPlay, Document, FolderOpened, Download, Plus, Close, Delete, Refresh, Promotion,
+  FullScreen, ZoomIn, ZoomOut, Position, Aim
 } from '@element-plus/icons-vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
 import { workflowApi } from '@/api'
@@ -805,7 +893,61 @@ const validation = computed(() => {
   return { valid, reason, ...v }
 })
 
-// ============== 快捷键 ==============
+// ============== 放大画布 (仅 CSS transform, 不动节点数据) ==============
+const zoomOpen = ref(false)
+const zoom = ref(1)
+const panX = ref(0)
+const panY = ref(0)
+const zoomViewport = ref(null)
+const ZOOM_MIN = 0.2
+const ZOOM_MAX = 4
+const ZOOM_STEP = 1.2
+const zoomIn = () => { zoom.value = Math.min(ZOOM_MAX, +(zoom.value * ZOOM_STEP).toFixed(2)) }
+const zoomOut = () => { zoom.value = Math.max(ZOOM_MIN, +(zoom.value / ZOOM_STEP).toFixed(2)) }
+const zoomReset = () => { zoom.value = 1; panX.value = 0; panY.value = 0 }
+const panReset = zoomReset
+const onZoomWheel = (e) => {
+  if (e.ctrlKey || e.metaKey) {
+    e.preventDefault()
+    if (e.deltaY < 0) zoomIn(); else zoomOut()
+  } else {
+    // 普通滚轮: 上下平移
+    panY.value -= e.deltaY
+  }
+}
+let _panStart = null
+const onZoomPanStart = (e) => {
+  if (e.button !== 0) return
+  // 只在点击空白处启动拖动 (非节点 / 非按钮)
+  if (e.target.classList && (e.target.classList.contains('zoom-stage') || e.target.classList.contains('zoom-viewport') || e.target.tagName === 'svg')) {
+    _panStart = { x: e.clientX - panX.value, y: e.clientY - panY.value }
+    const onMove = (m) => {
+      panX.value = m.clientX - _panStart.x
+      panY.value = m.clientY - _panStart.y
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      _panStart = null
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+}
+
+// 打开弹窗时重置视图
+watch(zoomOpen, (v) => { if (v) zoomReset() })
+
+// Ctrl+0 还原
+const onZoomKey = (e) => {
+  if (!zoomOpen.value) return
+  if (e.ctrlKey && e.key === '0') { e.preventDefault(); zoomReset() }
+  else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomIn() }
+  else if (e.key === '-') { e.preventDefault(); zoomOut() }
+  else if (e.key === 'Escape') { zoomOpen.value = false }
+}
+
+
 const onKey = (e) => {
   if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) { e.preventDefault(); undo() }
   else if ((e.key === 'y' && (e.metaKey || e.ctrlKey)) || (e.key === 'Z' && e.shiftKey && (e.metaKey || e.ctrlKey))) { e.preventDefault(); redo() }
@@ -822,11 +964,13 @@ const onKey = (e) => {
 // ============== 生命周期 ==============
 onMounted(() => {
   window.addEventListener('keydown', onKey)
+  window.addEventListener('keydown', onZoomKey)
   loadSpecList()
   bus.emit('wf:event', { text: '工作流编辑器就绪' })
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKey)
+  window.removeEventListener('keydown', onZoomKey)
 })
 </script>
 
@@ -859,6 +1003,20 @@ onBeforeUnmount(() => {
 .canvas-status.err { background: linear-gradient(90deg, #fef2f2, #fee2e2); color: #b91c1c; border-bottom: 1px solid #fca5a5; }
 .canvas-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; pointer-events: none; }
 .canvas-empty > * { pointer-events: auto; }
+
+/* 放大画布弹窗 */
+::v-deep(.zoom-dialog .el-dialog__body) { padding: 0; height: calc(100vh - 110px); }
+.zoom-toolbar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--bg-top, #fff); border-bottom: 1px solid var(--border, #e5e7eb); position: absolute; top: 0; left: 0; right: 0; z-index: 10; }
+.zoom-viewport { position: absolute; top: 42px; left: 0; right: 0; bottom: 0; overflow: hidden; background: #f8fafc; cursor: grab; }
+.zoom-viewport:active { cursor: grabbing; }
+.zoom-stage { position: absolute; width: 2000px; height: 1200px; }
+.zoom-wires { position: absolute; pointer-events: none; }
+.zoom-node { position: absolute; min-width: 120px; max-width: 180px; height: 32px; padding: 0 8px; display: flex; align-items: center; gap: 4px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 6px; box-shadow: 0 1px 4px -1px rgba(0,0,0,0.08); font-size: 11px; font-weight: 600; }
+.zoom-node.is-start { border-color: #10b981; border-left-width: 4px; }
+.zoom-node.is-end { border-color: #f43f5e; border-right-width: 4px; }
+.zoom-node.is-cycle { border-color: #ef4444; border-width: 2px; background: #fef2f2; }
+.zoom-node .el-icon { color: #6366f1; }
+.zoom-hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.9); padding: 4px 12px; border-radius: 16px; font-size: 11px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); z-index: 5; }
 .wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .wires path.edge-cycle { stroke-dasharray: 6 4; animation: dash-flow 0.8s linear infinite; }
 @keyframes dash-flow { to { stroke-dashoffset: -20; } }
