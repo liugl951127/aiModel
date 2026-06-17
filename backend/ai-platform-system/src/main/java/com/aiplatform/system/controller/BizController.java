@@ -497,7 +497,7 @@ public class BizController {
      */
     @GetMapping("/dashboard")
     public Result<Map<String, Object>> dashboard() {
-        Map<String, Object> r = new HashMap<>();
+        Map<String, Object> r = new LinkedHashMap<>();
         // 4 大核心指标 (Dashboard.vue 前端用的字段名)
         r.put("customerTotal", Optional.ofNullable(customerMapper.selectCount(null)).orElse(0L));
         r.put("opportunityTotal", Optional.ofNullable(opportunityMapper.selectCount(null)).orElse(0L));

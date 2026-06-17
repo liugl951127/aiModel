@@ -1,6 +1,6 @@
 package com.aiplatform.system.controller;
 
-import com.aiplatform.common.core.api.Result;
+import com.aiplatform.common.result.Result;
 import com.aiplatform.system.entity.SysLoginAudit;
 import com.aiplatform.system.mapper.SysLoginAuditMapper;
 import lombok.RequiredArgsConstructor;

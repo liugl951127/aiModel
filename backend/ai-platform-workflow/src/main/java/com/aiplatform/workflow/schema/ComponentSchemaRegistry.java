@@ -370,7 +370,7 @@ public class ComponentSchemaRegistry {
         list.add(s("model_list", "模型列表", "部署", "model", null,
                 "列出已注册模型",
                 f("stage", "阶段过滤", "select", "all", null, null, null,
-                        List.of("all", "staging", "prod"), null, false)
+                        List.of("all", "staging", "prod"), List.of("all"), "按部署阶段过滤", false)
         ));
         list.add(s("tool_list", "工具列表", "工具", "tool", null,
                 "列出可用工具",

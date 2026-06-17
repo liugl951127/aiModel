@@ -119,15 +119,21 @@ public class AiWorkflowGenerator {
             return buildNew(input, originalInput);
         }
 
-        // 2) 删除节点 (关键词: 删掉/删除/去掉/移除 + 节点)
-        Matcher mDel = Pattern.compile("(删掉|删除|去掉|移除)\\s*[第]?(\\d+|[一-十]+)?\\s*个?\\s*节点?").matcher(input);
+        // 2) 删除节点 (关键词: 删掉/删除/去掉/移除 + 节点/最后)
+        Matcher mDel = Pattern.compile("(删掉|删除|去掉|移除)\\s*[第]?(\\d+|[一-十]+|最后[一二三四五六七八九十\\d]*)?\\s*个?\\s*节点?").matcher(input);
         if (mDel.find()) {
             // 解析要删的节点名
             String target = mDel.group(2);
             List<Map<String, Object>> nodes = new ArrayList<>((List<Map<String, Object>>) spec.get("nodes"));
             List<Map<String, Object>> edges = new ArrayList<>((List<Map<String, Object>>) spec.get("edges"));
             if (target != null) {
-                int idx = parseChineseNumber(target);
+                int idx = -1;
+                if (target.startsWith("最")) {
+                    // "最后" / "最后一个" → 删最后一个
+                    idx = nodes.size();
+                } else {
+                    idx = parseChineseNumber(target);
+                }
                 if (idx > 0 && idx <= nodes.size()) {
                     String removedId = (String) nodes.get(idx - 1).get("id");
                     nodes.remove(idx - 1);
