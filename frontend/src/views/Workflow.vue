@@ -477,7 +477,8 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch, w
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   QuestionFilled, Back, RefreshRight, VideoPlay, Document, FolderOpened, Download, Plus, Close, Delete, Refresh, Promotion,
-  FullScreen, ZoomIn, ZoomOut, Position, Aim
+  FullScreen, ZoomIn, ZoomOut, Position, Aim,
+  CircleCheckFilled, CircleCloseFilled, MagicStick
 } from '@element-plus/icons-vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
 import { workflowApi } from '@/api'
