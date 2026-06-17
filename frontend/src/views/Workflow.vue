@@ -8,9 +8,30 @@
         <el-button type="primary" :loading="saving" @click="save">
           <el-icon><Document /></el-icon> 保存
         </el-button>
-        <el-button type="success" :loading="running" :disabled="!nodes.length" @click="run">
-          <el-icon><VideoPlay /></el-icon> 运行 ({{ nodes.length }} 节点)
-        </el-button>
+        <el-tooltip
+          :content="nodes.length && !validation.valid ? '流程不合法: ' + validation.reason : ''"
+          placement="bottom"
+        >
+          <el-button
+            type="success"
+            :loading="running"
+            :disabled="!nodes.length || !validation.valid"
+            @click="run"
+          >
+            <el-icon><VideoPlay /></el-icon> 运行 ({{ nodes.length }} 节点)
+          </el-button>
+        </el-tooltip>
+        <el-tooltip
+          :content="nodes.length && !validation.valid ? '流程不合法: ' + validation.reason : ''"
+          placement="bottom"
+        >
+          <el-button
+            :disabled="!nodes.length || !validation.valid"
+            @click="exportSpec"
+          >
+            <el-icon><Promotion /></el-icon> 导出
+          </el-button>
+        </el-tooltip>
         <el-button :disabled="!history.length" @click="undo">
           <el-icon><Back /></el-icon> 撤销
         </el-button>
@@ -319,7 +340,7 @@
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  QuestionFilled, Back, RefreshRight, VideoPlay, Document, FolderOpened, Download, Plus, Close, Delete, Refresh
+  QuestionFilled, Back, RefreshRight, VideoPlay, Document, FolderOpened, Download, Plus, Close, Delete, Refresh, Promotion
 } from '@element-plus/icons-vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
 import { workflowApi } from '@/api'
@@ -640,6 +661,28 @@ const save = async () => {
   } finally {
     saving.value = false
   }
+}
+
+// 导出为本地 JSON 文件 (流程不合法时按钮 disabled, 不走到这里)
+const exportSpec = () => {
+  const body = {
+    name: specName.value,
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    nodes: nodes.value.map(({ x, y, ...rest }) => rest),
+    edges: edges.value
+  }
+  const blob = new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${specName.value || 'workflow'}.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  addLog('导出', `✓ 已下载: ${a.download}`, 'success')
+  ElMessage.success(`已导出: ${a.download}`)
 }
 
 const loadSpec = async (s) => {
