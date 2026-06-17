@@ -33,6 +33,39 @@ public class TrainerController {
     private final PreviewService previewService;
     private final CorpusAugmenter augmenter;
 
+    /**
+     * 可用的 trainer 模型列表 (静态). 供前端 Train.vue 选模型下拉用.
+     *
+     * <p>id      - trainerId (训练任务里标识)
+     * <br>displayName - 展示名
+     * <br>hyperParams - 调参表单</p>
+     */
+    @GetMapping("/models")
+    public Result<List<Map<String, Object>>> models() {
+        List<Map<String, Object>> models = new java.util.ArrayList<>();
+        models.add(modelOf("minigpt",   "MiniGPT  (小型 Transformer, 6 层, 6 头)", "mini"));
+        models.add(modelOf("minigpt2",  "MiniGPT2 (4 层, 4 头, 快速实验)",         "mini"));
+        models.add(modelOf("llama-mini","LLaMA-Mini (LLaMA 风格, RMSNorm + RoPE)", "llama"));
+        return Result.success(models);
+    }
+
+    private static Map<String, Object> modelOf(String id, String displayName, String family) {
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("id", id);
+        m.put("displayName", displayName);
+        m.put("family", family);
+        m.put("hyperParams", java.util.List.of(
+                Map.of("key", "nLayer",   "label", "层数 (n_layer)",   "type", "number", "default", 6,  "min", 1,  "max", 24),
+                Map.of("key", "nHead",    "label", "头数 (n_head)",    "type", "number", "default", 6,  "min", 1,  "max", 24),
+                Map.of("key", "nEmbd",    "label", "嵌入维度 (n_embd)", "type", "number", "default", 192,"min", 64, "max", 768),
+                Map.of("key", "blockSize","label", "上下文 (block_size)","type","number","default", 64, "min", 16, "max", 512),
+                Map.of("key", "maxIters", "label", "迭代数 (max_iters)","type", "number", "default", 200,"min", 10, "max", 5000),
+                Map.of("key", "batchSize","label", "批大小 (batch_size)","type","number", "default", 12, "min", 1,  "max", 64),
+                Map.of("key", "lr",       "label", "学习率 (lr)",       "type", "number", "default", 0.001,"step", 0.0001)
+        ));
+        return m;
+    }
+
     @PostMapping("/submit")
     public Result<TrainingService.JobState> submit(@RequestBody Map<String, Object> body) {
         String corpusPath = (String) body.get("corpusPath");

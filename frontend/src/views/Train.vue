@@ -147,7 +147,7 @@
 
 defineOptions({ name: 'Train' })
 
-import { ref, reactive, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, computed, nextTick, markRaw } from 'vue'
 import { ElMessage } from 'element-plus'
 import { trainerApi } from '@/api'
 import { useGlobalBus } from '@/composables/useGlobalBus'
@@ -189,7 +189,9 @@ const bus = useGlobalBus()
 async function loadModels () {
   try {
     const r = await trainerApi.models()
-    models.value = r.data || []
+    // markRaw: 后端返回的纯 JSON 不需要 Vue 代理 (避免列表里每个对象加 Proxy,
+    // 也防 keep-alive 序列化时递归 ref Proxy 互引爆 RangeError)
+    models.value = markRaw(r.data || [])
     if (models.value.length && !form.trainerId) form.trainerId = models.value[0].id
     onModelChange()
   } catch (e) { /* gateway may not be running; fall back to empty */ }
