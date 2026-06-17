@@ -131,6 +131,9 @@
 </template>
 
 <script setup>
+
+defineOptions({ name: 'KnowledgePipeline' })
+
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { pipelineApi } from '@/api'

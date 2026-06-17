@@ -162,6 +162,9 @@
 </template>
 
 <script setup>
+
+defineOptions({ name: 'Dashboard' })
+
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import {

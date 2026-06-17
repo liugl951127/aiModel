@@ -306,6 +306,9 @@
 </template>
 
 <script setup>
+
+defineOptions({ name: 'Distributed' })
+
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Connection } from '@element-plus/icons-vue'

@@ -322,6 +322,9 @@
 </template>
 
 <script setup>
+
+defineOptions({ name: 'Workflow' })
+
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {

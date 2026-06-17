@@ -37,6 +37,9 @@
 </template>
 
 <script setup>
+
+defineOptions({ name: 'Chat' })
+
 import { ref, onMounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'

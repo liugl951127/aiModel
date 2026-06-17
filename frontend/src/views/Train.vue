@@ -144,6 +144,9 @@
 </template>
 
 <script setup>
+
+defineOptions({ name: 'Train' })
+
 import { ref, reactive, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { trainerApi } from '@/api'

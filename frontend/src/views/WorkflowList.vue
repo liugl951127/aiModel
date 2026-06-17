@@ -89,6 +89,9 @@
 </template>
 
 <script setup>
+
+defineOptions({ name: 'WorkflowList' })
+
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus } from '@element-plus/icons-vue'
