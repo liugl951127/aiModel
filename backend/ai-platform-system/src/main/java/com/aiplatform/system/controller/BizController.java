@@ -491,35 +491,6 @@ public class BizController {
     @Transactional
     public Result<Void> expenseDelete(@PathVariable Long id) { expenseMapper.deleteById(id); return Result.success(null); }
 
-    // ============== Dashboard 综合 ==============
-    @GetMapping("/dashboard")
-    public Result<Map<String, Object>> dashboard() {
-        Map<String, Object> r = new LinkedHashMap<>();
-        r.put("customerTotal", customerMapper.selectCount(null));
-        r.put("chatTotal", chatMapper.selectCount(null));
-        r.put("opportunityTotal", opportunityMapper.selectCount(null));
-        r.put("quoteTotal", quoteMapper.selectCount(null));
-        r.put("contractTotal", contractMapper.selectCount(null));
-        r.put("orderTotal", orderMapper.selectCount(null));
-        r.put("paymentTotal", paymentMapper.selectCount(null));
-        // 商机金额合计
-        BigDecimal oppAmount = opportunityMapper.selectList(null).stream()
-                .map(Opportunity::getAmount).filter(java.util.Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        r.put("opportunityAmount", oppAmount);
-        // 合同金额合计
-        BigDecimal contractAmount = contractMapper.selectList(null).stream()
-                .map(Contract::getAmount).filter(java.util.Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        r.put("contractAmount", contractAmount);
-        // 回款合计
-        BigDecimal paidAmount = paymentMapper.selectList(null).stream()
-                .map(Payment::getAmount).filter(java.util.Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        r.put("paidAmount", paidAmount);
-        return Result.success(r);
-    }
-
     /**
      * 工作台业务指标聚合 (Dashboard.vue 用).
      * <p>返回 4 大指标: 客户数 / 商机金额 / 订单数 / 回款金额, 加 7 项业务表条数.</p>
@@ -527,14 +498,20 @@ public class BizController {
     @GetMapping("/dashboard")
     public Result<Map<String, Object>> dashboard() {
         Map<String, Object> r = new HashMap<>();
-        // 4 大核心指标
-        r.put("customerCount", Optional.ofNullable(customerMapper.selectCount(null)).orElse(0L));
-        r.put("opportunityAmount", opportunityMapper.selectList(null).stream()
-                .map(Opportunity::getAmount).filter(java.util.Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add));
-        r.put("orderCount", Optional.ofNullable(orderMapper.selectCount(null)).orElse(0L));
+        // 4 大核心指标 (Dashboard.vue 前端用的字段名)
+        r.put("customerTotal", Optional.ofNullable(customerMapper.selectCount(null)).orElse(0L));
+        r.put("opportunityTotal", Optional.ofNullable(opportunityMapper.selectCount(null)).orElse(0L));
+        r.put("orderTotal", Optional.ofNullable(orderMapper.selectCount(null)).orElse(0L));
         r.put("paidAmount", paymentMapper.selectList(null).stream()
                 .map(Payment::getAmount).filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        // 合同金额合计 (Dashboard 详情面板用)
+        r.put("contractAmount", contractMapper.selectList(null).stream()
+                .map(Contract::getAmount).filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        // 商机金额合计 (备用)
+        r.put("opportunityAmount", opportunityMapper.selectList(null).stream()
+                .map(Opportunity::getAmount).filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
         // 7 项业务表条数 (供 Dashboard 详细面板)
         Map<String, Long> counts = new LinkedHashMap<>();
