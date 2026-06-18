@@ -55,16 +55,19 @@
         </filter>
     </appender>
 
-    <!-- JSON 输出 (给 ELK) -->
+    <!-- JSON 输出 (给 ELK / Loki / ClickHouse 采集)
+         ★ 轻量版: PatternLayoutEncoder 自拼 JSON (免加 logstash-logback-encoder 依赖)
+         字段: ts, level, thread, logger, userId, msg -->
     <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_HOME}/${APP_NAME}-json.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_HOME}/${APP_NAME}-json.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-json.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
             <maxHistory>${LOG_RETENTION_DAYS}</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
         </rollingPolicy>
-        <encoder class="ch.qos.logback.classic.encoder.LogstashEncoder">
-            <includeMdc>true</includeMdc>
-            <customFields>{"app":"${APP_NAME}"}</customFields>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>{"ts":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}","level":"%level","thread":"%thread","logger":"%logger{40}","userId":"%X{userId:-SYSTEM}","app":"${APP_NAME}","msg":%msg}%n</pattern>
         </encoder>
     </appender>
 
