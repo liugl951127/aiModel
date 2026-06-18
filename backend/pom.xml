@@ -38,6 +38,7 @@
         <module>ai-platform-inference</module>
         <module>ai-platform-files</module>
         <module>ai-platform-workflow</module>
+        <module>ai-platform-ai</module>
         <module>ai-platform-starters/ai-platform-common-core</module>
         <module>ai-platform-starters/ai-platform-common-web</module>
         <module>seata-demo</module>

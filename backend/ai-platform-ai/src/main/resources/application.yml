@@ -1,0 +1,44 @@
+server:
+  port: 9012  # ai-platform-ai 自带端口 (供独立部署, 默认不开)
+
+spring:
+  application:
+    name: ai-platform-ai
+  main:
+    allow-bean-definition-overriding: true
+
+# ★ AI 后端路由配置 (本模块的核心)
+# 4 个选项: mock (默认, 离线) / onnx (本地 ONNX) / ollama (本地 Ollama) / http (远端 OpenAI-compatible)
+aiplatform:
+  ai:
+    backend: ${AI_BACKEND:mock}    # 环境变量优先, 默认 mock
+
+    # ONNX 配置 (当 backend=onnx 时生效)
+    onnx:
+      embed-model: ${ONNX_EMBED_MODEL:/opt/ai-platform/models/bge-small-zh-v1.5/model.onnx}
+      embed-vocab: ${ONNX_EMBED_VOCAB:/opt/ai-platform/models/bge-small-zh-v1.5/vocab.txt}
+      rerank-model: ${ONNX_RERANK_MODEL:/opt/ai-platform/models/bge-reranker-base/model.onnx}
+      chat-model: ${ONNX_CHAT_MODEL:/opt/ai-platform/models/qwen2.5-1.5b-instruct-q4/model.onnx}
+      max-seq-len: 512
+
+    # Ollama 配置 (当 backend=ollama 时生效)
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://127.0.0.1:11434}
+      chat-model: ${OLLAMA_CHAT_MODEL:qwen2.5:7b}
+      embed-model: ${OLLAMA_EMBED_MODEL:nomic-embed-text}
+      timeout-ms: 30000
+
+    # HTTP 配置 (当 backend=http 时生效, 慎用 — 会联网)
+    http:
+      base-url: ${HTTP_AI_BASE_URL:https://api.openai.com/v1}
+      api-key: ${HTTP_AI_API_KEY:}
+      chat-model: ${HTTP_AI_CHAT_MODEL:gpt-3.5-turbo}
+      embed-model: ${HTTP_AI_EMBED_MODEL:text-embedding-3-small}
+      timeout-ms: 30000
+
+# Actuator (本模块单独启动时也能监控)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
