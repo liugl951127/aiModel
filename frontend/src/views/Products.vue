@@ -2,7 +2,7 @@
   <BizCrudPage
     title="📦 产品 SKU"
     search-placeholder="产品名 / 编码"
-    :columns="columns" :form-fields="formFields" :api="api"
+    :columns="columns" :form-fields="formFields" :api="api" api-prefix="product"
     :row2form="r => r" :form2row="f => f"
   />
 </template>

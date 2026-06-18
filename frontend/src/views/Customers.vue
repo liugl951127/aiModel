@@ -2,7 +2,7 @@
   <BizCrudPage
     title="👥 客户管理"
     search-placeholder="客户名 / 联系人"
-    :columns="columns" :form-fields="formFields" :api="api" :stats-cards="statsCards"
+    :columns="columns" :form-fields="formFields" :api="api" api-prefix="customer" :stats-cards="statsCards"
     :row2form="r => r" :form2row="f => f"
   />
 </template>

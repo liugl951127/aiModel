@@ -2,7 +2,7 @@
   <BizCrudPage
     title="🤝 洽谈记录"
     search-placeholder="洽谈主题"
-    :columns="columns" :form-fields="formFields" :api="api"
+    :columns="columns" :form-fields="formFields" :api="api" api-prefix="chat"
     :row2form="r => r" :form2row="f => f"
   />
 </template>

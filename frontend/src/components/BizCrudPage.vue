@@ -96,12 +96,15 @@ import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 
 // props: title, searchPlaceholder, columns, formFields, api (含 page/list/get/create/update/remove/stats),
 //        row2form (row => form), form2row (form => body), stats (额外统计)
+// ★ apiPrefix: 业务实体名前缀 (如 'product' / 'order' / 'customer'),
+//   设了就调 api[\`\${apiPrefix}Page\`] / [\`\${apiPrefix}Create\`] 等
 const props = defineProps({
   title: { type: String, required: true },
   searchPlaceholder: { type: String, default: '搜索' },
   columns: { type: Array, required: true },      // [{ prop, label, width, tag, money, date }]
   formFields: { type: Array, required: true },   // [{ prop, label, type, select, options, min, max }]
   api: { type: Object, required: true },
+  apiPrefix: { type: String, default: '' },      // ★ 'product' / 'order' / 'customer' 等
   row2form: { type: Function, default: r => r },
   form2row: { type: Function, default: f => f },
   statsCards: { type: Array, default: () => [] }
@@ -141,7 +144,12 @@ const formatDate = (s) => {
 const load = async () => {
   loading.value = true
   try {
-    const r = await props.api.page({ page: page.value, size: size.value, keyword: kw.value })
+    const pageFn = props.apiPrefix ? props.api[`${props.apiPrefix}Page`] : props.api.page
+    if (!pageFn) {
+      ElMessage.error(`接口未配置: ${props.apiPrefix}Page / page`)
+      rows.value = []; total.value = 0; return
+    }
+    const r = await pageFn({ page: page.value, size: size.value, keyword: kw.value })
     if (r.code === 200) {
       rows.value = r.data.records || []
       total.value = r.data.total || 0
@@ -168,11 +176,13 @@ const openEdit = (row) => {
 const save = async () => {
   try {
     const body = props.form2row(form)
+    const createFn = props.apiPrefix ? props.api[`${props.apiPrefix}Create`] : props.api.create
+    const updateFn = props.apiPrefix ? props.api[`${props.apiPrefix}Update`] : props.api.update
     let r
     if (form.id) {
-      r = await props.api.update(body)
+      r = await updateFn(body)
     } else {
-      r = await props.api.create(body)
+      r = await createFn(body)
     }
     if (r.code === 200) {
       ElMessage.success('保存成功')
@@ -189,7 +199,12 @@ const save = async () => {
 const remove = async (row) => {
   try {
     await ElMessageBox.confirm(`确认删除 "${row.name || row.title || row.code || row.id}"?`, '提示', { type: 'warning' })
-    const r = await props.api.remove(row.id)
+    const removeFn = props.apiPrefix ? props.api[`${props.apiPrefix}Remove`] : props.api.remove
+    if (!removeFn) {
+      ElMessage.error(`接口未配置: ${props.apiPrefix}Remove / remove`)
+      return
+    }
+    const r = await removeFn(row.id)
     if (r.code === 200) {
       ElMessage.success('已删除')
       load()

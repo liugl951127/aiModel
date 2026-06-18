@@ -2,7 +2,7 @@
   <BizCrudPage
     title="💰 报价管理"
     search-placeholder="报价标题 / 编号"
-    :columns="columns" :form-fields="formFields" :api="api"
+    :columns="columns" :form-fields="formFields" :api="api" api-prefix="quote"
     :row2form="r => r" :form2row="f => f"
   />
 </template>

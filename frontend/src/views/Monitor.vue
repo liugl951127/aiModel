@@ -23,7 +23,7 @@
       :closable="false" show-icon style="margin-bottom: 10px;" />
 
     <!-- 服务网格 -->
-    <h3 class="section-title">🖥️ 服务健康 (9 核心服务)</h3>
+    <h3 class="section-title">🖥️ 服务健康 (11 核心服务)</h3>
     <el-row :gutter="10" class="service-grid">
       <el-col v-for="s in services" :key="s.name" :xs="12" :sm="8" :md="6" :lg="4">
         <div class="svc-card" :class="'svc-' + s.status">

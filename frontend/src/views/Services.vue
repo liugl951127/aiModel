@@ -2,7 +2,7 @@
   <BizCrudPage
     title="🛠️ 服务项目"
     search-placeholder="服务名"
-    :columns="columns" :form-fields="formFields" :api="api"
+    :columns="columns" :form-fields="formFields" :api="api" api-prefix="service"
     :row2form="r => r" :form2row="f => f"
   />
 </template>

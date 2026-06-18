@@ -2,7 +2,7 @@
   <BizCrudPage
     title="💼 商机管理"
     search-placeholder="商机名"
-    :columns="columns" :form-fields="formFields" :api="api" :stats-cards="statsCards"
+    :columns="columns" :form-fields="formFields" :api="api" api-prefix="opportunity" :stats-cards="statsCards"
     :row2form="r => r" :form2row="f => f"
   />
 </template>

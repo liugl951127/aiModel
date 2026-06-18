@@ -2,7 +2,7 @@
   <BizCrudPage
     title="📜 合同管理"
     search-placeholder="合同标题 / 编号"
-    :columns="columns" :form-fields="formFields" :api="api"
+    :columns="columns" :form-fields="formFields" :api="api" api-prefix="contract"
     :row2form="r => r" :form2row="f => f"
   />
 </template>
