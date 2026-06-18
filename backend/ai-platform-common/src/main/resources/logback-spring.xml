@@ -22,8 +22,7 @@
     <appender name="FILE_INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_HOME}/${APP_NAME}-info.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_HOME}/${APP_NAME}-info.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-info.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
             <maxHistory>${LOG_RETENTION_DAYS}</maxHistory>
             <totalSizeCap>10GB</totalSizeCap>
             <cleanHistoryOnStart>true</cleanHistoryOnStart>
@@ -42,8 +41,7 @@
     <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_HOME}/${APP_NAME}-error.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_HOME}/${APP_NAME}-error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
-            <maxFileSize>50MB</maxFileSize>
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-error.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
             <maxHistory>90</maxHistory>
             <totalSizeCap>5GB</totalSizeCap>
         </rollingPolicy>
@@ -61,8 +59,7 @@
     <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_HOME}/${APP_NAME}-json.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_HOME}/${APP_NAME}-json.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-json.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
             <maxHistory>${LOG_RETENTION_DAYS}</maxHistory>
             <totalSizeCap>10GB</totalSizeCap>
         </rollingPolicy>

@@ -2,6 +2,7 @@ package com.aiplatform.agent.tool.builtin;
 
 import com.aiplatform.agent.tool.AgentTool;
 import com.aiplatform.ai.backend.AIBackend;
+import com.aiplatform.ai.backend.AIBackendSwitcher;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,23 +12,24 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ★ 本地联网搜索工具 (替代原 DuckDuckGo 外部 API).
+ * ★ 联网搜索工具 (内部实现, 外部接口保留).
  *
- * <p>本工具不再调任何外部服务, 而是通过 {@link AIBackend} 接口走本地实现.
- * 默认走 {@code MockAIBackend.webSearch()} (内置 corpus 关键词匹配), 也可
- * 配 {@code aiplatform.ai.backend=onnx|ollama|http} 切换.</p>
+ * <p>本工具默认走 <b>内部</b> (本系统知识库 + 内置 corpus, 0 联网, 安全).
+ * 配 {@code aiplatform.ai.search-mode=external} 可切到 <b>外部</b>
+ * (DuckDuckGo / Bing / Google CSE, 联网, 查最新信息).</p>
  *
- * <h2>改造前后对比</h2>
- * <table border="1">
- *   <caption>原实现 vs 本地实现</caption>
- *   <tr><th>原</th><td>HTTPS → api.duckduckgo.com (公网, 不稳定, 隐私风险)</td></tr>
- *   <tr><th>现在</th><td>本地 AIBackend.webSearch() (内网, 0 联网, 0 风险)</td></tr>
- * </table>
+ * <h2>双轨设计</h2>
+ * <ul>
+ *   <li><b>internal</b> (默认): 走 AIBackendSwitcher → 调本系统 internal 后端 → 查知识库</li>
+ *   <li><b>external</b>: 走 AIBackendSwitcher → 调 DuckDuckGoSearchAdapter → 真正联网</li>
+ * </ul>
+ *
+ * <p>业务侧 (智能体) 只跟本工具交互, 不感知具体后端.</p>
  *
  * <h2>Agent ReAct 调用</h2>
  * 智能体在 ReAct 循环的 {@code Action} 步骤里输出
  * {@code web_search(query="...")} → 引擎把参数传给本工具
- * → 返回前若干条本地检索结果拼回 prompt.
+ * → 返回前若干条检索结果拼回 prompt.
  */
 @Slf4j
 @Component
@@ -36,11 +38,12 @@ public class WebSearchTool implements AgentTool {
 
     public static final String NAME = "web_search";
 
-    private final AIBackend aiBackend;
+    private final AIBackendSwitcher switcher;
 
     @PostConstruct
     public void warmup() {
-        log.info("[web_search] 工具初始化完成, AI 后端: {}", aiBackend.name());
+        log.info("[web_search] 工具初始化完成, chat={}, search-mode={}",
+                switcher.currentChatBackend(), switcher.currentSearchMode());
     }
 
     @Override public String name() { return NAME; }
@@ -69,12 +72,15 @@ public class WebSearchTool implements AgentTool {
         if (args.get("topK") instanceof Number n) topK = Math.max(1, n.intValue());
 
         try {
-            List<AIBackend.WebSearchResult> results = aiBackend.webSearch(query, topK);
+            List<AIBackend.WebSearchResult> results = switcher.webSearch(query, topK);
+            String mode = switcher.currentSearchMode();
             if (results.isEmpty()) {
-                return "[local search] 没有匹配结果. (后端: " + aiBackend.name() + ")";
+                return "[search · " + mode + "] 没有匹配结果. (chat-backend=" + switcher.currentChatBackend() + ")";
             }
             StringBuilder sb = new StringBuilder();
-            sb.append("[local search · 后端: ").append(aiBackend.name()).append("] ").append(results.size()).append(" 条:\n\n");
+            sb.append("[search · ").append(mode).append(" · chat=")
+              .append(switcher.currentChatBackend()).append("] ")
+              .append(results.size()).append(" 条:\n\n");
             int i = 1;
             for (AIBackend.WebSearchResult r : results) {
                 sb.append(i++).append(". ").append(r.title()).append("\n")

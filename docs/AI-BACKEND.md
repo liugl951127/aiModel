@@ -1,30 +1,40 @@
-# AI 后端路由 (本地化, 不联网)
+# AI 后端路由 (本地化 + 外部联网并存)
 
-> **目标**: 把所有外部联网 AI 接口 (LLM/Embedding/Rerank/WebSearch) 收口到本地实现.
-> **结果**: 业务侧只依赖 `AIBackend` 接口, 通过 `application.yml` 切换后端, 不改代码.
+> **目标**: 业务侧只依赖 `AIBackend` 接口, 通过 `application.yml` 切换后端, 不改代码.
+> **设计**: 内部实现 + 外部联网 双轨并存, 默认走内部 (0 联网), 需要时可切外部.
 
 ---
 
-## 一、4 个后端 (按推荐度)
+## 一、5 个后端 + 2 个 search-mode (按推荐度)
+
+### Chat / Embed / Rerank 后端 (5 选 1)
 
 | Backend | 联网? | 资源 | 适用场景 |
 |---|---|---|---|
 | **`mock`** (默认) | ❌ 0 联网 | 0 内存 | 演示 / CI / 无模型环境 |
+| **`internal`** | ❌ 0 联网 | 0 内存 | **本系统内部** (调 knowledge + inference) |
 | **`onnx`** | ❌ 0 联网 | 1-2GB 内存 | **生产推荐** (本地真模型推理) |
 | **`ollama`** | ❌ 0 联网 | 8-32GB 内存 | 需要更大模型 (Qwen2.5-7B+) |
 | **`http`** | ✅ 联网 | 0 内存 | 接 OpenAI/DeepSeek/通义千问 (慎用) |
+
+### WebSearch 模式 (2 选 1, 独立)
+
+| Mode | 联网? | 走哪 |
+|---|---|---|
+| **`internal`** (默认) | ❌ 0 联网 | 本系统知识库 + 内置 corpus (10 条) |
+| **`external`** | ✅ 联网 | DuckDuckGo / Bing / Google CSE 等适配器 |
 
 ---
 
 ## 二、快速开始
 
-### 1. 默认 (Mock 离线)
-不用配置, 直接跑. 所有 chat/embed/rerank/webSearch 走内置 demo.
+### 1. 默认 (Mock 离线 + 内部 search)
+不用配置, 直接跑. 所有 chat/embed/rerank 走 mock, webSearch 走内置 corpus.
 
 ```bash
 mvn -pl ai-platform-ai -am spring-boot:run
 curl http://localhost:9012/api/ai/backends
-# {"active":"mock","healthy":true,"available":["mock"]}
+# {"chatBackend":"mock","searchMode":"internal","healthy":true,"availableChat":["mock"]}
 ```
 
 ### 2. ONNX 本地模型 (生产推荐)
@@ -80,6 +90,40 @@ export AI_BACKEND=http
 export HTTP_AI_BASE_URL=https://api.deepseek.com/v1
 export HTTP_AI_API_KEY=sk-...
 export HTTP_AI_CHAT_MODEL=deepseek-chat
+```
+
+### 5. 内部 (本系统 knowledge + inference, 0 联网)
+
+```bash
+export AI_BACKEND=internal
+# 跟 chat 独立, 调本系统的 /api/knowledge/search 和 /api/inference/generate
+export INTERNAL_KB_URL=http://127.0.0.1:9006
+export INTERNAL_INF_URL=http://127.0.0.1:9007
+```
+
+### 6. WebSearch 走外部 (独立开关, 任何 chat backend 都能加)
+
+```bash
+# 默认 internal (本系统)
+export AI_SEARCH_MODE=internal
+
+# 切到 external (外部联网, 走 DuckDuckGo)
+export AI_SEARCH_MODE=external
+# 配合 chat 后端 = 任意 (mock/internal/onnx/ollama/http)
+```
+
+## 1.5 运行时切换 (不重启)
+
+```bash
+# 看当前配置
+curl http://localhost:9012/api/ai/backends
+# {"chatBackend":"mock","searchMode":"internal","healthy":true,"availableChat":["mock"]}
+
+# 切 chat backend
+curl -X POST http://localhost:9012/api/ai/switch/internal
+
+# 切 search-mode (需重启或重构 Switcher 为非 final)
+# 默认内部优先, 外部失败自动降级
 ```
 
 ---
@@ -190,19 +234,25 @@ ai-platform-ai/
 ├── src/main/java/com/aiplatform/ai/
 │   ├── backend/
 │   │   ├── AIBackend.java              # 统一接口
-│   │   ├── AIBackendRouter.java        # 路由
+│   │   ├── AIBackendRouter.java        # chat/embed/rerank 路由
+│   │   ├── AIBackendSwitcher.java      # ★ 双轨路由: chat backend + search mode
+│   │   ├── ExternalWebSearchAdapter.java  # 外部搜索适配器接口
 │   │   └── impl/
-│   │       ├── MockAIBackend.java      # 离线
-│   │       ├── OnnxAIBackend.java      # ONNX Runtime
-│   │       ├── OllamaAIBackend.java    # Ollama 客户端
-│   │       └── HttpAIBackend.java      # OpenAI-compatible
+│   │       ├── MockAIBackend.java        # 离线 (默认 chat)
+│   │       ├── InternalAIBackend.java    # ★ 内部 (本系统 knowledge + inference)
+│   │       ├── OnnxAIBackend.java        # ONNX Runtime
+│   │       ├── OllamaAIBackend.java      # Ollama 客户端
+│   │       ├── HttpAIBackend.java        # OpenAI-compatible (chat 远端, 走外网)
+│   │       └── DuckDuckGoSearchAdapter.java  # ★ 外部联网搜索 (保留)
 │   ├── local/
-│   │   └── LocalEmbeddingClient.java   # 业务侧统一 embed 入口 (带 LRU 缓存)
+│   │   └── LocalEmbeddingClient.java   # 业务侧统一 embed 入口
 │   └── controller/
 │       └── AIBackendController.java    # /api/ai/** 管理 API
 ├── src/main/resources/
-│   └── application.yml                 # 默认 mock, 4 后端配置
-└── src/test/java/.../MockAIBackendTest.java   # 10 个单元测试
+│   └── application.yml                 # 5 chat backend + 2 search mode
+└── src/test/java/.../
+    ├── MockAIBackendTest.java       # 10 测试
+    └── InternalAIBackendTest.java  # 8 测试
 ```
 
 ---
@@ -232,10 +282,10 @@ curl -X POST http://localhost:9012/api/ai/switch/onnx
 
 ```bash
 mvn -pl ai-platform-ai -B test
-# 10 tests, 应该全过
+# 18 tests, 应该全过
 ```
 
-覆盖:
+MockAIBackendTest (10):
 - ✅ 名称正确 (mock)
 - ✅ chat 返回非空
 - ✅ embed 确定性 (同样输入→同样输出)
@@ -247,3 +297,14 @@ mvn -pl ai-platform-ai -B test
 - ✅ webSearch 限 topK
 - ✅ 健康检查
 - ✅ 批量 embed
+
+InternalAIBackendTest (8):
+- ✅ 名称正确 (internal)
+- ✅ webSearch 降级到 corpus
+- ✅ webSearch 空 query
+- ✅ chat 服务不可达降级 mock
+- ✅ embed 服务不可达降级
+- ✅ rerank 降级
+- ✅ isHealthy 服务不可达返 false
+- ✅ corpus 关键词可搜
+- ✅ corpus 至少 5 条

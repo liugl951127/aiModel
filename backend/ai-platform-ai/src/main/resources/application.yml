@@ -8,10 +8,25 @@ spring:
     allow-bean-definition-overriding: true
 
 # ★ AI 后端路由配置 (本模块的核心)
-# 4 个选项: mock (默认, 离线) / onnx (本地 ONNX) / ollama (本地 Ollama) / http (远端 OpenAI-compatible)
+# 5 个选项: mock (默认, 离线) / internal (本系统) / onnx (本地 ONNX) / ollama (本地 Ollama) / http (远端 OpenAI-compatible)
+# 另有独立 search-mode: internal (默认, 本系统) / external (外部联网, 走 DuckDuckGo)
 aiplatform:
   ai:
     backend: ${AI_BACKEND:mock}    # 环境变量优先, 默认 mock
+    search-mode: ${AI_SEARCH_MODE:internal}    # 独立开关, 跟 backend 解耦
+
+    # Internal 配置 (当 backend=internal 时生效 — 调本系统 knowledge + inference)
+    internal:
+      knowledge-url: ${INTERNAL_KB_URL:http://127.0.0.1:9006}
+      inference-url: ${INTERNAL_INF_URL:http://127.0.0.1:9007}
+      top-k: 5
+      timeout-ms: 15000
+
+    # 外部联网适配器 (当 search-mode=external 时启用)
+    external:
+      enabled: true
+      duckduckgo-endpoint: ${DUCKDUCKGO_ENDPOINT:https://api.duckduckgo.com/}
+      timeout-ms: 4000
 
     # ONNX 配置 (当 backend=onnx 时生效)
     onnx:
