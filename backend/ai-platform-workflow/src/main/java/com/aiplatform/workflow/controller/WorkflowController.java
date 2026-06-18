@@ -226,6 +226,81 @@ public class WorkflowController {
         return Result.success(result);
     }
 
+    /**
+     * ★ 批量执行 (前端 跨多个 spec 一起跑的需求)
+     * body: { specIds: [1,2,3], concurrency: 2 }
+     * 返回: { results: [{ specId, runId, status, error }] }
+     */
+    @PostMapping("/exec/batch")
+    public Result<Map<String, Object>> execBatch(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Object> rawSpecIds = (List<Object>) body.getOrDefault("specIds", java.util.Collections.emptyList());
+        int concurrency = ((Number) body.getOrDefault("concurrency", 1)).intValue();
+        List<Map<String, Object>> results = new java.util.ArrayList<>();
+        for (Object obj : rawSpecIds) {
+            Long specId = obj instanceof Number ? ((Number) obj).longValue() : Long.parseLong(obj.toString());
+            Map<String, Object> item = new java.util.LinkedHashMap<>();
+            item.put("specId", specId);
+            try {
+                WorkflowSpecEntity entity = specRepo.getById(specId);
+                if (entity == null) {
+                    item.put("status", "FAILED");
+                    item.put("error", "spec not found");
+                } else {
+                    WorkflowSpec spec = specRepo.toLegacySpec(entity);
+                    // 异步执行, 立即返回 runId
+                    String runId = "batch-" + System.currentTimeMillis() + "-" + specId;
+                    new Thread(() -> {
+                        try { engine.run(spec); } catch (Exception ex) { log.warn("[WF batch] run fail: {}", ex.getMessage()); }
+                    }, "wf-batch-" + specId).start();
+                    item.put("runId", runId);
+                    item.put("status", "RUNNING");
+                }
+            } catch (Exception e) {
+                item.put("status", "FAILED");
+                item.put("error", e.getMessage());
+            }
+            results.add(item);
+        }
+        Map<String, Object> ret = new java.util.LinkedHashMap<>();
+        ret.put("results", results);
+        ret.put("total", results.size());
+        ret.put("concurrency", concurrency);
+        return Result.success(ret);
+    }
+
+    /**
+     * ★ 预置模板: 训练-评估-部署 (前端 [AI 生成] 默认模板)
+     * 返回: { name, nodes, edges, description }
+     */
+    @GetMapping("/templates/train-eval-deploy")
+    public Result<Map<String, Object>> trainEvalDeployTemplate() {
+        Map<String, Object> ret = new java.util.LinkedHashMap<>();
+        ret.put("name", "训练-评估-部署流水线");
+        ret.put("description", "经典 MLOps 流水线: 数据准备 → 训练 → 评估 → 模型注册 → 灰度部署");
+        ret.put("category", "mlops");
+        ret.put("tags", java.util.List.of("mlops", "training", "deployment"));
+
+        // 5 节点
+        java.util.List<Map<String, Object>> nodes = java.util.List.of(
+            Map.of("id", "n1", "type", "data_load", "name", "数据加载", "x", 100, "y", 200, "config", Map.of("source", "dataset_csv", "format", "csv")),
+            Map.of("id", "n2", "type", "train", "name", "模型训练", "x", 350, "y", 200, "config", Map.of("epochs", 3, "lr", 0.001, "batch_size", 32)),
+            Map.of("id", "n3", "type", "evaluate", "name", "评估", "x", 600, "y", 200, "config", Map.of("metrics", java.util.List.of("accuracy", "f1", "loss"))),
+            Map.of("id", "n4", "type", "register", "name", "模型注册", "x", 850, "y", 200, "config", Map.of("model_name", "trained_v1")),
+            Map.of("id", "n5", "type", "deploy", "name", "灰度部署", "x", 1100, "y", 200, "config", Map.of("strategy", "canary", "ratio", 0.1))
+        );
+        // 4 边
+        java.util.List<Map<String, Object>> edges = java.util.List.of(
+            Map.of("id", "e1", "from", "n1", "to", "n2"),
+            Map.of("id", "e2", "from", "n2", "to", "n3"),
+            Map.of("id", "e3", "from", "n3", "to", "n4"),
+            Map.of("id", "e4", "from", "n4", "to", "n5")
+        );
+        ret.put("nodes", nodes);
+        ret.put("edges", edges);
+        return Result.success(ret);
+    }
+
     // ============== helper ==============
 
     /**
