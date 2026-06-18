@@ -204,7 +204,15 @@
                   <el-link underline="never" type="primary" size="small" @click="showDevTip = true">说明</el-link>
                 </div>
 
-                <el-button type="primary" :loading="loading" @click="onLogin" class="submit-btn" size="large" round>
+                <!-- ★ P0-LEAD-2 强制勾选用户协议 -->
+                <div class="agree-row">
+                  <el-checkbox v-model="agreeChecked">
+                    我已阅读并同意
+                    <el-link type="primary" underline="never" @click.stop="router.push('/agreement')">《用户协议与隐私政策》</el-link>
+                  </el-checkbox>
+                </div>
+
+                <el-button type="primary" :loading="loading" :disabled="!agreeChecked" @click="onLogin" class="submit-btn" size="large" round>
                   登 录
                 </el-button>
 
@@ -615,11 +623,22 @@ const loadTenants = async () => {
 
 // ============== 提交 ==============
 const loading = ref(false)
+// ★ P0-LEAD-2 用户协议勾选状态
+const agreeChecked = ref(localStorage.getItem('agree_v2') === 'yes')
 const resultAlert = ref(null)
 
 const onLogin = async () => {
   const form = loginFormRef.value
   if (!form) return
+  // ★ RISK-4 锁定检查
+  const failKey = `login_fail_${loginForm.username}`
+  const lockUntil = Number(localStorage.getItem(failKey + '_lock') || 0)
+  if (lockUntil > Date.now()) {
+    const remain = Math.ceil((lockUntil - Date.now()) / 1000 / 60)
+    ElMessage.warning(`[安全] 账号已锁定, 还需 ${remain} 分钟`)
+    resultAlert.value = { type: 'error', title: '账号被锁定', desc: `连续输错 3 次, 请 ${remain} 分钟后再试` }
+    return
+  }
   try {
     await form.validate()
   } catch (e) {
@@ -650,6 +669,12 @@ const onLogin = async () => {
     localStorage.setItem('tenant_name', data.tenantName || '')
     localStorage.setItem('department', data.department || '')
     localStorage.setItem('roles', JSON.stringify(data.roles || ['user']))
+    // ★ P0-LEAD-2 勾选状态持久化
+    if (agreeChecked.value) localStorage.setItem('agree_v2', 'yes')
+    // ★ RISK-4 登录成功清掉失败计数
+    localStorage.removeItem(`login_fail_${loginForm.username}`)
+    localStorage.removeItem(`login_fail_${loginForm.username}_ts`)
+    localStorage.removeItem(`login_fail_${loginForm.username}_lock`)
     if (loginForm.remember) {
       localStorage.setItem('remember_login', 'true')
       localStorage.setItem('remember_username', loginForm.username)
@@ -667,6 +692,16 @@ const onLogin = async () => {
       type: 'error',
       title: '登录失败',
       desc: `HTTP ${status || 'ERR'} · ${body?.message || e.message}`
+    }
+    // ★ RISK-4 登录失败计数锁定: 5 分钟内输错 3 次 → 锁定 5 分钟
+    const failKey = `login_fail_${loginForm.username}`
+    const fail = Number(localStorage.getItem(failKey) || 0) + 1
+    localStorage.setItem(failKey, String(fail))
+    localStorage.setItem(failKey + '_ts', String(Date.now()))
+    if (fail >= 3) {
+      const lockUntil = Date.now() + 5 * 60 * 1000
+      localStorage.setItem(failKey + '_lock', String(lockUntil))
+      ElMessage.warning(`[安全] 连续输错 3 次, 账号临时锁定 5 分钟`)
     }
   } finally {
     loading.value = false
@@ -935,6 +970,10 @@ onMounted(() => {
   border: none;
 }
 .submit-btn:hover { background: linear-gradient(135deg, #4f46e5, #4338ca); }
+
+/* ★ P0-LEAD-2 协议勾选行 */
+.agree-row { margin: 4px 0 12px; padding: 8px 0; text-align: left; }
+.agree-row .el-checkbox { font-size: 13px; color: #475569; }
 
 /* 快捷账号 */
 .quick-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }

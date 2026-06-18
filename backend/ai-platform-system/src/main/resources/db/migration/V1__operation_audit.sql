@@ -1,0 +1,25 @@
+-- ★ P0-LEAD-1 操作审计表 (处长要求: 可追溯)
+CREATE TABLE IF NOT EXISTS sys_operation_audit (
+    id              BIGINT          NOT NULL PRIMARY KEY,
+    username        VARCHAR(64)     DEFAULT NULL COMMENT '操作者',
+    user_id         BIGINT          DEFAULT NULL,
+    tenant_id       BIGINT          DEFAULT NULL,
+    module          VARCHAR(32)     DEFAULT NULL COMMENT '模块 (用户/角色/智能体/...)',
+    operation       VARCHAR(32)     DEFAULT NULL COMMENT '操作 (CREATE/UPDATE/DELETE/EXPORT/IMPORT)',
+    description     VARCHAR(255)    DEFAULT NULL COMMENT '描述',
+    biz_id          VARCHAR(64)     DEFAULT NULL COMMENT '业务对象 id',
+    http_method     VARCHAR(8)      DEFAULT NULL,
+    request_path    VARCHAR(255)    DEFAULT NULL,
+    request_params  TEXT            COMMENT '请求参数 (脱敏)',
+    response_code   INT             DEFAULT NULL,
+    client_ip       VARCHAR(64)     DEFAULT NULL,
+    user_agent      VARCHAR(255)    DEFAULT NULL,
+    cost_ms         BIGINT          DEFAULT NULL,
+    status          VARCHAR(16)     DEFAULT 'SUCCESS' COMMENT 'SUCCESS/FAILED',
+    error_message   TEXT            DEFAULT NULL,
+    create_time     DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user (username),
+    INDEX idx_module (module),
+    INDEX idx_time (create_time),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作审计日志';

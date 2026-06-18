@@ -3,6 +3,8 @@ import Layout from '@/layouts/MainLayout.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: () => import('@/views/Login.vue') },
+  // ★ P0-LEAD-2 顶层独立页 (不被 Layout 包, 登录前也能看)
+  { path: '/agreement', name: 'Agreement', component: () => import('@/views/Agreement.vue'), meta: { title: '用户协议' } },
   // ★ P1-1 修复: 404 顶层独立页 (不被 Layout 包)
   { path: '/404', name: 'NotFound', component: () => import('@/views/NotFound.vue'), meta: { title: '页面不存在' } },
   {
@@ -25,11 +27,11 @@ const routes = [
       { path: 'knowledge', name: 'Knowledge', component: () => import('@/views/Knowledge.vue'), meta: { title: '知识库' } },
       { path: 'knowledge/pipeline', name: 'KnowledgePipeline', component: () => import('@/views/KnowledgePipeline.vue'), meta: { title: '知识库流程编排' } },
       { path: 'inference', name: 'Inference', component: () => import('@/views/Inference.vue'), meta: { title: '推理测试' } },
-      { path: 'users', name: 'Users', component: () => import('@/views/Users.vue'), meta: { title: '用户' } },
-      { path: 'tenants', name: 'Tenants', component: () => import('@/views/Tenants.vue'), meta: { title: '租户' } },
-      { path: 'roles', name: 'Roles', component: () => import('@/views/Role.vue'), meta: { title: '角色' } },
-      { path: 'menus', name: 'Menus', component: () => import('@/views/Menu.vue'), meta: { title: '菜单' } },
-      { path: 'audit', name: 'Audit', component: () => import('@/views/AuditLog.vue'), meta: { title: '审计' } },
+      { path: 'users', name: 'Users', component: () => import('@/views/Users.vue'), meta: { title: '用户', roles: ['SUPER_ADMIN', 'ADMIN', 'TENANT_ADMIN'] } },
+      { path: 'tenants', name: 'Tenants', component: () => import('@/views/Tenants.vue'), meta: { title: '租户', roles: ['SUPER_ADMIN'] } },
+      { path: 'roles', name: 'Roles', component: () => import('@/views/Role.vue'), meta: { title: '角色', roles: ['SUPER_ADMIN', 'ADMIN', 'TENANT_ADMIN'] } },
+      { path: 'menus', name: 'Menus', component: () => import('@/views/Menu.vue'), meta: { title: '菜单', roles: ['SUPER_ADMIN'] } },
+      { path: 'audit', name: 'Audit', component: () => import('@/views/AuditLog.vue'), meta: { title: '审计', roles: ['SUPER_ADMIN', 'ADMIN', 'TENANT_ADMIN'] } },
       { path: 'files', name: 'Files', component: () => import('@/views/Files.vue'), meta: { title: '文件管理' } },
 
       // 业务模块
@@ -55,8 +57,22 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   if (to.path === '/login') return next()
   if (to.path === '/404') return next()
+  if (to.path === '/agreement') return next()  // ★ P0-LEAD-2 协议页免登录
   const token = localStorage.getItem('access_token')
   if (!token) return next('/login')
+  // ★ P0-PM-1 修复: 路由级角色守卫
+  if (to.meta?.roles?.length) {
+    let roles = []
+    try { roles = JSON.parse(localStorage.getItem('roles') || '[]') } catch (e) { roles = [] }
+    const ok = roles.some(r => to.meta.roles.includes(r))
+    if (!ok) {
+      // 用 setTimeout 避免循环 import ElMessage
+      setTimeout(() => {
+        if (window.__EP_MESSAGE__) window.__EP_MESSAGE__.warning(`无权限访问 [${to.meta.title}], 需要角色: ${to.meta.roles.join('/')}`)
+      }, 0)
+      return next(from.path === '/login' ? '/dashboard' : (from.fullPath || '/dashboard'))
+    }
+  }
   next()
 })
 

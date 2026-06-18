@@ -1,0 +1,9 @@
+/* ★ P0-PM-2 自实现 NProgress-like 顶部进度条 (0 依赖) */
+#__app-progress {
+  position: fixed; top: 0; left: 0; height: 3px; width: 0%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+  box-shadow: 0 0 10px rgba(99,102,241,0.5);
+  z-index: 99999; pointer-events: none;
+  transition: width 0.3s ease, opacity 0.4s ease;
+}
+#__app-progress.done { opacity: 0; }

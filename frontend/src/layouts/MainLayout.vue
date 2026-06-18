@@ -275,6 +275,9 @@
                   <el-dropdown-item command="swagger" divided>
                     <el-icon><Document /></el-icon>API 文档
                   </el-dropdown-item>
+                  <el-dropdown-item command="agreement">
+                    <el-icon><Tickets /></el-icon>用户协议
+                  </el-dropdown-item>
                   <el-dropdown-item command="logout" divided>
                     <el-icon><SwitchButton /></el-icon>退出登录
                   </el-dropdown-item>
@@ -514,6 +517,8 @@ const onUserMenu = (cmd) => {
     ElMessage.info('个人中心待开发')
   } else if (cmd === 'swagger') {
     window.open('/doc.html', '_blank')
+  } else if (cmd === 'agreement') {
+    router.push('/agreement')
   }
 }
 
