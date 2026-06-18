@@ -268,13 +268,14 @@ const onEvent = (e) => {
   }, 100)
 }
 
+// ★ P0-1 修复: sysList 初始为空, 状态从 /api/*/health 真探活
 const sysList = ref([
-  { name: '网关',  status: 'ok',  detail: '9000 · 12 路由' },
-  { name: '认证',  status: 'ok',  detail: '9010 · JWT' },
-  { name: '推理',  status: 'ok',  detail: '9007 · ONNX' },
-  { name: '训练',  status: 'ok',  detail: '9011 · DJL' },
-  { name: '知识库', status: 'ok',  detail: '9005 · ES 8' },
-  { name: 'Nacos', status: 'warn', detail: '8848 · 可选' }
+  { name: '网关',  status: 'pending',  detail: '9000 · 12 路由' },
+  { name: '认证',  status: 'pending',  detail: '9010 · JWT' },
+  { name: '推理',  status: 'pending',  detail: '9007 · ONNX' },
+  { name: '训练',  status: 'pending',  detail: '9011 · DJL' },
+  { name: '知识库', status: 'pending',  detail: '9005 · ES 8' },
+  { name: 'Nacos', status: 'pending', detail: '8848 · 可选' }
 ])
 const sysCheckTime = ref('')
 const checkAll = async () => {
@@ -302,14 +303,24 @@ const checkAll = async () => {
   bus.emit('sys:event', { text: '系统状态已重新检查' })
 }
 
-const capList = [
-  { name: '模型', icon: '🧠', count: 4, c1: '#6366f1', c2: '#8b5cf6', path: '/models' },
-  { name: '数据集', icon: '📚', count: 6, c1: '#10b981', c2: '#06b6d4', path: '/datasets' },
-  { name: '训练', icon: '⚡', count: 5, c1: '#f59e0b', c2: '#ef4444', path: '/train' },
-  { name: '智能体', icon: '🤖', count: 3, c1: '#8b5cf6', c2: '#ec4899', path: '/agents' },
-  { name: '工具', icon: '🛠️', count: 4, c1: '#06b6d4', c2: '#3b82f6', path: '/tools' },
-  { name: '知识库', icon: '📖', count: 5, c1: '#10b981', c2: '#84cc16', path: '/knowledge' }
-]
+// ★ P0-2 延伸修复: capList 走真接口 (原来 count: 4/6/5/3/4/5 都是 hardcoded)
+const capList = ref([
+  { name: '模型', icon: '🧠', count: 0, c1: '#6366f1', c2: '#8b5cf6', path: '/models', api: () => modelApi.list() },
+  { name: '数据集', icon: '📚', count: 0, c1: '#10b981', c2: '#06b6d4', path: '/datasets', api: () => datasetApi.page({ pageNum: 1, pageSize: 1 }) },
+  { name: '训练', icon: '⚡', count: 0, c1: '#f59e0b', c2: '#ef4444', path: '/train', api: () => trainerApi.jobs() },
+  { name: '智能体', icon: '🤖', count: 0, c1: '#8b5cf6', c2: '#ec4899', path: '/agents', api: () => agentApi.list() },
+  { name: '工具', icon: '🛠️', count: 0, c1: '#06b6d4', c2: '#3b82f6', path: '/tools', api: null },
+  { name: '知识库', icon: '📖', count: 0, c1: '#10b981', c2: '#84cc16', path: '/knowledge', api: () => knowledgeApi.bases() }
+])
+const loadCap = async () => {
+  await Promise.allSettled(capList.value.map(async (c) => {
+    if (!c.api) return
+    try {
+      const r = await c.api()
+      c.count = Array.isArray(r.data) ? r.data.length : (r.data?.total || 0)
+    } catch (e) { c.count = 0 }
+  }))
+}
 const onCapClick = (c) => router.push(c.path)
 
 const quickActions = [
@@ -319,11 +330,15 @@ const quickActions = [
   { name: '推理测试',  desc: 'ONNX 推理',        icon: ChatDotRound, c1: '#f59e0b', c2: '#ef4444', path: '/inference' }
 ]
 
+let healthTimer = null
 onMounted(() => {
   clockTimer = setInterval(() => { now.value = new Date().toLocaleString('zh-CN') }, 1000)
   loadStats()
+  loadCap()
   checkAll()
   loadBiz()
+  // ★ P0-1 增强: 30s 自动重新探活 (服务挂了能看到)
+  healthTimer = setInterval(() => { checkAll() }, 30000)
   _off1 = bus.on('train:event', onEvent)
   _off2 = bus.on('agent:event', onEvent)
   _off3 = bus.on('kb:event', onEvent)
@@ -332,6 +347,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer)
+  if (healthTimer) clearInterval(healthTimer)
   _off1 && _off1(); _off2 && _off2(); _off3 && _off3(); _off4 && _off4(); _off5 && _off5()
 })
 </script>

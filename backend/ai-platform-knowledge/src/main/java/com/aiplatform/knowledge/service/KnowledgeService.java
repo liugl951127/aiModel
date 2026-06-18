@@ -167,4 +167,19 @@ public class KnowledgeService {
     public void deleteDocument(Long id) {
         docMapper.deleteById(id);
     }
+
+    /**
+     * ★ P1-3 修复: 删除知识库 — 同时清理其下所有文档, 避免悬挂.
+     */
+    public void deleteBase(Long id) {
+        // 1) 查出该 kb 下所有 document id, 逐个删
+        List<KnowledgeDocument> docs = docMapper.selectList(
+            new LambdaQueryWrapper<KnowledgeDocument>().eq(KnowledgeDocument::getKbId, id));
+        for (KnowledgeDocument d : docs) {
+            docMapper.deleteById(d.getId());
+        }
+        // 2) 删 base
+        kbMapper.deleteById(id);
+        log.info("[KB] 删除知识库 {} 及其下 {} 个文档", id, docs.size());
+    }
 }

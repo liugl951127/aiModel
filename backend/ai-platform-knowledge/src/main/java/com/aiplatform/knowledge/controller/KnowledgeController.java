@@ -151,6 +151,15 @@ public class KnowledgeController {
     }
 
     /**
+     * ★ P1-3 修复: 删除知识库 (级联删下含文档).
+     */
+    @DeleteMapping("/base/{id}")
+    public Result<Void> deleteBase(@PathVariable Long id) {
+        knowledgeService.deleteBase(id);
+        return Result.success();
+    }
+
+    /**
      * 知识库服务健康检查 (供 Dashboard 监控).
      */
     @GetMapping("/health")

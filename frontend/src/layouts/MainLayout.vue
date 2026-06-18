@@ -229,6 +229,22 @@
               </el-button>
             </el-tooltip>
 
+            <!-- ★ P1-2 修复: 主题切换按钮 -->
+            <el-tooltip content="切换主题" placement="bottom">
+              <el-dropdown trigger="click" @command="onThemeChange">
+                <el-button text class="theme-btn" :title="'主题: ' + themeName">
+                  <el-icon><component :is="themeIcon" /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="light"><el-icon><Sunny /></el-icon>浅色</el-dropdown-item>
+                    <el-dropdown-item command="dark"><el-icon><Moon /></el-icon>深色</el-dropdown-item>
+                    <el-dropdown-item command="auto"><el-icon><MagicStick /></el-icon>跟随系统</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </el-tooltip>
+
             <el-tooltip v-if="roles.includes('SUPER_ADMIN')" content="超级管理员" placement="bottom">
               <el-tag type="warning" size="small" effect="dark" class="role-tag">🔑 超管</el-tag>
             </el-tooltip>
@@ -424,6 +440,7 @@ const goHome = () => router.push('/dashboard')
 // ============== 主题 ==============
 const themes = ['light', 'dark', 'auto']
 const themeIdx = ref(1)  // 默认 dark
+const themeName = computed(() => themes[themeIdx.value])
 const themeIcon = computed(() => {
   return markRaw([Sunny, Moon, MagicStick][themeIdx.value])
 })
@@ -432,6 +449,17 @@ const cycleTheme = () => {
   document.documentElement.dataset.theme = themes[themeIdx.value]
   bus.emit('theme:change', themes[themeIdx.value])
   ElMessage.success(`主题切换: ${themes[themeIdx.value]}`)
+}
+// ★ P1-2 下拉菜单切换 (可指定主题)
+const onThemeChange = (cmd) => {
+  const idx = themes.indexOf(cmd)
+  if (idx >= 0) {
+    themeIdx.value = idx
+    document.documentElement.dataset.theme = cmd
+    localStorage.setItem('theme', cmd)
+    bus.emit('theme:change', cmd)
+    ElMessage.success(`主题已切换: ${cmd === 'light' ? '浅色' : cmd === 'dark' ? '深色' : '跟随系统'}`)
+  }
 }
 
 // ============== 实时事件 ==============
@@ -494,6 +522,12 @@ let _off1, _off2
 onMounted(() => {
   loadTenants()
   document.documentElement.dataset.theme = themes[themeIdx.value]
+  // ★ P1-2 恢复用户上次选择的主题
+  const savedTheme = localStorage.getItem('theme')
+  if (savedTheme && themes.includes(savedTheme)) {
+    themeIdx.value = themes.indexOf(savedTheme)
+    document.documentElement.dataset.theme = savedTheme
+  }
   _off1 = bus.on('live:event', onLive)
   _off2 = bus.on('user:update', () => {
     nickname.value = localStorage.getItem('nickname') || ''

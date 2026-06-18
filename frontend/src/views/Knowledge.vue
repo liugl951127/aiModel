@@ -290,10 +290,17 @@ async function createBase() {
 
 async function removeBase(row) {
   try {
-    await ElMessageBox.confirm(`确认删除知识库 [${row.kbName}]?`, '提示', { type: 'warning' })
-    // 后端可能没 delete 接口, 这里先 toast
-    ElMessage.warning('后端待加删除接口 (临时)')
-    loadBases()
+    await ElMessageBox.confirm(
+      `确认删除知识库 [${row.kbName}]? 该知识库下所有文档会一起被删除, 不可恢复!`,
+      '危险操作', { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' })
+    // ★ P1-3 真删 — 后端 DELETE /api/knowledge/base/{id}
+    const r = await knowledgeApi.removeBase(row.id)
+    if (r.code === 200) {
+      ElMessage.success(`已删除知识库: ${row.kbName}`)
+      loadBases()
+    } else {
+      ElMessage.error(r.message || '删除失败')
+    }
   } catch (e) { /* cancel */ }
 }
 

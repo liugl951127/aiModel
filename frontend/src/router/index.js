@@ -3,6 +3,8 @@ import Layout from '@/layouts/MainLayout.vue'
 
 const routes = [
   { path: '/login', name: 'Login', component: () => import('@/views/Login.vue') },
+  // ★ P1-1 修复: 404 顶层独立页 (不被 Layout 包)
+  { path: '/404', name: 'NotFound', component: () => import('@/views/NotFound.vue'), meta: { title: '页面不存在' } },
   {
     path: '/',
     component: Layout,
@@ -52,9 +54,14 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   if (to.path === '/login') return next()
+  if (to.path === '/404') return next()
   const token = localStorage.getItem('access_token')
   if (!token) return next('/login')
   next()
 })
+
+// ★ P1-1 增强: 路由表最后才加 catch-all — 任意未匹配路径跳 /404
+// (放在 routes 数组里保证顺序: 已知路由在前面, 404 兜底)
+routes.push({ path: '/:pathMatch(.*)*', redirect: '/404' })
 
 export default router

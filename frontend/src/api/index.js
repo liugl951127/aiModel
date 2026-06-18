@@ -88,6 +88,8 @@ export const toolApi = {
 export const knowledgeApi = {
   bases: () => request.get('/api/knowledge/base/list'),
   createBase: (data) => request.post('/api/knowledge/base', data),
+  // ★ P1-3 真删接口 (后端级联删文档)
+  removeBase: (id) => request.delete(`/api/knowledge/base/${id}`),
   documents: (kbId, params) => request.get('/api/knowledge/document/page', { params: { kbId, ...params } }),
   upload: (kbId, file) => {
     const fd = new FormData()
