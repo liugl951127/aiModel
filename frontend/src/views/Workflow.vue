@@ -264,6 +264,9 @@
                 {{ lastRun.status }}
               </el-tag>
               <span class="muted small">耗时 {{ lastRun.durationMs }}ms · {{ new Date(lastRun.ts).toLocaleTimeString() }}</span>
+              <el-button v-if="lastRun.failedNodeId" size="small" type="warning" plain @click="retry">
+                <el-icon><RefreshRight /></el-icon> 重试 {{ lastRun.failedNodeId }}
+              </el-button>
             </div>
             <el-scrollbar ref="logEl" height="calc(100vh - 280px)">
               <div v-for="(l, i) in logs" :key="i" class="log-line" :class="l.level">
@@ -536,6 +539,7 @@ import {
   CircleCheckFilled, CircleCloseFilled, MagicStick, Upload
 } from '@element-plus/icons-vue'
 import { useGlobalBus } from '@/composables/useGlobalBus'
+import { useWorkflowRunner } from '@/composables/useWorkflowRunner'
 import WorkflowAiGenerate from '@/components/WorkflowAiGenerate.vue'
 import { workflowApi } from '@/api'
 
@@ -663,6 +667,34 @@ const isSelected = (id) => selectedIds.value.includes(id)
 const currentNode = ref(null)
 const doneSet = ref(new Set())
 const failedIds = ref(new Set())  // 节点失败记录 (高亮 + 选中 + 弹配置)
+
+// ★ 重构: 抽 到 useWorkflowRunner composable, 这里只透传
+const {
+  running: _wfRunning,
+  lastRun: _wfLastRun,
+  log: _wfLog,
+  run: _wfRun,
+  retry: _wfRetry
+} = useWorkflowRunner({
+  getNodes: () => nodes.value,
+  getValidation: () => validation.value,
+  getSpecName: () => specName.value,
+  onNodeStart: (n) => { currentNode.value = n.id },
+  onNodeDone: () => {},
+  onNodeFailed: (n, err) => {
+    // 高亮 + 选中 + 滚到 + 弹配置 (原代码逻辑保留)
+    selectedIds.value = [n.id]
+    scrollToNode(n.id)
+    openConfig(n)
+  }
+})
+// 别名让原代码少改
+const running = _wfRunning
+const lastRun = _wfLastRun
+const run = _wfRun
+const retry = _wfRetry
+// ★ logs 面板显示 composable 的日志 (双写同步)
+watch(_wfLog, (v) => { logs.value = v }, { deep: true })
 const canvasW = 2000
 const canvasH = 1200
 
@@ -691,10 +723,10 @@ const redo = () => {
 }
 
 // ============== 运行 / 日志 ==============
-const running = ref(false)
+// running + lastRun 来自 useWorkflowRunner composable (上面 alias 过了)
+// 下面的 logs / addLog 保留供画布日志面板使用
 const saving = ref(false)
 const logs = ref([])
-const lastRun = ref(null)
 const tab = ref('cfg')
 const addLog = (tag, msg, level = 'info') => {
   const now = new Date()
@@ -1364,102 +1396,6 @@ const removeSpec = async (id) => {
 }
 
 // ============== 运行 ==============
-const run = async () => {
-  if (!nodes.value.length) return
-  running.value = true
-  doneSet.value.clear()
-  failedIds.value.clear()  // 清上次失败记录
-  logs.value = []
-  const t0 = Date.now()
-  try {
-    // 1. 拓扑排序, 按连线顺序执行
-    const v = validation.value
-    if (!v.valid) {
-      ElMessage.error(`流程不合法: ${v.reason}`)
-      addLog('运行', `✗ ${v.reason}`, 'error')
-      return
-    }
-    const order = v.order
-    addLog('运行', `共 ${order.length} 节点, 开始顺序执行...`, 'info')
-    // 推送 AI 助手: 开始跑了
-    bus.emit('live:event', { type: 'wf', text: `▶ 工作流 [${specName.value}] 开始执行, 共 ${order.length} 节点`, actor: 'workflow' })
-    let upstream = {}
-    let failedNode = null  // ★ 失败节点 (用于高亮 + 弹配置)
-    let failedReason = ''
-    for (const id of order) {
-      const n = nodes.value.find(x => x.id === id)
-      if (!n) continue
-      currentNode.value = id
-      addLog('节点', `→ ${n.name} (${n.id})`, 'info')
-      // 推送 AI 助手: 节点在跑
-      bus.emit('live:event', { type: 'wf', text: `▶ ${n.name} (${n.type}) 执行中...`, actor: 'workflow' })
-      // AI 类节点额外提示
-      const isAiNode = ['agent_think', 'agent_chat', 'infer_chat', 'infer', 'infer_generate'].includes(n.type)
-      if (isAiNode) {
-        bus.emit('live:event', { type: 'agent', text: `🧠 AI 思考中: 调模型生成...`, actor: 'ai' })
-      }
-      try {
-        const r = await workflowApi.exec({
-          workflowId: specName.value,
-          nodeId: n.type || n.id,
-          input: { ...n.params, _upstream: upstream }
-        })
-        const data = r.data || {}
-        if (data.error) {
-          failedNode = n
-          failedReason = data.error
-          addLog('节点', `✗ ${n.name} 失败: ${data.error}`, 'error')
-          bus.emit('live:event', { type: 'wf', text: `✗ ${n.name} 失败: ${data.error}`, actor: 'workflow' })
-        } else {
-          doneSet.value.add(id)
-          addLog('节点', `✓ ${n.name} 完成`, 'success')
-          // 简化: 把 result 喂给下一个
-          upstream = data.result || upstream
-          // AI 节点报告生成结果
-          if (isAiNode && data.result?.text) {
-            const preview = String(data.result.text).slice(0, 50)
-            bus.emit('live:event', { type: 'agent', text: `✓ AI 生成: ${preview}${preview.length >= 50 ? '...' : ''}`, actor: 'ai' })
-          } else {
-            bus.emit('live:event', { type: 'wf', text: `✓ ${n.name} 完成`, actor: 'workflow' })
-          }
-        }
-      } catch (e) {
-        failedNode = n
-        failedReason = e.message || e?.response?.data?.message || '未知错误'
-        addLog('节点', `✗ ${n.name} 异常: ${failedReason}`, 'error')
-        // 推送 AI 助手: 异常, 主动诊断
-        bus.emit('live:event', { type: 'wf', text: `✗ ${n.name} 异常`, actor: 'workflow' })
-        bus.emit('assistant:diagnose', { node: n.name, nodeId: n.id, error: failedReason, params: n.params })
-      }
-      // ★ 失败时: 高亮 + 选中 + 弹配置 + 终止后续
-      if (failedNode) {
-        // 标记失败样式
-        failedIds.value.add(id)
-        // ★ 在节点上记失败原因, 配置弹窗顶部 Banner 用
-        failedNode._failedReason = failedReason || '未知错误'
-        // 选中该节点 (用户能立即看到是哪个)
-        selectedIds.value = [id]
-        // 自动滚到该节点位置
-        scrollToNode(id)
-        // 弹配置弹窗 (用户立即能改参数)
-        openConfig(failedNode)
-        // 终止后续执行
-        addLog('运行', `⛔ 后续节点不再执行, 请修改 ${failedNode.name} 参数后重试`, 'error')
-        ElMessage.error(`${failedNode.name} 失败, 后续节点已停止. 改完后点 [确定保存] 再 [▶ 运行]`)
-        break
-      }
-    }
-    currentNode.value = null
-    const dur = Date.now() - t0
-    const ok = doneSet.value.size === order.length
-    lastRun.value = { status: ok ? 'SUCCESS' : 'PARTIAL', durationMs: dur, ts: Date.now() }
-    addLog('运行', ok ? `✓ 全部 ${order.length} 节点完成` : `⚠ 仅 ${doneSet.value.size}/${order.length} 成功`, ok ? 'success' : 'error')
-    bus.emit('live:event', { type: 'wf', text: ok ? `✓ 工作流完成 (${dur}ms)` : `⚠ 部分失败 (${dur}ms)`, actor: 'workflow' })
-    ElMessage[ok ? 'success' : 'warning'](ok ? '运行完成' : '部分失败')
-  } finally {
-    running.value = false
-  }
-}
 
 const topoOrder = () => {
   // Kahn 算法: 返回 { order, cycle, orphans }

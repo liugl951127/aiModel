@@ -93,6 +93,28 @@ const model = ref('minigpt')
 const models = ref([])
 const scrollEl = ref(null)
 
+// ★ 持久化: sessions 存 localStorage, 跨刷新保留
+const SESSIONS_KEY = computed(() => `chat_sessions_${props.agentId || 'default'}`)
+const loadSessions = () => {
+  try {
+    const raw = localStorage.getItem(SESSIONS_KEY.value)
+    if (raw) {
+      const arr = JSON.parse(raw)
+      if (Array.isArray(arr)) return arr
+    }
+  } catch (e) { /* 容错 */ }
+  return []
+}
+sessions.value = loadSessions()
+// 同步持久化 (debounce)
+let sessTimer = null
+watch(sessions, () => {
+  clearTimeout(sessTimer)
+  sessTimer = setTimeout(() => {
+    try { localStorage.setItem(SESSIONS_KEY.value, JSON.stringify(sessions.value.slice(0, 50))) } catch (e) {}
+  }, 500)
+}, { deep: true })
+
 const quickQuestions = [
   '你好, 介绍一下你自己',
   '什么是 RAG 检索增强?',
@@ -131,19 +153,8 @@ const clearChat = () => {
   ElMessage.success('已清空')
 }
 
-const loadSessions = () => {
-  // 简单持久化: 存 localStorage
-  try {
-    const saved = localStorage.getItem('chat_sessions')
-    if (saved) sessions.value = JSON.parse(saved)
-  } catch (e) {}
-}
-
-const saveSessions = () => {
-  try {
-    localStorage.setItem('chat_sessions', JSON.stringify(sessions.value))
-  } catch (e) {}
-}
+// 旧的 localStorage 同步函数 — 已改用 watch 自动持久化, 保留空 stub 兼容 onMounted 调用
+const saveSessions = () => { /* 已被 watch 替代 */ }
 
 const loadModels = async () => {
   try {

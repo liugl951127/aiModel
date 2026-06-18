@@ -124,6 +124,8 @@ const props = defineProps({
 const emit = defineEmits(['action', 'navigate'])
 const route = useRoute()
 const router = useRouter()
+// ★ 默认使用 'default' agentId (后端有, 走 base ReAct loop); 页面 metadata 可覆盖
+const agentId = ref(pageMeta.value?.agentId || 'default')
 const bus = useGlobalBus()
 
 // 全局推送的上下文 (画布状态 / 表格状态等)
@@ -296,7 +298,8 @@ const findAnswer = (q) => {
       return {
         title: pageMeta.value.name + ' 助手',
         content: item.answer,
-        actions: item.actions
+        actions: item.actions,
+        confidence: 0.9
       }
     }
   }
@@ -308,11 +311,12 @@ const findAnswer = (q) => {
     actions: [
       { label: '看推荐问题', event: 'reset' },
       { label: '看帮助', event: 'navigate', payload: '/help' }
-    ]
+    ],
+    confidence: 0
   }
 }
 
-const ask = (q) => {
+const ask = async (q) => {
   const text = (q || input.value).trim()
   if (!text) return
   input.value = ''
@@ -320,12 +324,72 @@ const ask = (q) => {
   scrollBottom()
   status.value = 'thinking'
 
-  setTimeout(() => {
-    const ans = findAnswer(text)
-    messages.value.push({ role: 'assistant', title: ans.title, content: ans.content, actions: ans.actions })
+  // ★ 优先从本页 qa 列表找答案 (本地快, 无需网络)
+  const localAns = findAnswer(text)
+  if (localAns && localAns.confidence >= 0.7) {
+    setTimeout(() => {
+      messages.value.push({ role: 'assistant', title: localAns.title, content: localAns.content, actions: localAns.actions })
+      status.value = 'ready'
+      scrollBottom()
+    }, 300 + Math.random() * 400)
+    return
+  }
+  // ★ 本地没匹配, 真调后端 agent (如果有 agentId)
+  if (!agentId.value) {
+    setTimeout(() => {
+      messages.value.push({
+        role: 'assistant',
+        title: '💡 本地知识库没有匹配',
+        content: `没能从本页知识库找到答案。你可以：
+1. 检查问题描述是否清楚
+2. 尝试不同的关键词
+3. 点 [🔗 去 Agent 页] 选个智能体发起多轮对话
+4. 用 bus 全局搜索: bus.emit('assistant:context', { type: 'pageStatus' })`,
+        actions: [
+          { label: '🔗 去 Agent 页', event: 'navigate', payload: '/agents' },
+          { label: '🔍 重新提问', event: 'ask', payload: text }
+        ]
+      })
+      status.value = 'ready'
+      scrollBottom()
+    }, 400)
+    return
+  }
+  // ★ 调后端 /api/conversation/chat
+  try {
+    const { agentApi } = await import('@/api')
+    const sessionId = `wf-${route.path.replace(/\//g, '_')}-${Date.now()}`
+    const r = await agentApi.chat({
+      agentId: agentId.value,
+      sessionId,
+      input: text,
+      // 上下文: 让 agent 知道是哪个页面的问题
+      context: { page: route.path, pageMeta: pageMeta.value.name }
+    })
+    if (r.code === 200) {
+      const ans = r.data?.answer || r.data?.text || '收到'
+      messages.value.push({
+        role: 'assistant',
+        title: `🪄 ${pageMeta.value.name || 'AI'} 助手`,
+        content: ans,
+        actions: []
+      })
+    } else {
+      messages.value.push({ role: 'assistant', title: '⚠️ 后端错误', content: r.message || '请求失败', actions: [] })
+    }
+  } catch (e) {
+    console.warn('[assistant] 后端 chat 失败:', e?.message)
+    // 失败降级到本地答案
+    messages.value.push({
+      role: 'assistant',
+      title: localAns.title || '💡 提示',
+      content: (localAns.content || '暂时连不上后端智能体, 以下是本地建议:') + `\n\n(后端错误: ${e?.response?.data?.message || e?.message || '网络错误'})`,
+      actions: localAns.actions || []
+    })
+  } finally {
     status.value = 'ready'
     scrollBottom()
-  }, 300 + Math.random() * 400)
+  }
 }
 
 const onAction = (a) => {
