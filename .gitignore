@@ -65,3 +65,18 @@ ai-model/checkpoints/
 ai-model/exports/
 frontend/dist/
 frontend/node_modules/
+
+# Secrets (运维: 永远不要 commit)
+.env
+.env.local
+.env.production
+*.pem
+*.key
+secrets/
+
+# Backups / Logs (运维产物, 不入仓)
+backups/
+logs/
+*.log.gz
+*.sql.gz
+*.rdb

@@ -1,0 +1,93 @@
+# ★ OP-12 Helm 通用 Deployment 模板 (渲染 11 个服务)
+{{- range .Values.services }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-{{ .name }}
+  labels:
+    app: ai-{{ .name }}
+    component: backend
+    version: {{ $.Values.image.tag }}
+spec:
+  replicas: {{ $.Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: ai-{{ .name }}
+  template:
+    metadata:
+      labels:
+        app: ai-{{ .name }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port: "{{ .port }}"
+    spec:
+      containers:
+        - name: ai-{{ .name }}
+          image: "{{ $.Values.image.registry }}/ai-{{ .name }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .port }}
+          env:
+            - name: TZ
+              value: "Asia/Shanghai"
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m -Dfile.encoding=UTF-8"
+            - name: NACOS_SERVER
+              value: "ai-nacos:8848"
+            - name: MYSQL_HOST
+              value: "ai-mysql"
+            - name: REDIS_HOST
+              value: "ai-redis"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ai-platform-secrets
+                  key: jwt-secret
+          resources:
+            requests:
+              cpu: {{ $.Values.resources.requests.cpu }}
+              memory: {{ $.Values.resources.requests.memory }}
+            limits:
+              cpu: {{ $.Values.resources.limits.cpu }}
+              memory: {{ $.Values.resources.limits.memory }}
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: {{ .port }}
+            initialDelaySeconds: {{ $.Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: {{ .port }}
+            initialDelaySeconds: {{ $.Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.readiness.periodSeconds }}
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{ .port }}
+            initialDelaySeconds: {{ $.Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ $.Values.probes.startup.failureThreshold }}
+          volumeMounts:
+            - name: logs
+              mountPath: /opt/ai-platform/logs
+      volumes:
+        - name: logs
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-{{ .name }}
+spec:
+  type: {{ $.Values.service.type }}
+  selector:
+    app: ai-{{ .name }}
+  ports:
+    - port: {{ .port }}
+      targetPort: {{ .port }}
+{{- end }}

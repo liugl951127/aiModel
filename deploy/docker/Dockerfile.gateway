@@ -1,13 +1,12 @@
-# Generic multi-stage Dockerfile for backend services.
-# Build with:  docker build -f deploy/docker/Dockerfile.<svc> -t ai-<svc> .
-
+# ★ OP-2 Multi-stage Dockerfile for gateway (运维加固)
+# Build: docker build -f deploy/docker/Dockerfile.gateway -t ai-gateway:VERSION .
+# Run:   docker run -d -p 9000:9000 ai-gateway:VERSION
 FROM eclipse-temurin:17-jdk AS build
 WORKDIR /workspace
 
-# Cache dependencies
+# Cache Maven dependencies
 COPY backend/pom.xml .
 COPY backend/ai-platform-common/pom.xml ai-platform-common/
-COPY backend/ai-platform-gateway/pom.xml ai-platform-gateway/
 COPY backend/ai-platform-auth/pom.xml ai-platform-auth/
 COPY backend/ai-platform-user/pom.xml ai-platform-user/
 COPY backend/ai-platform-system/pom.xml ai-platform-system/
@@ -15,17 +14,42 @@ COPY backend/ai-platform-model/pom.xml ai-platform-model/
 COPY backend/ai-platform-agent/pom.xml ai-platform-agent/
 COPY backend/ai-platform-knowledge/pom.xml ai-platform-knowledge/
 COPY backend/ai-platform-inference/pom.xml ai-platform-inference/
+COPY backend/ai-platform-trainer/pom.xml ai-platform-trainer/
+COPY backend/ai-platform-files/pom.xml ai-platform-files/
+COPY backend/ai-platform-workflow/pom.xml ai-platform-workflow/
+COPY backend/ai-platform-api/pom.xml ai-platform-api/
+COPY backend/ai-platform-common/pom.xml ai-platform-common/
+
 COPY backend/ai-platform-common/src ai-platform-common/src
-RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y maven curl && rm -rf /var/lib/apt/lists/*
 RUN mvn -q -pl ai-platform-common -am install -DskipTests
 
+# 编译本服务
 COPY backend/ai-platform-gateway/pom.xml ai-platform-gateway/
 COPY backend/ai-platform-gateway/src ai-platform-gateway/src
 RUN mvn -q -pl ai-platform-gateway -am package -DskipTests
 
+# Runtime
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-ARG SVC
-COPY --from=build /workspace/ai-platform-${SVC}/target/${SVC}.jar /app/app.jar
+ARG SVC=gateway
+ARG VERSION=latest
+LABEL maintainer="ai-platform-ops" \
+      service="$SVC" \
+      version="$VERSION" \
+      port="9000"
+
+COPY --from=build /workspace/ai-platform-$SVC/target/$SVC.jar /app/app.jar
+COPY --from=build /usr/bin/curl /usr/bin/curl
+
 EXPOSE 9000
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+
+# ★ OP-2 启动健康检查 (K8s/Docker 都会用)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl -fsS http://localhost:9000/actuator/health || exit 1
+
+# ★ OP-12 JVM 调优 + UTF-8 + 时区 (容器化)
+ENV JAVA_OPTS="-Xms256m -Xmx512m -Dfile.encoding=UTF-8 -Duser.timezone=Asia/Shanghai" \
+    TZ=Asia/Shanghai
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ★ OP-5 统一日志配置 (运维经理要求: 按服务分文件, 按天切割, 保留 30 天, JSON 格式)
+  使用: 各服务 src/main/resources/logback-spring.xml 引用此文件, 或本服务直接复制.
+  ELK 采集: Filebeat → Logstash → ES → Kibana (path: /opt/ai-platform/logs/*.log)
+-->
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <property name="LOG_HOME" value="${LOG_HOME:-/opt/ai-platform/logs}"/>
+    <property name="APP_NAME" value="${spring.application.name:-ai-platform}"/>
+    <property name="LOG_LEVEL" value="${LOG_LEVEL:-INFO}"/>
+    <property name="LOG_RETENTION_DAYS" value="${LOG_RETENTION_DAYS:-30}"/>
+
+    <!-- 控制台 (开发用) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%thread] %-40.40logger{39} : %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 文件 INFO (按天切割, 保留 30 天) -->
+    <appender name="FILE_INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/${APP_NAME}-info.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-info.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>${LOG_RETENTION_DAYS}</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%thread] %X{userId:-SYSTEM} %-40.40logger{39} : %msg%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>INFO</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+    </appender>
+
+    <!-- 文件 ERROR (按天切割, 单独告警) -->
+    <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/${APP_NAME}-error.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-error.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>5GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [%thread] %X{userId:-SYSTEM} %-40.40logger{39} : %msg%n%xException%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+    </appender>
+
+    <!-- JSON 输出 (给 ELK) -->
+    <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/${APP_NAME}-json.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-json.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>${LOG_RETENTION_DAYS}</maxHistory>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.classic.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+            <customFields>{"app":"${APP_NAME}"}</customFields>
+        </encoder>
+    </appender>
+
+    <root level="${LOG_LEVEL}">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE_INFO"/>
+        <appender-ref ref="FILE_ERROR"/>
+        <appender-ref ref="FILE_JSON"/>
+    </root>
+
+    <!-- 第三方包调低 (避免刷屏) -->
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="com.alibaba.nacos" level="WARN"/>
+    <logger name="io.netty" level="WARN"/>
+    <logger name="okhttp3" level="WARN"/>
+    <logger name="org.apache.http" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+    <!-- 业务日志全开 -->
+    <logger name="com.aiplatform" level="${LOG_LEVEL}"/>
+</configuration>

@@ -1,0 +1,3 @@
+# ★ OP-10 注册 JwtSecretValidator 到 SpringBoot 启动早期
+org.springframework.context.ApplicationListener=\
+com.aiplatform.common.security.JwtSecretValidator

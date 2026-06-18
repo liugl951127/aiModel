@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# 告警规则 (Alertmanager 走 webhook)
+rule_files:
+  - "alerts.yml"
+
+# 11 个微服务 + 中间件
+scrape_configs:
+  - job_name: 'ai-platform'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+        - 'gateway:9000'
+        - 'auth:9001'
+        - 'user:9002'
+        - 'system:9003'
+        - 'model:9004'
+        - 'agent:9005'
+        - 'knowledge:9006'
+        - 'inference:9007'
+        - 'trainer:9008'
+        - 'files:9010'
+        - 'workflow:9011'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

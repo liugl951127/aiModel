@@ -1,0 +1,80 @@
+# ★ OP-12 Helm 默认配置 (K8s 部署)
+image:
+  registry: harbor.ai-platform.local
+  tag: "2.0.20260618"
+  pullPolicy: IfNotPresent
+
+# 资源限制
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# 副本数
+replicaCount: 2
+
+# 服务端口
+service:
+  type: ClusterIP
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  host: ai-platform.local
+
+# 探针
+probes:
+  liveness:
+    initialDelaySeconds: 60
+    periodSeconds: 30
+  readiness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  startup:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 30
+
+# 11 个服务
+services:
+  - name: gateway
+    port: 9000
+  - name: auth
+    port: 9001
+  - name: user
+    port: 9002
+  - name: system
+    port: 9003
+  - name: model
+    port: 9004
+  - name: agent
+    port: 9005
+  - name: knowledge
+    port: 9006
+  - name: inference
+    port: 9007
+  - name: trainer
+    port: 9008
+  - name: files
+    port: 9010
+  - name: workflow
+    port: 9011
+
+# 持久化
+persistence:
+  mysql: 20Gi
+  redis: 5Gi
+  elasticsearch: 50Gi
+  nacos: 2Gi
+  logs: 50Gi
+  backups: 100Gi
+
+# 监控
+monitoring:
+  enabled: true
+  prometheusRetention: 30d
+  grafanaAdminPassword: admin
