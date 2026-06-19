@@ -116,7 +116,9 @@ function Test-Docker {
     $wsl = $null
     try { $wsl = wsl --status 2>$null } catch {}
     if ($wsl -match "WSL" -or $env:WSL_DISTRO_NAME) {
-        Write-Ok "WSL: $($env:WSL_DISTRO_NAME ?? 'enabled')"
+        # 兼容 PS 5.1+ (不用 ??, 用三元)
+        $distro = if ($env:WSL_DISTRO_NAME) { $env:WSL_DISTRO_NAME } else { 'enabled' }
+        Write-Ok "WSL: $distro"
     }
 }
 
