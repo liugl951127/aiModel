@@ -56,6 +56,10 @@ print_err() { echo -e "${RED}✗ $1${NC}"; }
 
 # === 检查 Docker ===
 check_docker() {
+    # 缓存: 避免 stop/logs/reset 重复检查 (首次调用走全部, 之后跳过)
+    if [ "${_DOCKER_CHECKED:-0}" = "1" ]; then
+        return 0
+    fi
     print_header "检查 Docker 环境"
 
     # 1) docker 命令
@@ -111,6 +115,8 @@ check_docker() {
     elif uname -r 2>/dev/null | grep -q "microsoft"; then
         print_ok "WSL: $(uname -r | head -c 60)"
     fi
+
+    _DOCKER_CHECKED=1
 }
 
 # === 端口冲突检查 ===
@@ -151,11 +157,34 @@ start_all() {
     check_docker
     check_ports
 
+    print_header "拉 Docker 镜像 (首次会较慢, 1-3 GB)"
+    $COMPOSE_CMD pull || print_warn "部分镜像拉取失败, 继续尝试启动 (有缓存就 OK)"
+
+    echo ""
     print_header "启动 7 个中间件"
     $COMPOSE_CMD up -d --remove-orphans
 
     echo ""
-    print_ok "7 个中间件已起在后台"
+    print_ok "7 个中间件已起在后台, 等待健康 (30s)…"
+
+    # 等待 30s 验准备 (全表) -- 如果某个服务未启, 提示
+    local up_count=0
+    for i in 1 2 3 4 5 6; do
+        sleep 5
+        # 查运行中的容器数
+        if [ -n "${COMPOSE_CMD}" ]; then
+            up_count=$($COMPOSE_CMD ps --services --filter "status=running" 2>/dev/null | wc -l)
+        fi
+        if [ "${up_count}" -ge 7 ]; then
+            print_ok "7 个服务都起来了!"
+            break
+        fi
+        printf "  [%d/6] 起来了 %d/7 个服务...\n" "$i" "$up_count"
+    done
+    if [ "${up_count}" -lt 7 ]; then
+        print_warn "部分服务未起来 ($up_count/7). 查看: bash deploy-middleware.sh status"
+        print_warn "或看日志: bash deploy-middleware.sh logs <service>"
+    fi
     echo ""
     echo "  访问入口 (Windows: 浏览器输 localhost 也行, 或 127.0.0.1):"
     echo "    Nginx       http://localhost:8080"
@@ -233,6 +262,7 @@ show_logs() {
         $COMPOSE_CMD logs -f --tail=100 "${svc}"
     fi
 }
+
 
 # === 健康检查 ===
 health_check() {
