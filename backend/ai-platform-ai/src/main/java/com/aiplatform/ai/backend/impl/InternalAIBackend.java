@@ -254,16 +254,21 @@ public class InternalAIBackend implements AIBackend {
     }
 
     private String callInference(String prompt, Map<String, Object> options) {
-        ObjectNode req = mapper.createObjectNode();
-        req.put("model", "default");
-        req.put("input", prompt);
-        req.put("task", "chat");
-        if (options != null && options.containsKey("temperature")) {
-            req.put("temperature", ((Number) options.get("temperature")).doubleValue());
+        try {
+            ObjectNode req = mapper.createObjectNode();
+            req.put("model", "default");
+            req.put("input", prompt);
+            req.put("task", "chat");
+            if (options != null && options.containsKey("temperature")) {
+                req.put("temperature", ((Number) options.get("temperature")).doubleValue());
+            }
+            String body = httpPost(props.getInferenceUrl() + "/api/inference/generate", req.toString());
+            JsonNode r = mapper.readTree(body);
+            return r.path("data").path("text").asText("[inference returned no text]");
+        } catch (Exception e) {
+            log.warn("[Internal AI] inference 调用失败: {}", e.getMessage());
+            return "[Internal AI 暂不可达: " + e.getMessage() + "]";
         }
-        String body = httpPost(props.getInferenceUrl() + "/api/inference/generate", req.toString());
-        JsonNode r = mapper.readTree(body);
-        return r.path("data").path("text").asText("[inference returned no text]");
     }
 
     private String httpPost(String url, String body) throws Exception {

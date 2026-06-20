@@ -39,18 +39,18 @@ public class HealthProbe {
 
     /** 服务名 -> 健康 URL (HTTP 端口)
      *  真实端口从 nacos 拉, 这里用常用默认, 失败不影响监控. */
-    private static final Map<String, String> SERVICE_URLS = Map.of(
-            "网关",   "http://127.0.0.1:9000/api/auth/health",
-            "认证",   "http://127.0.0.1:9001/api/auth/health",
-            "用户",   "http://127.0.0.1:9002/api/auth/health",
-            "系统",   "http://127.0.0.1:9003/api/activity/recent",
-            "模型",   "http://127.0.0.1:9004/api/model/list",
-            "智能体", "http://127.0.0.1:9005/api/agent/health",
-            "知识库", "http://127.0.0.1:9006/api/knowledge/health",
-            "推理",   "http://127.0.0.1:9007/api/inference/health",
-            "训练",   "http://127.0.0.1:9008/api/trainer/health",
-            "文件",   "http://127.0.0.1:9010/api/files/health",
-            "工作流", "http://127.0.0.1:9011/api/workflow/health"
+    private static final Map<String, String> SERVICE_URLS = Map.ofEntries(
+            Map.entry("网关",   "http://127.0.0.1:9000/api/auth/health"),
+            Map.entry("认证",   "http://127.0.0.1:9001/api/auth/health"),
+            Map.entry("用户",   "http://127.0.0.1:9002/api/auth/health"),
+            Map.entry("系统",   "http://127.0.0.1:9003/api/activity/recent"),
+            Map.entry("模型",   "http://127.0.0.1:9004/api/model/list"),
+            Map.entry("智能体", "http://127.0.0.1:9005/api/agent/health"),
+            Map.entry("知识库", "http://127.0.0.1:9006/api/knowledge/health"),
+            Map.entry("推理",   "http://127.0.0.1:9007/api/inference/health"),
+            Map.entry("训练",   "http://127.0.0.1:9008/api/trainer/health"),
+            Map.entry("文件",   "http://127.0.0.1:9010/api/files/health"),
+            Map.entry("工作流", "http://127.0.0.1:9011/api/workflow/health")
     );
 
     @PostConstruct

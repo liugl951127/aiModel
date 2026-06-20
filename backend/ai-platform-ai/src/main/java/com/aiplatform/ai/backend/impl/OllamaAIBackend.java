@@ -123,8 +123,13 @@ public class OllamaAIBackend implements AIBackend {
                     } catch (Exception ignored) {}
                 });
         } catch (Exception e) {
-            log.warn("[Ollama] chatStream 失败: {}", e.getMessage());
-            chat(system, messages, options, onChunk);
+            log.warn("[Ollama] chatStream 失败, 降级为非流式: {}", e.getMessage());
+            try {
+                String full = chat(system, messages, options);
+                if (full != null && !full.isEmpty()) onChunk.accept(full);
+            } catch (Exception ex) {
+                log.error("[Ollama] fallback chat 也失败: {}", ex.getMessage());
+            }
         }
     }
 

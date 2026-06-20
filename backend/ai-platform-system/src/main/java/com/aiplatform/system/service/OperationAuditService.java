@@ -37,7 +37,7 @@ public class OperationAuditService {
                        Throwable error) {
         try {
             SysOperationAudit a = new SysOperationAudit();
-            a.setUsername(safeStr(username, "anonymous"));
+            a.setUsername(safeStr(username, 64));
             a.setUserId(userId);
             a.setTenantId(tenantId);
             a.setModule(module);

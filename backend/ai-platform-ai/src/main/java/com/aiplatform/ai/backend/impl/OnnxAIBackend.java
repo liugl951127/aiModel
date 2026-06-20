@@ -152,12 +152,14 @@ public class OnnxAIBackend implements AIBackend {
             try (OrtSession.Result r = embedSession.run(Map.of(
                     "input_ids", OrtUtil.reshape(inputIds, 1, ids.length),
                     "attention_mask", OrtUtil.reshape(attentionMask, 1, ids.length)))) {
-                float[][] lastHidden = (float[][]) r.get(0).getValue();
+                // ONNX 输出形状: [batch=1, seqLen, hiddenDim]
+                float[][][] lastHidden = (float[][][]) r.get(0).getValue();
+                float[][] tokenVecs = lastHidden[0];   // [seqLen, hiddenDim]
                 // Mean pooling
-                int seqLen = lastHidden[0].length;
-                int dim = lastHidden[0][0].length;
+                int seqLen = tokenVecs.length;
+                int dim = tokenVecs[0].length;
                 float[] mean = new float[dim];
-                for (float[] tokenVec : lastHidden[0]) {
+                for (float[] tokenVec : tokenVecs) {
                     for (int i = 0; i < dim; i++) mean[i] += tokenVec[i];
                 }
                 for (int i = 0; i < dim; i++) mean[i] /= seqLen;
@@ -220,7 +222,9 @@ public class OnnxAIBackend implements AIBackend {
         for (int i = 0; i < ids.length; i++) {
             String tok = tokens[i];
             if (vocab != null) {
-                ids[i] = vocab.getOrDefault(tok, vocab.getOrDefault("[UNK]", 0L));
+                Integer idx = vocab.get(tok);
+                if (idx == null) idx = vocab.getOrDefault("[UNK]", 0);
+                ids[i] = idx == null ? 0L : idx.longValue();
             } else {
                 ids[i] = Math.abs(tok.hashCode()) % 30000L + 1L;
             }
@@ -265,9 +269,13 @@ public class OnnxAIBackend implements AIBackend {
     /** 辅助: 把 long[][] 喂进 ONNX, 避免重复代码 */
     static class OrtUtil {
         static OnnxTensor reshape(long[][] data, int dim0, int dim1) {
-            return OnnxTensor.createTensor(OrtEnvironment.getEnvironment(),
-                    LongBuffer.wrap(flatten(data, dim0, dim1)),
-                    new long[]{dim0, dim1});
+            try {
+                return OnnxTensor.createTensor(OrtEnvironment.getEnvironment(),
+                        LongBuffer.wrap(flatten(data, dim0, dim1)),
+                        new long[]{dim0, dim1});
+            } catch (ai.onnxruntime.OrtException e) {
+                throw new RuntimeException("[ONNX] reshape 失败: " + e.getMessage(), e);
+            }
         }
         private static long[] flatten(long[][] data, int dim0, int dim1) {
             long[] flat = new long[dim0 * dim1];
