@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -43,7 +42,7 @@ import java.util.*;
  * <p>注意: 用了这个后端, 就有外部联网. 默认 NOT activated.</p>
  */
 @Slf4j
-@Component
+
 @ConditionalOnProperty(name = "aiplatform.ai.backend", havingValue = "http")
 public class HttpAIBackend implements AIBackend {
 

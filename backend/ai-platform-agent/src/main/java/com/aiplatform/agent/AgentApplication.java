@@ -15,7 +15,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 @ComponentScan(basePackages = {
         "com.aiplatform.agent",
-        "com.aiplatform.ai",
         "com.aiplatform.starter.common",
         "com.aiplatform.starter.web",
         "com.aiplatform.starter.mybatis",

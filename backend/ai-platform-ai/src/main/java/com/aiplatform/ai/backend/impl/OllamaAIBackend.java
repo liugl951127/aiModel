@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -36,7 +35,7 @@ import java.util.*;
  * <p>前置: 跑 {@code ollama serve}, 拉模型: {@code ollama pull qwen2.5:7b}</p>
  */
 @Slf4j
-@Component
+
 @ConditionalOnProperty(name = "aiplatform.ai.backend", havingValue = "ollama")
 public class OllamaAIBackend implements AIBackend {
 

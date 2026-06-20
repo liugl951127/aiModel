@@ -3,7 +3,6 @@ package com.aiplatform.ai.backend;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
@@ -21,8 +20,9 @@ import java.util.Map;
  * <p>业务调用统一走 router.chat() / embed() / rerank() / webSearch().</p>
  */
 @Slf4j
-@Component
+
 @RequiredArgsConstructor
+
 public class AIBackendRouter {
 
     private final List<AIBackend> backends;

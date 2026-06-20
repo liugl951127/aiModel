@@ -3,7 +3,6 @@ package com.aiplatform.ai.local;
 import com.aiplatform.ai.backend.AIBackend;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
@@ -23,8 +22,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * </ul>
  */
 @Slf4j
-@Component
+
 @RequiredArgsConstructor
+
 public class LocalEmbeddingClient {
 
     private final AIBackend aiBackend;

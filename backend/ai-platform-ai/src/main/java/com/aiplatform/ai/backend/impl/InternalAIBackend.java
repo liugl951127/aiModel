@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -49,7 +48,7 @@ import java.util.*;
  * </pre>
  */
 @Slf4j
-@Component
+
 @ConditionalOnProperty(name = "aiplatform.ai.backend", havingValue = "internal")
 public class InternalAIBackend implements AIBackend {
 

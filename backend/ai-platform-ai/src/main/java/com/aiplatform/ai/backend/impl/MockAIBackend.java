@@ -23,7 +23,7 @@ import java.util.*;
  * <p>激活: {@code aiplatform.ai.backend=mock} (默认就是这个)</p>
  */
 @Slf4j
-@Component
+
 @ConditionalOnProperty(name = "aiplatform.ai.backend", havingValue = "mock", matchIfMissing = true)
 public class MockAIBackend implements AIBackend {
 

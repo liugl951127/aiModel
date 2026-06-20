@@ -3,7 +3,6 @@ package com.aiplatform.ai.backend;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
 import java.util.*;
 
@@ -25,8 +24,9 @@ import java.util.*;
  * <p>业务侧只跟本类打交道, 完全不感知后端细节.</p>
  */
 @Slf4j
-@Component
+
 @RequiredArgsConstructor
+
 public class AIBackendSwitcher {
 
     private final AIBackendRouter chatRouter;        // chat/embed/rerank 用

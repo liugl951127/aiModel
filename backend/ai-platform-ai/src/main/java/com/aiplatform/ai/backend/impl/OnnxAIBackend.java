@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.stereotype.Component;
 
 import java.nio.LongBuffer;
 import java.util.*;
@@ -40,7 +39,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>注: 模型没下载时, 自动降级到 mock 实现, 业务不中断.</p>
  */
 @Slf4j
-@Component
+
 @ConditionalOnProperty(name = "aiplatform.ai.backend", havingValue = "onnx")
 public class OnnxAIBackend implements AIBackend {
 

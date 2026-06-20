@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 import java.net.URI;
 import java.net.URLEncoder;
@@ -31,7 +30,7 @@ import java.util.*;
  * <p>注意: 调用会真正发起 HTTPS 请求, 失败/超时自动降级到 internal.</p>
  */
 @Slf4j
-@Component
+
 @ConditionalOnProperty(name = "aiplatform.ai.search-mode", havingValue = "external", matchIfMissing = false)
 public class DuckDuckGoSearchAdapter implements ExternalWebSearchAdapter {
 
