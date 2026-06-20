@@ -69,23 +69,6 @@ logging:
   level:
     com.aiplatform: INFO
 
-# ============== 分布式事务 (Seata) 后台可配 ==============
-ai-platform:
-  distributed-tx:
-    enabled: true              # 总开关, false 时全部走 @Transactional 本地事务
-    seata-server-addr: ${SEATA_ADDR:127.0.0.1:8091}
-    tx-service-group: default_tx_group
-    timeout-ms: 60000
-    auto-fallback: true        # TC 不可达时, 自动降级为本地事务
-
-# ============== 分布式事务 (Seata) 后台可配 ==============
-ai-platform:
-  distributed-tx:
-    enabled: true              # 总开关, false 时全部走 @Transactional 本地事务
-    seata-server-addr: ${SEATA_ADDR:127.0.0.1:8091}
-    tx-service-group: default_tx_group
-    timeout-ms: 60000
-    auto-fallback: true        # TC 不可达时, 自动降级为本地事务
 # ★ OP-1 Actuator 运维端点
 management:
   endpoints:

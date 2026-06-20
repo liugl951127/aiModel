@@ -43,7 +43,7 @@ node frontend/e2e_full_chain.cjs http://127.0.0.1:9999
 | **Web** | Vue 3 + Element Plus + Vite + Pinia（11 页面） |
 | **部署** | 一键 `docker compose up`（Nacos + MySQL + Redis + ES + 8 服务 + Nginx） |
 | **可观测** | Spring Boot Actuator + Knife4j API 文档 |
-| **分布式事务** | Seata 2.0.0 AT 模式 + 3 数据源示例（seata-demo） |
+| **事务** | 本地 `@Transactional` (Spring TX) -- 未引入 Seata, 依赖下号 |
 
 ---
 
@@ -266,30 +266,17 @@ curl -X POST http://localhost:9004/api/agent/cases/{caseKey}/run
 
 ---
 
-### 5.5 分布式事务（Seata 2.0 AT 模式）
+### 5.5 事务（本项目未引入分布式事务）
 
-`backend/seata-demo/` 独立模块演示真实业务场景的分布式事务：
-**用户调用一次 ReAct 智能体任务，跨 user / agent / stats 3 个微服务原子完成**
-"扣费 + 记日志 + 累计数"。详见 [`backend/seata-demo/README.md`](backend/seata-demo/README.md)。
+本项目未引入分布式事务 (Seata 等)，全部走 Spring 本地事务 `@Transactional`：
 
 | 项 | 说明 |
 | --- | --- |
-| seata TC | 2.0.0，可选接入（无 TC 时降级到本地事务） |
-| 注册中心 | Nacos（与业务服务同集群） |
-| 3 个 DataSource | 独立 Hikari + seata-spring-boot-starter 自动包 DataSourceProxy |
-| 测试矩阵 | **13/13 通过**（4 mock 单元 + 4 集成 + 5 数据源隔离） |
-| `@GlobalTransactional` 入口 | `AgentInvokeService.invokeSuccess / invokeRollback` |
+| 事务方案 | Spring `@Transactional` 本地事务 |
+| 适用场景 | 单库事务足够覆盖 99% 业务场景（订单/支付/库存扣减/积分等） |
+| 跨服务 | 本项目业务设计避免跨服务分布式写，设计上走本地事务 + 事件最终一致 |
 
-```bash
-# 跑完整 13 个测试
-mvn -pl seata-demo test
-# → Tests run: 13, Failures: 0, Errors: 0, Skipped: 0
-
-# 启动 demo 服务
-java -jar seata-demo/target/seata-demo.jar --server.port=9100
-curl http://localhost:9100/api/seata/user/1
-# → 200 OK, credits: 10000
-```
+如未来需引入 Seata 分布式事务，可重新加 `seata-spring-boot-starter` + TC 协调器。当前架构设计为可插拔。
 
 ---
 

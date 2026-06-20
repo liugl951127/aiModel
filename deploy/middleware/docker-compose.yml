@@ -1,5 +1,5 @@
-# ★ 运行时中间件 7 件套 (Windows + Linux + Mac 一键部署)
-# 包含: ES / Nacos / Seata / Nginx / Prometheus / Grafana / Ollama
+# ★ 运行时中间件 6 件套 (Windows + Linux + Mac 一键部署)
+# 包含: ES / Nacos / Nginx / Prometheus / Grafana / Ollama
 #
 # 用法:
 #   bash deploy-middleware.sh           # 启动
@@ -23,7 +23,6 @@ volumes:
   prometheus-data:
   grafana-data:
   ollama-data:
-  seata-data:
 
 services:
   # ========== 1. Elasticsearch 8.13 (知识库) ==========
@@ -77,22 +76,7 @@ services:
     volumes:
       - nacos-data:/home/nacos/data
 
-  # ========== 3. Seata 2.0.0 Server (分布式事务) ==========
-  seata-server:
-    image: seataio/seata-server:2.0.0
-    container_name: ai-middleware-seata
-    restart: always
-    networks: [ai-platform-net]
-    ports:
-      - "7091:7091"   # admin console
-      - "8091:8091"   # TC rpc
-    environment:
-      - SEATA_PORT=8091
-      - SEATA_IP=127.0.0.1
-    volumes:
-      - seata-data:/seata-server
-
-  # ========== 4. Nginx (前端代理) ==========
+  # ========== 3. Nginx (前端代理) ==========
   nginx:
     image: nginx:alpine
     container_name: ai-middleware-nginx
@@ -109,7 +93,7 @@ services:
       timeout: 3s
       retries: 3
 
-  # ========== 5. Prometheus (指标采集) ==========
+  # ========== 4. Prometheus (指标采集) ==========
   prometheus:
     image: prom/prometheus:v2.50.0
     container_name: ai-middleware-prometheus
@@ -126,7 +110,7 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--web.enable-lifecycle'
 
-  # ========== 6. Grafana (可视化) ==========
+  # ========== 5. Grafana (可视化) ==========
   grafana:
     image: grafana/grafana:10.4.0
     container_name: ai-middleware-grafana
@@ -144,7 +128,7 @@ services:
     depends_on:
       - prometheus
 
-  # ========== 7. Ollama (本地 LLM 服务, AI backend=ollama 时用) ==========
+  # ========== 6. Ollama (本地 LLM 服务, AI backend=ollama 时用) ==========
   ollama:
     image: ollama/ollama:latest
     container_name: ai-middleware-ollama

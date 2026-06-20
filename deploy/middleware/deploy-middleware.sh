@@ -3,7 +3,7 @@
 # 适用: Linux / macOS / WSL2 / Git Bash (Windows)
 #
 # 用法:
-#   bash deploy-middleware.sh           # 启动 7 个中间件
+#   bash deploy-middleware.sh           # 启动 6 个中间件
 #   bash deploy-middleware.sh status    # 看状态
 #   bash deploy-middleware.sh stop      # 停止
 #   bash deploy-middleware.sh logs      # 看日志
@@ -31,7 +31,6 @@ fi
 declare -A PORTS=(
     [elasticsearch]=9200
     [nacos]=8848
-    [seata]=7091
     [nginx]=8080
     [prometheus]=9090
     [grafana]=3000
@@ -139,7 +138,7 @@ check_ports() {
         fi
     done
     if [ "${has_conflict}" -eq 0 ]; then
-        print_ok "所有 7 个端口 (8080/8848/9200/3000/7091/9090/11434) 空闲"
+        print_ok "所有 6 个端口 (8080/8848/9200/3000/9090/11434) 空闲"
     else
         print_warn "有端口冲突, 仍继续 (docker 会自动映射到其他端口)"
     fi
@@ -161,11 +160,11 @@ start_all() {
     $COMPOSE_CMD pull || print_warn "部分镜像拉取失败, 继续尝试启动 (有缓存就 OK)"
 
     echo ""
-    print_header "启动 7 个中间件"
+    print_header "启动 6 个中间件"
     $COMPOSE_CMD up -d --remove-orphans
 
     echo ""
-    print_ok "7 个中间件已起在后台, 等待健康 (30s)…"
+    print_ok "6 个中间件已起在后台, 等待健康 (30s)…"
 
     # 等待 30s 验准备 (全表) -- 如果某个服务未启, 提示
     local up_count=0
@@ -175,14 +174,14 @@ start_all() {
         if [ -n "${COMPOSE_CMD}" ]; then
             up_count=$($COMPOSE_CMD ps --services --filter "status=running" 2>/dev/null | wc -l)
         fi
-        if [ "${up_count}" -ge 7 ]; then
-            print_ok "7 个服务都起来了!"
+        if [ "${up_count}" -ge 6 ]; then
+            print_ok "6 个服务都起来了!"
             break
         fi
-        printf "  [%d/6] 起来了 %d/7 个服务...\n" "$i" "$up_count"
+        printf "  [%d/6] 起来了 %d/6 个服务...\n" "$i" "$up_count"
     done
-    if [ "${up_count}" -lt 7 ]; then
-        print_warn "部分服务未起来 ($up_count/7). 查看: bash deploy-middleware.sh status"
+    if [ "${up_count}" -lt 6 ]; then
+        print_warn "部分服务未起来 ($up_count/6). 查看: bash deploy-middleware.sh status"
         print_warn "或看日志: bash deploy-middleware.sh logs <service>"
     fi
     echo ""
@@ -192,7 +191,6 @@ start_all() {
     echo "    Prometheus  http://localhost:9090"
     echo "    ES          http://localhost:9200"
     echo "    Nacos       http://localhost:8848/nacos  (nacos/nacos)"
-    echo "    Seata       http://localhost:7091  (admin/admin)"
     echo "    Ollama      http://localhost:11434"
     echo ""
     echo "  等 30-60s 让 ES / Nacos 完全启动, 然后:"
@@ -274,7 +272,6 @@ health_check() {
         [Prometheus]="http://127.0.0.1:9090/-/ready"
         [Elasticsearch]="http://127.0.0.1:9200/_cluster/health"
         [Nacos]="http://127.0.0.1:8848/nacos/"
-        [Seata]="http://127.0.0.1:7091/"
         [Ollama]="http://127.0.0.1:11434/api/tags"
     )
     for name in "${!URLS[@]}"; do
@@ -307,24 +304,23 @@ show_help() {
 AI Platform 运行时中间件一键部署 (bash 版本)
 
 用法:
-  bash deploy-middleware.sh           启动 7 个中间件
+  bash deploy-middleware.sh           启动 6 个中间件
   bash deploy-middleware.sh status    看状态
   bash deploy-middleware.sh stop      停止 (数据保留)
   bash deploy-middleware.sh logs      看所有日志
   bash deploy-middleware.sh logs es   看 elasticsearch 日志
-  bash deploy-middleware.sh health    健康检查 (7 个端口 + URL)
+  bash deploy-middleware.sh health    健康检查 (6 个端口 + URL)
   bash deploy-middleware.sh pull      只拉镜像不启动
   bash deploy-middleware.sh reset     删数据 (慎)
   bash deploy-middleware.sh help      帮助
 
-包含的中间件 (7 件套):
+包含的中间件 (6 件套):
   1. Elasticsearch 8.13    (端口 9200, 知识库 RAG)
   2. Nacos 2.3.1            (端口 8848, 配置/注册)
-  3. Seata 2.0.0 Server     (端口 7091/8091, 分布式事务)
-  4. Nginx alpine           (端口 8080, 前端代理)
-  5. Prometheus 2.50        (端口 9090, 指标采集)
-  6. Grafana 10.4           (端口 3000, 可视化)
-  7. Ollama latest          (端口 11434, 本地 LLM)
+  3. Nginx alpine           (端口 8080, 前端代理)
+  4. Prometheus 2.50        (端口 9090, 指标采集)
+  5. Grafana 10.4           (端口 3000, 可视化)
+  6. Ollama latest          (端口 11434, 本地 LLM)
 
 Windows 注意事项:
   1. 先装 Docker Desktop (https://www.docker.com/products/docker-desktop/)

@@ -13,7 +13,7 @@ mysql -uroot -p951127 < deploy\sql\00_init_all.sql
 - `SHOW TABLES` → 32 张表
 - 各表种子数量 (10 个统计项, 看到非 0 即成功)
 
-## 其它库 (Nacos / Seata)
+## 其它库 (Nacos)
 
 不在 `00_init_all.sql` 内, 官方 schema 动态变化, 按需跑:
 
@@ -22,14 +22,9 @@ mysql -uroot -p951127 < deploy\sql\00_init_all.sql
 mysql -uroot -p951127 -e "CREATE DATABASE IF NOT EXISTS nacos_config DEFAULT CHARSET utf8mb4;"
 curl -O https://raw.githubusercontent.com/alibaba/nacos/develop/distribution/conf/mysql-schema.sql
 mysql -uroot -p951127 nacos_config < mysql-schema.sql
-
-# 启用分布式事务时
-mysql -uroot -p951127 -e "CREATE DATABASE IF NOT EXISTS seata DEFAULT CHARSET utf8mb4;"
-curl -O https://raw.githubusercontent.com/seata/seata/2.0.0/script/server/db/mysql.sql
-mysql -uroot -p951127 seata < mysql.sql
 ```
 
-跳过这 2 个库不影响启动: 服务走本地配置 + 事务降级到 LOCAL.
+跳过 Nacos 不影响启动: 服务走本地配置.
 
 ## 文件清单
 
@@ -60,7 +55,7 @@ mysql -uroot -p951127 seata < mysql.sql
 ### 业务全链路 (10)
 `biz_customer` `biz_chat` `biz_opportunity` `biz_quote` `biz_contract` `biz_order` `biz_payment` `biz_product` `biz_service` `biz_expense`
 
-### Seata 演示 (3)
-`agent_invoke_log` `user_credits` `usage_stats`
+### 智能体调用日志 (1)
+`agent_invoke_log`
 
-## 32 张表 ↔ 32 个 Java 实体, 0 漏 (2026-06-17 验证)
+## 30 张表 ↔ 30 个 Java 实体, 0 漏 (2026-06-20 验证)

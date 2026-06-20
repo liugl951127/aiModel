@@ -151,7 +151,6 @@
           <el-menu-item index="/roles">角色</el-menu-item>
           <el-menu-item index="/menus">菜单</el-menu-item>
           <el-menu-item index="/audit">审计</el-menu-item>
-          <el-menu-item index="/dist-tx">分布式事务</el-menu-item>
           <el-menu-item index="/monitor">实时监控</el-menu-item>
         </el-sub-menu>
       </el-menu>
@@ -394,7 +393,7 @@ const defaultOpenedMenus = computed(() => {
   if (path.startsWith('/customers') || path.startsWith('/opportunities') || path.startsWith('/chats') ||
       path.startsWith('/quotes') || path.startsWith('/contracts') || path.startsWith('/orders') ||
       path.startsWith('/products') || path.startsWith('/services')) opens.add('/biz')
-  if (['/users','/tenants','/roles','/menus','/audit','/dist-tx','/monitor'].some(p => path.startsWith(p))) opens.add('/system')
+  if (['/users','/tenants','/roles','/menus','/audit','/monitor'].some(p => path.startsWith(p))) opens.add('/system')
   return [...opens]
 })
 

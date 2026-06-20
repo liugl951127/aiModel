@@ -27,7 +27,7 @@
 |---|---|---|
 | `spring-boot-starter-parent` | **3.2.5** | Spring Boot 父 POM |
 | `spring-cloud` | **2023.0.1** | Spring Cloud 微服务 |
-| `spring-cloud-alibaba` | **2023.0.1.0** | Nacos/Sentinel/Seata |
+| `spring-cloud-alibaba` | **2023.0.1.0** | Nacos/Sentinel |
 | `spring-boot-starter-web` | 3.2.5 | REST API |
 | `spring-boot-starter-actuator` | 3.2.5 | 健康检查 + Prometheus |
 | `spring-boot-starter-data-redis` | 3.2.5 | Redis 客户端 |
@@ -72,8 +72,9 @@
 ### 事务
 | 依赖 | 版本 | 用途 |
 |---|---|---|
-| `seata-spring-boot-starter` | **2.0.0** | Seata 分布式事务 |
-| `seata-all` | **2.0.0** | Seata 全部 |
+| `spring-tx` | 6.x (Spring Boot 自带) | 本地 `@Transactional` (够用) |
+
+> 已移除 Seata 分布式事务, 全部走本地 `@Transactional` 事务.
 
 ### 编译期
 | 依赖 | 用途 |
@@ -125,7 +126,6 @@
 | **Redis** | `redis:7-alpine` | 6379 | ✅ 必需 |
 | **Elasticsearch** | `docker.elastic.co/elasticsearch/elasticsearch:8.13.0` | 9200 | ✅ 必需 |
 | **Nacos** | `nacos/nacos-server:v2.3.1` | 8848, 9848 | ⭐ 可选 (有 fallback 走本地配置) |
-| **Seata Server** | `seataio/seata-server:2.0.0` | 8091, 7091 | ⭐ 可选 (分布式事务 demo 用) |
 | **Nginx** | `nginx:alpine` | 80 | ⭐ 可选 (前端部署) |
 | **Prometheus** | `prom/prometheus:v2.50.0` | 9090 | ⭐ 可选 (监控) |
 | **Grafana** | `grafana/grafana:10.4.0` | 3000 | ⭐ 可选 (监控) |
@@ -275,7 +275,6 @@
 
 如果是生产集群, 加:
 - Nacos Server
-- Seata Server
 - Prometheus + Grafana
 - K8s 集群 (Helm)
 - 备份 / 监控 / 告警
@@ -293,7 +292,6 @@
 | Redis 6+ | Redis 7 | Redis 5 (无 stream) |
 | ES 8+ | ES 8.13 | ES 7 (API 差异大) |
 | Nacos 2.x | Nacos 2.3.1 | Nacos 1.x (不同 namespace API) |
-| Seata 2.x | Seata 2.0.0 | Seata 1.x (API 完全不同) |
 | Vue 3 | 3.4+ | Vue 2 (语法不兼容) |
 | Element Plus 2+ | 2.6+ | Element UI 1.x (组件不兼容) |
 | Spring Boot 3 | 3.2.5+ | Boot 2.x (Jakarta EE 9 vs javax) |

@@ -111,12 +111,8 @@ INSERT INTO biz_expense (order_id, category, amount, happened_at, notes, created
 (1, '招待', 3000.00, '2026-06-12 19:00:00', '客户晚宴', 1);
 
 -- ====================================================
--- Seata 演示种子 (user_credits: 给 admin 充 100 万 token 启动即用)
+-- 注: Seata 演示种子已移除 (user_credits 表已删)
 -- ====================================================
-INSERT INTO user_credits (user_id, username, credits, consumed) VALUES
-(1, 'admin', 1000000, 0),
-(2, 'liugl', 500000, 0),
-(3, 'demo', 100000, 0);
 
 -- 多智能体案例库 (3 个示例, 首页推荐)
 INSERT INTO agent_multi_agent_case (case_key, title, summary, description, domain, agent_spec, flow_spec, final_output, kpis, featured) VALUES

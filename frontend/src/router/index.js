@@ -43,7 +43,6 @@ const routes = [
       { path: 'orders', name: 'Orders', component: () => import('@/views/Orders.vue'), meta: { title: '订单' } },
       { path: 'products', name: 'Products', component: () => import('@/views/Products.vue'), meta: { title: '产品' } },
       { path: 'services', name: 'Services', component: () => import('@/views/Services.vue'), meta: { title: '服务' } },
-      { path: 'dist-tx', name: 'DistributedTx', component: () => import('@/views/DistributedTx.vue'), meta: { title: '分布式事务' } },
       { path: 'monitor', name: 'Monitor', component: () => import('@/views/Monitor.vue'), meta: { title: '实时监控' } }
     ]
   }

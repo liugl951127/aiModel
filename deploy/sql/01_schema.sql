@@ -594,7 +594,7 @@ CREATE TABLE file_object (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '文件元数据 (字节存 OSS/本地)';
 
 -- ---------------------------------------------------------------------------
--- Seata 演示: 智能体调用日志 (ReAct 每跑一次一行, traceId 聚合)
+-- 智能体调用日志 (ReAct 每跑一次一行, traceId 聚合) -- 已移除 Seata 演示 2026-06
 -- ---------------------------------------------------------------------------
 DROP TABLE IF EXISTS agent_invoke_log;
 CREATE TABLE agent_invoke_log (
@@ -614,33 +614,5 @@ CREATE TABLE agent_invoke_log (
     KEY idx_time (create_time)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '智能体调用日志';
 
--- ---------------------------------------------------------------------------
--- Seata 演示: 使用统计 (每日一行, Dashboard 报表)
--- ---------------------------------------------------------------------------
-DROP TABLE IF EXISTS usage_stats;
-CREATE TABLE usage_stats (
-    id              BIGINT       NOT NULL,
-    stat_date       VARCHAR(16)  NOT NULL COMMENT 'yyyy-MM-dd',
-    agent_code      VARCHAR(64)  NOT NULL,
-    invoke_count    BIGINT       DEFAULT 0,
-    token_total     BIGINT       DEFAULT 0,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_date_agent (stat_date, agent_code),
-    KEY idx_date (stat_date)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '使用统计 (按日)';
-
--- ---------------------------------------------------------------------------
--- Seata 演示: 用户积分 (每次 ReAct 结束扣减, 余额不足触发全局回滚)
--- ---------------------------------------------------------------------------
-DROP TABLE IF EXISTS user_credits;
-CREATE TABLE user_credits (
-    id              BIGINT       NOT NULL,
-    user_id         BIGINT       NOT NULL,
-    username        VARCHAR(64)  NOT NULL,
-    credits         BIGINT       DEFAULT 0 COMMENT '剩余可用',
-    consumed        BIGINT       DEFAULT 0 COMMENT '累计已消耗',
-    update_time     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_user (user_id),
-    KEY idx_username (username)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户 AI 额度';
+-- 注: 已移除 Seata 演示表 (usage_stats / user_credits), 不再需要分布式事务协调.
+-- 如需使用统计 / 用户积分, 走简单 @Transactional 本地事务即可.

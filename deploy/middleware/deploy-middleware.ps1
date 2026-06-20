@@ -2,7 +2,7 @@
 # 适用: Windows 10/11 (PowerShell 5.1+)
 #
 # 用法 (在 PowerShell 中):
-#   .\deploy-middleware.ps1           # 启动 7 个中间件
+#   .\deploy-middleware.ps1           # 启动 6 个中间件
 #   .\deploy-middleware.ps1 status    # 看状态
 #   .\deploy-middleware.ps1 stop      # 停止
 #   .\deploy-middleware.ps1 logs      # 看日志
@@ -58,7 +58,6 @@ function Write-Header {
 $Ports = @{
     "elasticsearch" = 9200
     "nacos"         = 8848
-    "seata"         = 7091
     "nginx"         = 8080
     "prometheus"    = 9090
     "grafana"       = 3000
@@ -135,7 +134,7 @@ function Test-Ports {
         }
     }
     if ($conflicts -eq 0) {
-        Write-Ok "7 个端口 (8080/8848/9200/3000/7091/9090/11434) 全部空闲"
+        Write-Ok "6 个端口 (8080/8848/9200/3000/9090/11434) 全部空闲"
     } else {
         Write-Warn "$conflicts 个端口冲突, 仍继续 (docker 会自动映射)"
     }
@@ -152,11 +151,11 @@ function Pull-Images {
 function Start-All {
     Test-Docker
     Test-Ports
-    Write-Header "启动 7 个中间件"
+    Write-Header "启动 6 个中间件"
     & $script:ComposeCmd up -d --remove-orphans
 
     Write-Host ""
-    Write-Ok "7 个中间件已起在后台"
+    Write-Ok "6 个中间件已起在后台"
     Write-Host ""
     Write-Host "  访问入口 (浏览器):"
     Write-Host "    Nginx       http://localhost:8080"
@@ -164,7 +163,6 @@ function Start-All {
     Write-Host "    Prometheus  http://localhost:9090"
     Write-Host "    ES          http://localhost:9200"
     Write-Host "    Nacos       http://localhost:8848/nacos  (nacos/nacos)"
-    Write-Host "    Seata       http://localhost:7091  (admin/admin)"
     Write-Host "    Ollama      http://localhost:11434"
     Write-Host ""
     Write-Host "  等 30-60s 后:"
@@ -228,7 +226,6 @@ function Test-Health {
         "Prometheus"    = "http://127.0.0.1:9090/-/ready"
         "Elasticsearch" = "http://127.0.0.1:9200/_cluster/health"
         "Nacos"         = "http://127.0.0.1:8848/nacos/"
-        "Seata"         = "http://127.0.0.1:7091/"
         "Ollama"        = "http://127.0.0.1:11434/api/tags"
     }
     $allOk = $true
@@ -264,7 +261,7 @@ AI Platform 运行时中间件一键部署 (PowerShell 版本)
   .\deploy-middleware.ps1 [command] [service]
 
 命令:
-  start      启动 7 个中间件 (默认)
+  start      启动 6 个中间件 (默认)
   status     看状态
   stop       停止 (数据保留)
   logs       看所有日志 (可指定服务: logs elasticsearch)
@@ -276,11 +273,10 @@ AI Platform 运行时中间件一键部署 (PowerShell 版本)
 包含的中间件 (7 件套):
   1. Elasticsearch 8.13    端口 9200   知识库 RAG
   2. Nacos 2.3.1            端口 8848   配置/注册
-  3. Seata 2.0.0 Server     端口 7091   分布式事务
-  4. Nginx alpine           端口 8080   前端代理
-  5. Prometheus 2.50        端口 9090   指标采集
-  6. Grafana 10.4           端口 3000   可视化
-  7. Ollama latest          端口 11434  本地 LLM
+  3. Nginx alpine           端口 8080   前端代理
+  4. Prometheus 2.50        端口 9090   指标采集
+  5. Grafana 10.4           端口 3000   可视化
+  6. Ollama latest          端口 11434  本地 LLM
 
 Windows 注意事项:
   1. 先装 Docker Desktop, 启动后右下角图标变绿

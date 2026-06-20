@@ -4,7 +4,7 @@
 --  Lines: ~800  |  Tables: 32  |  Lib: ai_platform
 --
 --  本文件包含本项目需要的全部 32 张业务表 + 种子数据.
---  Nacos / Seata 库不在此文件内 (官方 schema 动态变化, 见末尾说明).
+--  Nacos 库不在此文件内 (官方 schema 动态变化, 见末尾说明).
 --
 --  一键跑 (PowerShell):
 --    mysql -uroot -p951127 < deploy\sql\00_init_all.sql
@@ -667,7 +667,7 @@ CREATE TABLE file_object (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '文件元数据 (字节存 OSS/本地)';
 
 -- ---------------------------------------------------------------------------
--- Seata 演示: 智能体调用日志 (ReAct 每跑一次一行, traceId 聚合)
+-- 智能体调用日志 (ReAct 每跑一次一行, traceId 聚合) -- 已移除 Seata 演示 2026-06
 -- ---------------------------------------------------------------------------
 DROP TABLE IF EXISTS agent_invoke_log;
 CREATE TABLE agent_invoke_log (
@@ -687,34 +687,8 @@ CREATE TABLE agent_invoke_log (
     KEY idx_time (create_time)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '智能体调用日志';
 
--- ---------------------------------------------------------------------------
--- Seata 演示: 使用统计 (每日一行, Dashboard 报表)
--- ---------------------------------------------------------------------------
-DROP TABLE IF EXISTS usage_stats;
-CREATE TABLE usage_stats (
-    id              BIGINT       NOT NULL,
-    stat_date       VARCHAR(16)  NOT NULL COMMENT 'yyyy-MM-dd',
-    agent_code      VARCHAR(64)  NOT NULL,
-    invoke_count    BIGINT       DEFAULT 0,
-    token_total     BIGINT       DEFAULT 0,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_date_agent (stat_date, agent_code),
-    KEY idx_date (stat_date)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '使用统计 (按日)';
-
--- ---------------------------------------------------------------------------
--- Seata 演示: 用户积分 (每次 ReAct 结束扣减, 余额不足触发全局回滚)
--- ---------------------------------------------------------------------------
-DROP TABLE IF EXISTS user_credits;
-CREATE TABLE user_credits (
-    id              BIGINT       NOT NULL,
-    user_id         BIGINT       NOT NULL,
-    username        VARCHAR(64)  NOT NULL,
-    credits         BIGINT       DEFAULT 0 COMMENT '剩余可用',
-    consumed        BIGINT       DEFAULT 0 COMMENT '累计已消耗',
-    update_time     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_user (user_id),
+-- 注: 已移除 Seata 演示表 (usage_stats / user_credits), 不再需要分布式事务协调.
+-- 如需使用统计 / 用户积分, 走简单 @Transactional 本地事务即可.
     KEY idx_username (username)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户 AI 额度';
 
@@ -834,13 +808,7 @@ INSERT INTO biz_expense (order_id, category, amount, happened_at, notes, created
 (1, '差旅', 5000.00, '2026-06-10 10:00:00', '北京客户拜访', 1),
 (1, '招待', 3000.00, '2026-06-12 19:00:00', '客户晚宴', 1);
 
--- ====================================================
--- Seata 演示种子 (user_credits: 给 admin 充 100 万 token 启动即用)
--- ====================================================
-INSERT INTO user_credits (user_id, username, credits, consumed) VALUES
-(1, 'admin', 1000000, 0),
-(2, 'liugl', 500000, 0),
-(3, 'demo', 100000, 0);
+-- 注: Seata 演示种子已移除 (user_credits 表已删)
 
 -- 多智能体案例库 (3 个示例, 首页推荐)
 INSERT INTO agent_multi_agent_case (case_key, title, summary, description, domain, agent_spec, flow_spec, final_output, kpis, featured) VALUES
@@ -881,11 +849,10 @@ UNION ALL SELECT 'biz_customer', COUNT(*) FROM biz_customer
 UNION ALL SELECT 'biz_opportunity', COUNT(*) FROM biz_opportunity
 UNION ALL SELECT 'biz_order', COUNT(*) FROM biz_order
 UNION ALL SELECT 'biz_product', COUNT(*) FROM biz_product
-UNION ALL SELECT 'user_credits', COUNT(*) FROM user_credits
 UNION ALL SELECT 'agent_multi_agent_case', COUNT(*) FROM agent_multi_agent_case;
 
 -- =============================================================================
---  SECTION 4: 其它库的初始化 (Nacos / Seata, 非本文件范围)
+--  SECTION 4: 其它库的初始化 (Nacos, 非本文件范围)
 -- =============================================================================
 --
 --  本项目默认连接以下 3 个 MySQL 库, 本文件只建 ai_platform.
@@ -896,10 +863,6 @@ UNION ALL SELECT 'agent_multi_agent_case', COUNT(*) FROM agent_multi_agent_case;
 --     curl -O https://raw.githubusercontent.com/alibaba/nacos/develop/distribution/conf/mysql-schema.sql
 --     mysql -uroot -p951127 nacos_config < mysql-schema.sql
 --
---  2) Seata 库:
---     mysql -uroot -p951127 -e 'CREATE DATABASE IF NOT EXISTS seata DEFAULT CHARSET utf8mb4;'
---     curl -O https://raw.githubusercontent.com/seata/seata/2.0.0/script/server/db/mysql.sql
---     mysql -uroot -p951127 seata < mysql.sql
---
---  跳过 Nacos/Seata 不影响: 服务本地配置 + 降级到 LOCAL 事务.
+--  跳过 Nacos 不影响: 服务本地配置兜底.
+-- =============================================================================
 -- =============================================================================

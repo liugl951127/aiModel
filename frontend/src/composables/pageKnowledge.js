@@ -27,8 +27,8 @@ export const pageKnowledge = {
         ]
       },
       {
-        keywords: '分布式|seata|事务|限流|幂等',
-        answer: '分布式 7 大能力 (锁/ID/限流/幂等/缓存/事件/调度) 都基于 Redisson + Redis.\n\n具体演示页: /distributed (实时展示当前模式 OFF/SEATA/LOCAL_FALLBACK).',
+        keywords: '分布式|限流|幂等|锁|cache',
+        answer: '分布式 7 大能力 (锁/ID/限流/幂等/缓存/事件/调度) 都基于 Redisson + Redis.\n\n具体演示页: /distributed (实时展示所有能力效果).',
         actions: [{ label: '打开分布式', event: 'navigate', payload: '/distributed' }]
       },
       {
@@ -522,9 +522,9 @@ export const pageKnowledge = {
     description: '7 大分布式能力实时演示',
     quickQuestions: [
       '7 大能力分别是什么?',
-      '当前 Seata 模式?',
       '限流阈值怎么调?',
       '幂等键怎么用?',
+      '调度任务怎么加?',
     ],
     qa: [
       {
@@ -532,8 +532,8 @@ export const pageKnowledge = {
         answer: '7 大能力 (基于 Redisson + Redis):\n① 分布式锁 (RedissonLock)\n② 分布式 ID (Snowflake)\n③ 分布式限流 (RateLimiter)\n④ 分布式幂等 (Idempotent)\n⑤ 分布式缓存 (Cache)\n⑥ 分布式事件总线 (Pub/Sub)\n⑦ 分布式调度 (Scheduler)\n\n每项都有演示按钮.',
       },
       {
-        keywords: 'seata|模式|mode|off|fallback',
-        answer: 'Seata 模式 3 种:\n• OFF: 完全关闭 (本地事务)\n• SEATA: 走 TC 协调器 (生产推荐)\n• LOCAL_FALLBACK: 自动降级 (TC 不可用时)\n\n页头实时显示当前模式, 一键切换.',
+        keywords: '限流|限流器|阈值',
+        answer: '分布式限流器 (RedissonRateLimiter) 默认 100 QPS, 演示页可实时调整. 适用: API 防刷/秒杀限流.',
         actions: [{ label: '查看配置', event: 'pageAction', payload: { page: '/distributed', action: 'showConfig' } }]
       },
     ]
