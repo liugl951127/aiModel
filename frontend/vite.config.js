@@ -14,9 +14,25 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) }
   },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        // SCSS 全局变量 (可省略, 这里只是防拼写错误)
+        api: 'modern-compiler'
+      },
+      // 强制 scss 文件以 text/x-scss MIME 输出 (避免 vite 返 text/html fallback)
+      sass: {
+        api: 'modern-compiler'
+      }
+    }
+  },
   server: {
     port: 5173,
     host: '0.0.0.0',
+    // 缓存目录指定 -- dev server 重启后老缓存不命中
+    cacheDir: 'node_modules/.vite',
+    // 不存在的路径返 404 (避免 SPA fallback 干扰静态资源)
+    fs: { strict: true },
     proxy: {
       // 保留 /api 前缀 — 直接转发到 gateway
       // (gateway 路由本身就是 /api/auth/** /api/user/** 等)
