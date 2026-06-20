@@ -14,7 +14,7 @@ spring:
   main:
     allow-bean-definition-overriding: true
   config:
-    import: nacos:ai-platform-trainer.yaml
+    import: "optional:nacos:ai-platform-trainer.yaml"
   cloud:
     openfeign:
       client:

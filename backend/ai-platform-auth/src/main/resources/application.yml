@@ -14,7 +14,7 @@ spring:
   main:
     allow-bean-definition-overriding: true
   config:
-    import: nacos:ai-platform-auth.yaml
+    import: "optional:nacos:ai-platform-auth.yaml"
   cloud:
     openfeign:
       client:

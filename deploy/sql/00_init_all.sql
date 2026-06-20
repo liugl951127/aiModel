@@ -689,8 +689,6 @@ CREATE TABLE agent_invoke_log (
 
 -- 注: 已移除 Seata 演示表 (usage_stats / user_credits), 不再需要分布式事务协调.
 -- 如需使用统计 / 用户积分, 走简单 @Transactional 本地事务即可.
-    KEY idx_username (username)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '用户 AI 额度';
 
 -- =============================================================================
 --  SECTION 2: 种子数据 (admin / 角色 / 业务客户等)
@@ -811,20 +809,20 @@ INSERT INTO biz_expense (order_id, category, amount, happened_at, notes, created
 -- 注: Seata 演示种子已移除 (user_credits 表已删)
 
 -- 多智能体案例库 (3 个示例, 首页推荐)
-INSERT INTO agent_multi_agent_case (case_key, title, summary, description, domain, agent_spec, flow_spec, final_output, kpis, featured) VALUES
-('rag-qa-demo', '企业知识库问答', '基于 RAG 的内部知识库智能问答系统',
+INSERT INTO agent_multi_agent_case (id, case_key, title, summary, description, domain, agent_spec, flow_spec, final_output, kpis, featured) VALUES
+(1, 'rag-qa-demo', '企业知识库问答', '基于 RAG 的内部知识库智能问答系统',
  '员工上传 PDF 文档, 系统自动切片向量化, AI 回答时引用原文, 1 秒返回',
  'knowledge', '{"agents":[{"name":"Retriever","tools":["kb_search"]},{"name":"Responder","tools":[]}]}',
  '[{"step":"ingest","tool":"kb_ingest"},{"step":"search","tool":"kb_search"},{"step":"respond","tool":"agent_think"}]',
  '{"accuracy":0.92,"avg_latency_ms":850}',
  '{"accuracy":0.92,"latency_ms":850,"refusal_rate":0.05}', 1),
-('marketing-copy', '营销文案生成', '从产品白皮书一键生成小红书/公众号/抖音 3 平台文案',
+ (2, 'marketing-copy', '营销文案生成', '从产品白皮书一键生成小红书/公众号/抖音 3 平台文案',
  '输入产品名+卖点, AI 自动写 3 套不同风格文案',
  'marketing', '{"agents":[{"name":"CopyWriter","tools":["llm_call"]}]}',
  '[{"step":"plan","tool":"agent_think"},{"step":"write","tool":"llm_call"}]',
  '{"variants":3,"tokens_avg":280}',
  '{"engagement_lift":0.45,"cost_per_copy":0.02}', 0),
-('legal-review', '合同风险审查', '上传合同 PDF, AI 自动标出风险条款并给出修改建议',
+(3, 'legal-review', '合同风险审查', '上传合同 PDF, AI 自动标出风险条款并给出修改建议',
  '支持中英双语, 命中 50+ 风险模式 (违约金/排他/单方解除等)',
  'legal', '{"agents":[{"name":"LegalExpert","tools":["llm_call","regex_match"]}]}',
  '[{"step":"extract","tool":"pdf_parse"},{"step":"scan","tool":"regex_match"},{"step":"explain","tool":"agent_think"}]',

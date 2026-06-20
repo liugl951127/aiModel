@@ -10,12 +10,11 @@ import org.springframework.scheduling.annotation.EnableAsync;
 /**
  * Trainer service. Runs Java-side model training (DJL) and exports ONNX.
  *
- * <p>DataSourceAutoConfiguration is excluded; the service falls back to in-memory
- * job tracking when no MySQL is configured. Enable by removing the exclude
- * in production.
+ * <p>MyBatis-Plus mapper bean 需要 SqlSessionFactory, 不能 exclude DataSourceAutoConfiguration.
+ * 如遇沙箱无 MySQL, 仍需 MySQL 可达才能启动 mapper (有 connection fail-fast fallback).
  */
 @EnableAsync
-@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
+@SpringBootApplication
 @ComponentScan(basePackages = {
         "com.aiplatform.trainer",
         "com.aiplatform.starter.common",

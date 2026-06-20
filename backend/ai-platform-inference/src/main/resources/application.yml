@@ -14,7 +14,7 @@ spring:
   main:
     allow-bean-definition-overriding: true
   config:
-    import: nacos:ai-platform-inference.yaml
+    import: "optional:nacos:ai-platform-inference.yaml"
   cloud:
     openfeign:
       client:
