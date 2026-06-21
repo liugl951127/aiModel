@@ -124,9 +124,16 @@ const props = defineProps({
 const emit = defineEmits(['action', 'navigate'])
 const route = useRoute()
 const router = useRouter()
-// ★ 默认使用 'default' agentId (后端有, 走 base ReAct loop); 页面 metadata 可覆盖
-const agentId = ref(pageMeta.value?.agentId || 'default')
 const bus = useGlobalBus()
+
+// ====== 页面知识 (随路由变化) — 必须在所有引用之前声明 ======
+const pageMeta = computed(() => {
+  if (props.customKnowledge) return props.customKnowledge
+  return getPageKnowledge(route.path)
+})
+
+// ★ 默认使用 'default' agentId; 页面 metadata 可覆盖
+const agentId = ref(pageMeta.value?.agentId || 'default')
 
 // 全局推送的上下文 (画布状态 / 表格状态等)
 const liveContext = ref(null)
@@ -190,11 +197,8 @@ const onDragStart = (e) => {
   window.addEventListener('mouseup', onUp)
 }
 
-// ====== 页面知识 (随路由变化) ======
-const pageMeta = computed(() => {
-  if (props.customKnowledge) return props.customKnowledge
-  return getPageKnowledge(route.path)
-})
+// ====== 页面知识 (随路由变化) -- 已在上面声明, 这里是重复删除 ======
+// (removed duplicate, see top of setup)
 
 const pageWelcome = computed(() => {
   const meta = pageMeta.value

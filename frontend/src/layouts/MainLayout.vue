@@ -339,7 +339,7 @@ import {
   DataLine, Cpu, Files, VideoPlay, UserFilled, Tools, Reading, ChatDotRound, Setting,
   Connection, Refresh, Search, Fold, Expand, CaretBottom, User, SwitchButton,
   OfficeBuilding, Document, Sunny, Moon, MagicStick, Tickets, Box, HomeFilled, BellFilled,
-  Folder
+  Folder, Aim
 } from '@element-plus/icons-vue'
 import LiveTickerBar from '@/components/LiveTickerBar.vue'
 import WorkflowAssistant from '@/components/WorkflowAssistant.vue'
