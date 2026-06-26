@@ -19,10 +19,10 @@
         Redisson 3.27.2 + Spring Data Redis, 自定义 Config 覆盖 starter auto-config.</description>
 
     <dependencies>
-        <!-- 内部依赖: 只用 common-core (纯 Java, 避免 servlet 冲突) -->
+        <!-- 内部依赖: 只用 common (合并后包含 core + web + ai 后端) -->
         <dependency>
             <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-core</artifactId>
+            <artifactId>ai-platform-common</artifactId>
         </dependency>
 
         <!-- Spring Boot 基础 -->

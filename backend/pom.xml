@@ -19,14 +19,12 @@
     </parent>
 
     <modules>
-        <module>ai-platform-api</module>
+        <!-- ★ v3.0 模块精简: 23 → 15 (合并 api/ai → common, 合并 common-core/common-web → web-starter, nacos → redis-starter, 删空 common-starter) -->
         <module>ai-platform-common</module>
         <module>ai-platform-starters/ai-platform-web-starter</module>
         <module>ai-platform-starters/ai-platform-mybatis-starter</module>
         <module>ai-platform-starters/ai-platform-redis-starter</module>
         <module>ai-platform-starters/ai-platform-secure-starter</module>
-        <module>ai-platform-starters/ai-platform-nacos-starter</module>
-        <module>ai-platform-starters/ai-platform-common-starter</module>
         <module>ai-platform-trainer</module>
         <module>ai-platform-gateway</module>
         <module>ai-platform-auth</module>
@@ -38,9 +36,6 @@
         <module>ai-platform-inference</module>
         <module>ai-platform-files</module>
         <module>ai-platform-workflow</module>
-        <module>ai-platform-ai</module>
-        <module>ai-platform-starters/ai-platform-common-core</module>
-        <module>ai-platform-starters/ai-platform-common-web</module>
     </modules>
 
     <properties>

@@ -34,23 +34,10 @@
             <artifactId>ai-platform-secure-starter</artifactId>
             <optional>true</optional>
         </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-nacos-starter</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-web</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-ai</artifactId>
+            <artifactId>ai-platform-common</artifactId>
         </dependency>
 
         <dependency>

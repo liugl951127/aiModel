@@ -25,15 +25,6 @@
             <groupId>com.aiplatform</groupId>
             <artifactId>ai-platform-secure-starter</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-nacos-starter</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-core</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>org.springframework.cloud</groupId>

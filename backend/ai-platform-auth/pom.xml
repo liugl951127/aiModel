@@ -31,20 +31,7 @@
         </dependency>
         <dependency>
             <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-nacos-starter</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-api</artifactId>
+            <artifactId>ai-platform-common</artifactId>
         </dependency>
 
         <dependency>

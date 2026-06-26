@@ -31,19 +31,6 @@
             <artifactId>ai-platform-secure-starter</artifactId>
             <optional>true</optional>
         </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-nacos-starter</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-web</artifactId>
-        </dependency>
 
         <!-- DJL for training (PyTorch native CPU engine) -->
         <dependency>

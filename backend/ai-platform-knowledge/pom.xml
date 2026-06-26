@@ -36,19 +36,6 @@
             <optional>true</optional>
         </dependency>
         <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-nacos-starter</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.aiplatform</groupId>
-            <artifactId>ai-platform-common-web</artifactId>
-        </dependency>
-        <dependency>
             <groupId>co.elastic.clients</groupId>
             <artifactId>elasticsearch-java</artifactId>
             <version>8.13.0</version>
