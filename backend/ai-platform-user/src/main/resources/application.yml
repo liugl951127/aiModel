@@ -62,7 +62,7 @@ mybatis-plus:
 aiplatform:
   jwt:
     enabled: true
-    secret: ${JWT_SECRET:ai-platform-default-secret-key-please-change-32+}
+    secret: ${JWT_SECRET:8ce0051f919040db82c8058f74ff20a80fb039c8de194656512a8ea7207552da}
     expiration: 86400000
     issuer: ai-platform
 
