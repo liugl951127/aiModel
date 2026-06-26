@@ -22,9 +22,10 @@ export default defineConfig({
       'vue-router',
       'pinia',
       'axios',
-      'echarts/vue',
+      'echarts',
+      'vue-echarts',
       'element-plus',
-      'element-plus/icons-vue'
+      '@element-plus/icons-vue'
     ],
     // 历史 cache 里出现过但当前 package.json 没装的包: 排除防报错
     exclude: [
