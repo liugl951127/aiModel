@@ -11,6 +11,8 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
 @ComponentScan(basePackages = {
         "com.aiplatform.knowledge",
+        // ★ v3.2 模块精简: 合并 model -> knowledge, scan 包含 model 包
+        "com.aiplatform.model",
         "com.aiplatform.starter.common",
         "com.aiplatform.starter.web",
         "com.aiplatform.starter.mybatis",
@@ -18,7 +20,7 @@ import org.springframework.context.annotation.ComponentScan;
         "com.aiplatform.starter.secure",
         "com.aiplatform.starter.nacos"
 })
-@MapperScan("com.aiplatform.knowledge.mapper")
+@MapperScan({"com.aiplatform.knowledge.mapper", "com.aiplatform.model.mapper"})
 public class KnowledgeApplication {
     public static void main(String[] args) {
         SpringApplication.run(KnowledgeApplication.class, args);

@@ -56,7 +56,7 @@ spring:
           predicates:
             - Path=/api/system/**,/api/menu/**,/api/role/**,/api/dict/**,/api/biz/**,/api/activity/**,/api/monitor/**
         - id: model-route
-          uri: ${MODEL_URI:lb://ai-platform-model}
+          uri: ${MODEL_URI:lb://ai-platform-knowledge}
           predicates:
             - Path=/api/model/**,/api/dataset/**
         - id: agent-route

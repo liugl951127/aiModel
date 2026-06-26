@@ -91,7 +91,7 @@ public class ServiceClients {
         Result<Map<String, Object>> dpo(@RequestBody Map<String, Object> body);
     }
 
-    @FeignClient(name = "ai-platform-model", path = "/api/model")
+    @FeignClient(name = "ai-platform-knowledge", path = "/api/model")
     public interface ModelClient {
         @GetMapping("/list")
         Result<List<Map<String, Object>>> list();
