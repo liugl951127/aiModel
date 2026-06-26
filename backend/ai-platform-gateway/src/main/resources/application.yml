@@ -19,6 +19,8 @@ spring:
     name: ai-platform-gateway
   main:
     allow-bean-definition-overriding: true
+    # ★ Gateway 是响应式, 必须设为 reactive, 避免与 common 模块传递的 spring-boot-starter-web 冲突
+    web-application-type: reactive
   config:
     import: "optional:nacos:ai-platform-gateway.yaml"
   cloud:
