@@ -14,6 +14,25 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) }
   },
+  // ★ 防老依赖缓存: 强制 dev 启动时重新扫描依赖, 避免残留无效文件引用
+  optimizeDeps: {
+    // 不用 force, 排除可能多版本或不存在的依赖
+    include: [
+      'vue',
+      'vue-router',
+      'pinia',
+      'axios',
+      'echarts/vue',
+      'element-plus',
+      'element-plus/icons-vue'
+    ],
+    // 历史 cache 里出现过但当前 package.json 没装的包: 排除防报错
+    exclude: [
+      'pinia-plugin-persistedstate',
+      'vue-i18n',
+      'element-plus/dist/locale/zh-cn'
+    ]
+  },
   css: {
     preprocessorOptions: {
       scss: {
