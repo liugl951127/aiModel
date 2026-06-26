@@ -41,7 +41,7 @@ public class HealthProbe {
      *  真实端口从 nacos 拉, 这里用常用默认, 失败不影响监控. */
     private static final Map<String, String> SERVICE_URLS = Map.ofEntries(
             Map.entry("网关",   "http://127.0.0.1:9000/api/auth/health"),
-            Map.entry("认证",   "http://127.0.0.1:9001/api/auth/health"),
+            Map.entry("认证",   "http://127.0.0.1:9002/api/auth/health"),
             Map.entry("用户",   "http://127.0.0.1:9002/api/auth/health"),
             Map.entry("系统",   "http://127.0.0.1:9003/api/activity/recent"),
             Map.entry("模型",   "http://127.0.0.1:9006/api/model/list"),

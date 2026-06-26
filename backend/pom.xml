@@ -27,7 +27,7 @@
         <module>ai-platform-starters/ai-platform-secure-starter</module>
         <module>ai-platform-trainer</module>
         <module>ai-platform-gateway</module>
-        <module>ai-platform-auth</module>
+        
         <module>ai-platform-user</module>
         <module>ai-platform-system</module>
         

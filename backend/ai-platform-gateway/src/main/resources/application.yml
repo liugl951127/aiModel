@@ -44,7 +44,7 @@ spring:
           enabled: false
       routes:
         - id: auth-route
-          uri: ${AUTH_URI:lb://ai-platform-auth}
+          uri: ${AUTH_URI:lb://ai-platform-user}
           predicates:
             - Path=/api/auth/**
         - id: user-route
