@@ -32,6 +32,19 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- ★ v3.1 模块精简: 从 inference 合并入的依赖 -->
+        <dependency>
+            <groupId>com.aiplatform</groupId>
+            <artifactId>ai-platform-redis-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- ONNX Runtime (本地推理, 可选) -->
+        <dependency>
+            <groupId>com.microsoft.onnxruntime</groupId>
+            <artifactId>onnxruntime</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <!-- DJL for training (PyTorch native CPU engine) -->
         <dependency>
             <groupId>ai.djl</groupId>

@@ -47,9 +47,9 @@ public class HealthProbe {
             Map.entry("模型",   "http://127.0.0.1:9004/api/model/list"),
             Map.entry("智能体", "http://127.0.0.1:9005/api/agent/health"),
             Map.entry("知识库", "http://127.0.0.1:9006/api/knowledge/health"),
-            Map.entry("推理",   "http://127.0.0.1:9007/api/inference/health"),
+            Map.entry("推理",   "http://127.0.0.1:9008/api/inference/health"),
             Map.entry("训练",   "http://127.0.0.1:9008/api/trainer/health"),
-            Map.entry("文件",   "http://127.0.0.1:9010/api/files/health"),
+            Map.entry("文件",   "http://127.0.0.1:9011/api/files/health"),
             Map.entry("工作流", "http://127.0.0.1:9011/api/workflow/health")
     );
 

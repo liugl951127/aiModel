@@ -48,6 +48,22 @@ aiplatform:
     issuer: ai-platform
   trainer:
     export-root: ${TRAINER_EXPORT_ROOT:/opt/ai-platform/inference-bundles}
+  # ★ v3.1 从 inference 合并入的 AI Backend 配置
+  ai:
+    backend: ${AI_BACKEND:mock}
+    ollama:
+      url: ${OLLAMA_URL:http://127.0.0.1:11434}
+      model: ${OLLAMA_MODEL:qwen2:7b}
+    http:
+      url: ${HTTP_AI_URL:http://127.0.0.1:8000}
+      api-key: ${HTTP_AI_KEY:}
+    internal:
+      enabled: ${AI_INTERNAL_ENABLED:true}
+      threads: ${AI_INTERNAL_THREADS:4}
+  # ★ v3.1 inference 配置合并入
+  inference:
+    bundle-root: ${INFERENCE_BUNDLE_ROOT:/opt/ai-platform/inference-bundles}
+    bundle-default: ${INFERENCE_BUNDLE_DEFAULT:default}
 
 logging:
   level:

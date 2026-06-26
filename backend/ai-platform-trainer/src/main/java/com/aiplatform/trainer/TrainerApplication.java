@@ -17,6 +17,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 @ComponentScan(basePackages = {
         "com.aiplatform.trainer",
+        // ★ v3.1 模块精简: 合并 inference -> trainer, scan 包含 inference 包
+        "com.aiplatform.inference",
         "com.aiplatform.starter.common",
         "com.aiplatform.starter.web",
         "com.aiplatform.starter.mybatis",

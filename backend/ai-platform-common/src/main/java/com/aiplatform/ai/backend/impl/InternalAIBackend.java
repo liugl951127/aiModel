@@ -43,7 +43,7 @@ import java.util.*;
  *       backend: internal
  *       internal:
  *         knowledge-url: http://127.0.0.1:9006
- *         inference-url: http://127.0.0.1:9007
+ *         inference-url: http://127.0.0.1:9008
  *         top-k: 5
  * </pre>
  */
@@ -56,7 +56,7 @@ public class InternalAIBackend implements AIBackend {
     @ConfigurationProperties(prefix = "aiplatform.ai.internal")
     public static class Props {
         private String knowledgeUrl = "http://127.0.0.1:9006";
-        private String inferenceUrl = "http://127.0.0.1:9007";
+        private String inferenceUrl = "http://127.0.0.1:9008";
         private int topK = 5;
         private int timeoutMs = 15000;
         public String getKnowledgeUrl() { return knowledgeUrl; }

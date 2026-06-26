@@ -18,7 +18,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DeployStepHandler implements StepHandler {
 
-    @Value("${aiplatform.inference.base-url:http://127.0.0.1:9007}")
+    @Value("${aiplatform.inference.base-url:http://127.0.0.1:9008}")
     private String baseUrl;
 
     private final RestClient http = RestClient.builder().build();

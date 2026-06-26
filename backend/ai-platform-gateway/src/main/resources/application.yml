@@ -68,11 +68,11 @@ spring:
           predicates:
             - Path=/api/knowledge/**,/api/document/**
         - id: inference-route
-          uri: ${INFERENCE_URI:lb://ai-platform-inference}
+          uri: ${INFERENCE_URI:lb://ai-platform-trainer}
           predicates:
             - Path=/api/inference/**,/api/chat/**
         - id: files-route
-          uri: ${FILES_URI:lb://ai-platform-files}
+          uri: ${FILES_URI:lb://ai-platform-workflow}
           predicates:
             - Path=/api/files/**,/api/chunk/**
         - id: workflow-route

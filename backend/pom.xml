@@ -33,8 +33,8 @@
         <module>ai-platform-model</module>
         <module>ai-platform-agent</module>
         <module>ai-platform-knowledge</module>
-        <module>ai-platform-inference</module>
-        <module>ai-platform-files</module>
+        
+        
         <module>ai-platform-workflow</module>
     </modules>
 

@@ -32,6 +32,11 @@ spring:
         enabled: true
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  # ★ v3.1 从 files 合并入 multipart 配置
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 220MB
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DB:ai_platform}?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USER:root}
@@ -44,9 +49,15 @@ aiplatform:
   trainer:
     base-url: http://127.0.0.1:9008
   inference:
-    base-url: http://127.0.0.1:9007
+    base-url: http://127.0.0.1:9008
   knowledge:
     base-url: http://127.0.0.1:9005
+  # ★ v3.1 从 files 合并入
+  files:
+    root: /opt/ai-platform/files
+    http-path: /files
+    default-bucket: kb
+    max-upload-mb: 200
 
 nacos:
   config:

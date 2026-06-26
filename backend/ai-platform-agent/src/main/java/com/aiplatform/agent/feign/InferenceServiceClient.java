@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.Map;
 
-@FeignClient(name = "ai-platform-inference", fallbackFactory = InferenceServiceFallback.class)
+@FeignClient(name = "ai-platform-trainer", fallbackFactory = InferenceServiceFallback.class)
 public interface InferenceServiceClient {
 
     @PostMapping("/api/inference/generate")

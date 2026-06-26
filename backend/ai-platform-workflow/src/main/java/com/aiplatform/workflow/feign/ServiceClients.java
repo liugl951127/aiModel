@@ -67,7 +67,7 @@ public class ServiceClients {
         Result<Map<String, Object>> ingest(@RequestBody Map<String, Object> body);
     }
 
-    @FeignClient(name = "ai-platform-inference", path = "/api/inference")
+    @FeignClient(name = "ai-platform-trainer", path = "/api/inference")
     public interface InferenceClient {
         @GetMapping("/models")
         Result<List<Map<String, Object>>> models();

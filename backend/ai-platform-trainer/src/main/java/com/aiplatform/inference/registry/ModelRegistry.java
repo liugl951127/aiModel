@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * directory is expected to contain a {@code config.json + weights.json} pair.
  */
 @Slf4j
-@Component
+@Component("inferenceModelRegistry")
 @RequiredArgsConstructor
 public class ModelRegistry {
 
