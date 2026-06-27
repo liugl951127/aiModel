@@ -1,11 +1,11 @@
-// E2E: 工作流连线测试 - 验证未放大画布端到端能连接
+// E2E: 工作流连线完整稳定性测试 (3 节点 2 连线 + 多 outPorts)
 import { chromium } from 'playwright'
 const BASE = process.env.BASE || 'http://127.0.0.1:5173'
 
 const browser = await chromium.launch({ headless: true })
 const page = await browser.newPage()
 const errors = []
-page.on('pageerror', e => { console.log('PAGE ERR:', e.message.slice(0, 150)); errors.push(e.message) })
+page.on('pageerror', e => { console.log('PAGE ERR:', e.message.slice(0, 200)); errors.push(e.message) })
 
 await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' })
 await page.waitForSelector('input', { timeout: 15000 })
@@ -15,48 +15,59 @@ await page.evaluate(() => document.querySelectorAll('.agree-row .el-checkbox')[0
 await page.waitForTimeout(500)
 await page.evaluate(() => document.querySelector('button.submit-btn')?.click())
 try { await page.waitForURL(u => !u.toString().includes('/login'), { timeout: 10000 }) } catch {}
-console.log('login done')
+console.log('1) login done')
 
-// 进入工作流
 await page.goto(`${BASE}/#/workflow`, { waitUntil: 'domcontentloaded' })
 await page.waitForTimeout(3000)
-console.log('workflow loaded')
 
-// 加载 RAG 模板 (有 5+ 节点)
-const loadTplBtn = page.locator('button:has-text("加载 RAG 模板"), button:has-text("RAG 模板")').first()
-if (await loadTplBtn.count() > 0) {
-  await loadTplBtn.click()
-  await page.waitForTimeout(2000)
-  console.log('RAG template loaded')
+// 加 5 个节点
+for (let i = 0; i < 5; i++) {
+  await page.locator('.palette [draggable="true"]').first().click()
+  await page.waitForTimeout(300)
 }
-
-// 看节点 + 端口
+await page.waitForTimeout(1000)
 const nodes = await page.locator('.wf-node').count()
 const ports = await page.locator('.wn-port').count()
-console.log(`nodes=${nodes} ports=${ports}`)
-await page.screenshot({ path: '/tmp/e2e-wf-before-connect.png' })
+console.log(`2) nodes=${nodes}, ports=${ports}`)
+await page.screenshot({ path: '/tmp/e2e-wf-5nodes.png' })
 
-// 测连线: 节点 1 out 端口 → 节点 2 in 端口
-const outPort1 = page.locator('.wf-node').nth(0).locator('.wn-port-out').first()
-const inPort2 = page.locator('.wf-node').nth(1).locator('.wn-port-in').first()
-const edgesBefore = await page.locator('.wires path.edge-path').count()
-console.log(`edges before: ${edgesBefore}`)
+// 连线 1: node0.out → node1.in
+console.log('\n3) 连线 1: node0.out → node1.in')
+await page.locator('.wf-node').nth(0).locator('.wn-port-out').first().dispatchEvent('mousedown', { button: 0 })
+await page.waitForTimeout(400)
+await page.locator('.wf-node').nth(1).locator('.wn-port-in').first().dispatchEvent('mousedown', { button: 0 })
+await page.waitForTimeout(800)
 
-if (await outPort1.count() > 0 && await inPort2.count() > 0) {
-  await outPort1.click()
-  await page.waitForTimeout(500)
-  await inPort2.click()
-  await page.waitForTimeout(1000)
-  const edgesAfter = await page.locator('.wires path.edge-path').count()
-  console.log(`edges after click: ${edgesAfter}`)
-  if (edgesAfter > edgesBefore) {
-    console.log('✓ 端到端连接成功')
-  } else {
-    console.log('✗ 连接失败')
-  }
+// 连线 2: node1.out → node2.in
+console.log('4) 连线 2: node1.out → node2.in')
+await page.locator('.wf-node').nth(1).locator('.wn-port-out').first().dispatchEvent('mousedown', { button: 0 })
+await page.waitForTimeout(400)
+await page.locator('.wf-node').nth(2).locator('.wn-port-in').first().dispatchEvent('mousedown', { button: 0 })
+await page.waitForTimeout(800)
+
+// 连线 3: node2.out → node3.in (跨多个)
+console.log('5) 连线 3: node2.out → node3.in')
+await page.locator('.wf-node').nth(2).locator('.wn-port-out').first().dispatchEvent('mousedown', { button: 0 })
+await page.waitForTimeout(400)
+await page.locator('.wf-node').nth(3).locator('.wn-port-in').first().dispatchEvent('mousedown', { button: 0 })
+await page.waitForTimeout(800)
+
+const edgesFinal = await page.locator('.wires path.edge-path').count()
+console.log(`\n6) 最终连线数: ${edgesFinal}`)
+
+// 验证每条连线的渲染路径 (d 属性非空)
+const edgePaths = await page.locator('.wires path.edge-path').evaluateAll(els => els.map(e => e.getAttribute('d')))
+const validPaths = edgePaths.filter(d => d && d.length > 5).length
+console.log(`   有效 path 数: ${validPaths}`)
+edgePaths.forEach((d, i) => console.log(`   edge[${i}]: ${d?.slice(0, 80)}`))
+
+await page.screenshot({ path: '/tmp/e2e-wf-3edges.png', fullPage: false })
+
+// 验证
+if (edgesFinal === 3 && validPaths === 3 && errors.length === 0) {
+  console.log('\n✅ 全部通过: 3 节点 3 连线渲染正确, 0 page errors')
+} else {
+  console.log(`\n❌ 失败: edges=${edgesFinal}, valid=${validPaths}, errors=${errors.length}`)
 }
-
-await page.screenshot({ path: '/tmp/e2e-wf-after-connect.png' })
 await browser.close()
-console.log('errors:', errors.length)
-process.exit(errors.length === 0 ? 0 : 1)
+process.exit(edgesFinal === 3 && validPaths === 3 && errors.length === 0 ? 0 : 1)
