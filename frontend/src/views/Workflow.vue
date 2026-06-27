@@ -120,6 +120,7 @@
       <main
         class="canvas"
         :class="{ 'canvas-invalid': !validation.valid && nodes.length > 0 }"
+        ref="canvasRefEl"
         @drop="onDrop"
         @dragover.prevent
         @mousedown="onCanvasMouseDown"
@@ -600,6 +601,7 @@ const setupResizeObserver = () => {
 // 监听全局 AI 助手发出的事件 (在其它页点'生成/诊断/建议'后会跳到本页)
 onMounted(() => {
   setupResizeObserver()  // ★ 启动 ResizeObserver, 节点名字变长箭头立即重算
+  setupCanvasObserver()  // ★ 启动 canvas ResizeObserver, 同步 viewBox 到 SVG 实际尺寸
   const route = useRoute()
   // ★ 贯通: 从其他页跳过来, 带 presetModel / presetTask
   if (route.query.presetModel) {
@@ -705,8 +707,23 @@ const run = _wfRun
 const retry = _wfRetry
 // ★ logs 面板显示 composable 的日志 (双写同步)
 watch(_wfLog, (v) => { logs.value = v }, { deep: true })
-const canvasW = 2000
-const canvasH = 1200
+// ★ v3.x fix: canvas 实际像素尺寸 (跟 SVG 1:1 不拉伸)
+//   ResizeObserver 监听 .canvas DOM 元素, viewBox = canvas 实际 width/height
+//   之前固定 2000x1200 比 SVG 实际像素 520x600 大, 导致 viewBox 拉伸缩小 SVG 内容
+const canvasW = ref(1000)
+const canvasH = ref(600)
+const canvasRefEl = ref(null)
+const setupCanvasObserver = () => {
+  if (!canvasRefEl.value) return
+  const ro = new ResizeObserver((entries) => {
+    for (const e of entries) {
+      canvasW.value = Math.max(100, Math.round(e.contentRect.width))
+      canvasH.value = Math.max(100, Math.round(e.contentRect.height))
+    }
+  })
+  ro.observe(canvasRefEl.value)
+  return ro
+}
 
 // ============== 历史 ==============
 const history = ref([])
