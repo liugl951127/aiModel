@@ -479,6 +479,37 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/menu/") and method == "GET":
             return self._ok(MENUS[0])
 
+        # === workflow templates (RAG/训练 等模板) ===
+        if path.startswith("/api/workflow/templates/"):
+            tpl_id = path.split("/")[-1]
+            templates = {
+                'train-eval-deploy': {
+                    'name': '训练-评估-部署 模板',
+                    'code': 'train-eval-deploy',
+                    'platform': 'ai-platform-workflow',
+                    'nodes': [
+                        {'id': 'n1', 'type': 'dataset_list', 'name': '数据集列表', 'x': 60, 'y': 60, 'params': {'source': '/data/'}, 'outPorts': ['out']},
+                        {'id': 'n2', 'type': 'data_loader', 'name': '数据加载', 'x': 300, 'y': 60, 'params': {'format': 'jsonl'}, 'outPorts': ['out']},
+                        {'id': 'n3', 'type': 'train_start', 'name': '开始训练', 'x': 540, 'y': 60, 'params': {'epochs': 3, 'lr': 0.001}, 'outPorts': ['out']},
+                        {'id': 'n4', 'type': 'rag_query', 'name': '知识库检索', 'x': 300, 'y': 220, 'params': {'topK': 5}, 'outPorts': ['out']},
+                        {'id': 'n5', 'type': 'agent_think', 'name': '智能体思考', 'x': 540, 'y': 220, 'params': {'model': 'minigpt'}, 'outPorts': ['out']}
+                    ],
+                    'edges': [
+                        {'from': 'n1', 'fromPort': 'out', 'to': 'n2', 'toPort': 'in'},
+                        {'from': 'n2', 'fromPort': 'out', 'to': 'n3', 'toPort': 'in'},
+                        {'from': 'n2', 'fromPort': 'out', 'to': 'n4', 'toPort': 'in'},
+                        {'from': 'n4', 'fromPort': 'out', 'to': 'n5', 'toPort': 'in'}
+                    ]
+                }
+            }
+            tpl = templates.get(tpl_id, templates['train-eval-deploy'])
+            return self._ok(tpl)
+        if path == "/api/workflow/templates":
+            return self._ok([
+                {'id': 'train-eval-deploy', 'name': '训练-评估-部署', 'nodes': 5, 'edges': 4},
+                {'id': 'rag-qa', 'name': 'RAG 问答', 'nodes': 4, 'edges': 3}
+            ])
+
         # === workflow 节点 schema (mock 节点参数定义) ===
         if path.startswith("/api/workflow/component-schemas/"):
             node_id = path.split("/")[-1]
