@@ -193,7 +193,7 @@
           <!-- 输入端口 (左边) -->
           <span
             :class="['wn-port', 'wn-port-in', _connectFrom && _connectFrom.id !== n.id ? 'wn-connecting' : '']"
-            style="left: -5px; top: 50%; transform: translateY(-50%);"
+            style="left: -10px; top: 50%; transform: translateY(-50%);"
             @mousedown.stop="onPortMouseDown($event, n, 'in', 'in')"
             title="输入端口 - 点击连线"
           />
@@ -202,7 +202,7 @@
             v-for="p in n.outPorts"
             :key="p"
             class="wn-port wn-port-out"
-            :style="{ right: '-5px', top: ((n.outPorts.indexOf(p) + 1) * 14) + 'px' }"
+            :style="{ right: '-10px', top: ((n.outPorts.indexOf(p)) * 22 + 6) + 'px' }"
             @mousedown.stop="onPortMouseDown($event, n, p, 'out')"
             title="输出端口 - 点击连线"
           />
@@ -1125,13 +1125,12 @@ const portCoord = (node, dir, portName) => {
   }
   if (dir === 'out') {
     // 输出端口 y 根据 outPorts 序号动态算 (CSS: top: ((index+1) * 14) + 'px')
-    // 第 1 个 (默认): 14, 第 2 个: 28, 第 3 个: 42 ...
+    // CSS top = portIndex * 22 + 6, hit-area center = top + 10 = portIndex * 22 + 16
     const outPorts = node.outPorts && node.outPorts.length ? node.outPorts : ['out']
     const idx = portName ? outPorts.indexOf(portName) : 0
     const portIndex = idx < 0 ? 0 : idx
-    const portTop = (portIndex + 1) * 14  // CSS: top: ((index+1) * 14)px
-    // 端口高度 10px (CSS .wn-port height), 要让 y 对准端口中心
-    const portCenterY = node.y + portTop + 5  // 端口 center = top + height/2
+    const portTop = portIndex * 22 + 6  // 同步 CSS top 位置
+    const portCenterY = node.y + portTop + 10  // hit-area center = top + height/2
     return { x: node.x + w, y: portCenterY }
   }
   return { x: node.x, y: node.y }
@@ -1655,11 +1654,14 @@ onBeforeUnmount(() => {
 .wn-cfg-row { display: flex; align-items: center; gap: 4px; font-size: 10px; }
 .wn-cfg-row label { color: #94a3b8; flex-shrink: 0; min-width: 40px; }
 .wn-cfg-row code { background: #f1f5f9; padding: 0 4px; border-radius: 3px; }
-.wn-port { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #6366f1; cursor: crosshair; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.15s, background 0.15s; z-index: 5; }
-.wn-port:hover { transform: scale(1.4); background: #4f46e5; }
-.wn-port-out { right: -5px; }
-.wn-port-in { left: -5px; background: #10b981; }
-.wn-port-in:hover { background: #059669; }
+.wn-port { position: absolute; width: 20px; height: 20px; border-radius: 50%; background: transparent; cursor: crosshair; z-index: 5; display: flex; align-items: center; justify-content: center; }
+/* ★ v3.x fix: 视觉圆点 10px, hit-area 20px (伪元素) - 端口难点击问题 */
+.wn-port::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #6366f1; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.15s, background 0.15s; }
+.wn-port:hover::before { transform: scale(1.4); background: #4f46e5; }
+.wn-port-out { right: -10px; }
+.wn-port-in { left: -10px; }
+.wn-port-in::before { background: #10b981; }
+.wn-port-in:hover::before { background: #059669; }
 /* 连线中点亮的样式 */
 .wn-connecting { animation: port-pulse 1s infinite; }
 @keyframes port-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5); } 50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); } }

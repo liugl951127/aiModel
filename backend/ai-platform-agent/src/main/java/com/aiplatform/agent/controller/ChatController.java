@@ -20,10 +20,21 @@ public class ChatController {
     @PostMapping("/chat")
     @SuppressWarnings("unchecked")
     public Result<AgentRunResult> chat(@RequestBody Map<String, Object> body) {
-        Long agentId = ((Number) body.get("agentId")).longValue();
+        // ★ v3.x 修复: 前端可能传 string "123", 安全转 Long
+        Long agentId = toLong(body.get("agentId"));
         String sessionId = (String) body.get("sessionId");
         String input = (String) body.get("input");
         return Result.success(orchestrator.chat(agentId, sessionId, input));
+    }
+
+    /** 兼容 Number / 数字 String / null → Long */
+    private static Long toLong(Object o) {
+        if (o == null) return null;
+        if (o instanceof Number n) return n.longValue();
+        if (o instanceof String s) {
+            try { return Long.parseLong(s.trim()); } catch (NumberFormatException e) { return null; }
+        }
+        return null;
     }
 
     @GetMapping("/history")
