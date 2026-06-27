@@ -355,6 +355,7 @@
     <!-- 双击节点: 改参数 dialog (后端拉 schema + AI 建议) -->
     <el-dialog v-model="configVisible" :title="configTitle" width="720px" align-center
       :close-on-click-modal="false" :close-on-press-escape="true"
+      append-to-body
       @close="onConfigDialogClose">
       <div v-loading="configLoading" v-if="configNode">
         <!-- ★ 异常 Banner (如果该节点刚运行失败, 顶部醒示) -->
@@ -444,6 +445,7 @@
       fullscreen
       :show-close="false"
       :modal="true"
+      append-to-body
       class="zoom-dialog"
     >
       <div class="zoom-toolbar">
@@ -1114,9 +1116,12 @@ const PORT_OFFSET = 5 // 端口突出节点边的像素
 // 算某节点某方向端口的画布坐标
 const portCoord = (node, dir, portName) => {
   const w = node._renderW || NODE_W_DEFAULT
+  // ★ v3.x fix: 端口 CSS 是 .wn-port { width:10px; height:10px; right:-5px / left:-5px }
+  //   -5px 是让圆心外凸5px (圆心 = 节点边缘 + 5px - 5px = 节点边缘 0 或 w)
+  // 端口圆心实际位置: in = node.x (左边缘), out = node.x + w (右边缘)
   if (dir === 'in') {
     // 输入端口在节点左边中点 (CSS: top: 50%, transform: translateY(-50%))
-    return { x: node.x - PORT_OFFSET, y: node.y + NODE_H / 2 }
+    return { x: node.x, y: node.y + NODE_H / 2 }
   }
   if (dir === 'out') {
     // 输出端口 y 根据 outPorts 序号动态算 (CSS: top: ((index+1) * 14) + 'px')
@@ -1125,9 +1130,9 @@ const portCoord = (node, dir, portName) => {
     const idx = portName ? outPorts.indexOf(portName) : 0
     const portIndex = idx < 0 ? 0 : idx
     const portTop = (portIndex + 1) * 14  // CSS: top: ((index+1) * 14)px
-    // 端口高度 8px, 要让 y 对准端口中心
-    const portCenterY = node.y + portTop + 4  // 端口 center = top + height/2
-    return { x: node.x + w + PORT_OFFSET, y: portCenterY }
+    // 端口高度 10px (CSS .wn-port height), 要让 y 对准端口中心
+    const portCenterY = node.y + portTop + 5  // 端口 center = top + height/2
+    return { x: node.x + w, y: portCenterY }
   }
   return { x: node.x, y: node.y }
 }
