@@ -45,6 +45,18 @@
             <version>3.27.2</version>
         </dependency>
 
+        <!-- ★ v3.x Nacos 服务发现 + 配置中心 (合并自原 nacos-starter).
+             所有用 redis-starter 的业务模块自动获得 nacos discovery 能力.
+             不需要 nacos 时, application.yml 设 spring.cloud.nacos.discovery.enabled=false 即可. -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+        </dependency>
+
         <!-- Jackson (EventBus 序列化用) -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

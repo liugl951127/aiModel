@@ -45,6 +45,9 @@ spring:
         locator:
           enabled: false
       routes:
+        # ★ 路由全部走 nacos service discovery (lb://ai-platform-{module}).
+        #   需要 nacos 服务可用 (默认 127.0.0.1:8848), 各业务模块会自动注册.
+        #   dev 模式快速测试可用 ${AUTH_URI:http://127.0.0.1:9002} 覆盖.
         - id: auth-route
           uri: ${AUTH_URI:lb://ai-platform-user}
           predicates:
