@@ -353,7 +353,9 @@
     </el-drawer>
 
     <!-- 双击节点: 改参数 dialog (后端拉 schema + AI 建议) -->
-    <el-dialog v-model="configVisible" :title="configTitle" width="720px" align-center @close="cancelConfig">
+    <el-dialog v-model="configVisible" :title="configTitle" width="720px" align-center
+      :close-on-click-modal="false" :close-on-press-escape="true"
+      @close="onConfigDialogClose">
       <div v-loading="configLoading" v-if="configNode">
         <!-- ★ 异常 Banner (如果该节点刚运行失败, 顶部醒示) -->
         <el-alert
@@ -963,26 +965,48 @@ const applyAllSuggestions = () => {
 }
 
 const cancelConfig = () => {
-  // 强记当前 id, 以便保证同一个节点二次打开还是取新的点
+  // ★ v3.x 重构: 用闭包参数保留点选快照, 避免 nextTick 异步清理导致中间状态被快速开关 dialog 污染
+  // 取消不需回滚原节点 (openConfig 已浅拷贝, 原 nodes 未被动过), 只需关闭 dialog + 清零状态
   configVisible.value = false
-  // 下一 tick 清 configNode (避免动画中 reactive 竟用)
-  nextTick(() => {
-    configNode.value = null
-    configSuggestions.value = []
-    configSchema.value = []
-  })
   addLog('配置', '取消修改', 'info')
+  // 立即同步清, 不走 nextTick: 避免用户连续开关 dialog 时状态残留
+  configNode.value = null
+  configSuggestions.value = []
+  configSchema.value = []
+  configLoading.value = false
+}
+
+/**
+ * ★ v3.x 单独处理 dialog 关闭事件 (无论是 cancel/save/ESC/X 都统一走这里)
+ * 避免 v-model 双绑跟 @close 回调循环触发
+ */
+const onConfigDialogClose = () => {
+  // 弹窗关闭后统一清零 (不区分 cancel/save, 在 saveConfig/cancelConfig 里已提前清)
+  configNode.value = null
+  configSuggestions.value = []
+  configSchema.value = []
 }
 
 const saveConfig = () => {
   if (!configNode.value) return
-  // 写回原节点 (因为 openConfig 浅拷了 params, 避免 selectedNode <-> configNode 循环)
+  // ★ v3.x 写入前重新拉原节点 (以防 ids 已被删/重命名)
   const orig = nodes.value.find(n => n.id === configNode.value.id)
-  if (orig) orig.params = { ...configNode.value.params }
+  if (!orig) {
+    ElMessage.warning(`节点 ${configNode.value.id} 已不存在, 取消保存`)
+    configVisible.value = false
+    configNode.value = null
+    return
+  }
+  // 深拷贝避免后续修改原对象动到原节点
+  orig.params = JSON.parse(JSON.stringify(configNode.value.params || {}))
   pushHistory(`config ${configNode.value.id}`, { nodes: nodes.value, edges: edges.value })
-  addLog('配置', `已更新 ${configNode.value.name} (${configNode.value.id}) 参数`, 'success')
-  configVisible.value = false
+  addLog('配置', `已更新 ${orig.name} (${orig.id}) 参数`, 'success')
+  ElMessage.success(`${orig.name} 参数已保存`)
+  // 先清 state 再关闭 dialog, 避免动画中报错
   configNode.value = null
+  configSuggestions.value = []
+  configSchema.value = []
+  configVisible.value = false
 }
 
 // 边自检: 检测重复边 / 自连 / 输入输出同向

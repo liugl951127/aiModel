@@ -294,9 +294,9 @@
       <section class="content">
         <router-view v-slot="{ Component, route }">
           <transition name="fade-page" mode="out-in">
-            <keep-alive :include="cachedViews">
-              <component :is="Component" :key="route.fullPath" />
-            </keep-alive>
+            <!-- ★ v3.x 去掉 keep-alive: cachedViews 用路由 name 跟 Vue 组件 name 不对齐
+                 (如 'Agent' 路由对应 'Agents.vue'), 导致缓存错乱/状态丢失. 直接不缓存. -->
+            <component :is="Component" :key="route.fullPath" />
           </transition>
         </router-view>
       </section>
