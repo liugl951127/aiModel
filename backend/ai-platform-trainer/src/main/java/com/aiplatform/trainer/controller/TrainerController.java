@@ -72,6 +72,16 @@ public class TrainerController {
         if (corpusPath == null || corpusPath.isBlank()) {
             return Result.fail(400, "corpusPath is required");
         }
+        // ★ v3.x 预校验: 路径必须存在且可读, 避免异步训练时报 NoSuchFileException 难查
+        java.nio.file.Path p = java.nio.file.Paths.get(corpusPath);
+        if (!java.nio.file.Files.exists(p)) {
+            return Result.fail(400, "corpusPath not found: " + corpusPath
+                    + " (absolute: " + p.toAbsolutePath()
+                    + "). Windows 上 '\\opt\\...' 是错误写法, 应是 'C:\\...' 或 WSL 路径");
+        }
+        if (!java.nio.file.Files.isReadable(p)) {
+            return Result.fail(400, "corpusPath not readable: " + corpusPath);
+        }
         MiniTransformerTrainer.Config cfg = new MiniTransformerTrainer.Config();
         if (body.get("modelType") != null) cfg.modelType = (String) body.get("modelType");
         if (body.get("maxIters") != null) cfg.maxIters = ((Number) body.get("maxIters")).intValue();

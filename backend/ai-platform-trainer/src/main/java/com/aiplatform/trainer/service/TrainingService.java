@@ -127,6 +127,28 @@ public class TrainingService {
     @Async
     public void runAsync(JobState state) {
         try {
+            // ★ v3.x fail-fast: 先校验 corpus 文件存在, 避免 NoSuchFileException 拖到训练主流程里
+            Path corpusFile = Paths.get(state.corpusPath);
+            if (!Files.exists(corpusFile)) {
+                String msg = String.format(
+                    "corpus file not found: %s (absolute: %s). 训练任务要求 corpusPath 指向已存在的文本文件, "
+                  + "请检查路径拼写 (Windows 上 '\\opt\\...' 是错误写法, 应是 'C:\\opt\\...' 或 WSL/Linux 路径)",
+                    state.corpusPath, corpusFile.toAbsolutePath());
+                log.error("[TRAIN-JOB] {} failed: {}", state.jobId, msg);
+                state.status = "failed";
+                state.error = msg;
+                updateJobDbOnFail(state.jobId, msg);
+                return;
+            }
+            if (!Files.isReadable(corpusFile)) {
+                String msg = String.format("corpus file not readable: %s", state.corpusPath);
+                log.error("[TRAIN-JOB] {} failed: {}", state.jobId, msg);
+                state.status = "failed";
+                state.error = msg;
+                updateJobDbOnFail(state.jobId, msg);
+                return;
+            }
+
             state.status = "running";
             state.startedAt = System.currentTimeMillis();
             state.progress = 5;
@@ -152,15 +174,20 @@ public class TrainingService {
                 if (state.config.knowledgeKbId != null
                         && state.config.knowledgeSeedTopics != null
                         && !state.config.knowledgeSeedTopics.isEmpty()) {
-                    raw = Files.readAllBytes(Paths.get(state.corpusPath));
+                    raw = Files.readAllBytes(corpusFile);
                     raw = augmenter.build(raw, state.config.knowledgeKbId,
                             state.config.knowledgeSeedTopics, true);
                 } else {
-                    raw = Files.readAllBytes(Paths.get(state.corpusPath));
+                    raw = Files.readAllBytes(corpusFile);
                 }
             } catch (Exception e) {
-                log.warn("[TRAIN-JOB] augment failed, falling back: {}", e.getMessage());
-                raw = Files.readAllBytes(Paths.get(state.corpusPath));
+                // ★ 之前这里 fall back 又 read 一次会再抛 NoSuchFileException, 现改为返 clear error
+                String msg = "augment failed: " + e.getMessage();
+                log.error("[TRAIN-JOB] {} failed: {}", state.jobId, msg);
+                state.status = "failed";
+                state.error = msg;
+                updateJobDbOnFail(state.jobId, msg);
+                return;
             }
 
             // Write augmented bytes to a tmp file so trainer can use the same code path
@@ -225,6 +252,18 @@ public class TrainingService {
                 jobMapper.updateFinish(state.jobId, "failed", state.progress,
                         null, state.error, null, null, LocalDateTime.now());
             } catch (Exception ex) { log.debug("[TRAIN-DB] updateFinish(failed) 失败: {}", ex.getMessage()); }
+        }
+    }
+
+    /**
+     * ★ v3.x 失败状态快速写 DB (用于 runAsync 前校验路径阶段的失败, 不进 catch 大块).
+     */
+    private void updateJobDbOnFail(String jobId, String errorMsg) {
+        try {
+            jobMapper.updateFinish(jobId, "failed", 0,
+                    null, errorMsg, null, null, LocalDateTime.now());
+        } catch (Exception ex) {
+            log.debug("[TRAIN-DB] updateFinish(failed pre-check) 失败: {}", ex.getMessage());
         }
     }
 }
