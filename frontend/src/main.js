@@ -1,7 +1,8 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus, { ElMessage } from 'element-plus'
-import 'element-plus/dist/index.css'
+// ★ v3.x Element Plus 按需引入: 仅导入本项目实际使用的组件, 体积从 ~1MB 降到 ~250KB gzip
+// unplugin-auto-import + unplugin-vue-components 已处理 <el-button> 等按需 import, 这里仅注册需要的指令/服务
+import { ElMessage, ElMessageBox, ElNotification, ElLoading } from 'element-plus'
 import App from './App.vue'
 import router from './router'
 import { bindRouterProgress } from './composables/useProgress'
@@ -30,6 +31,11 @@ app.config.errorHandler = (err, instance, info) => {
 
 app.use(createPinia())
 app.use(router)
-app.use(ElementPlus)
+// ★ v3.x 按需: 使用 unplugin-auto-import + unplugin-vue-components 处理 <el-xxx> 组件自动按需 import
+// 这里仅注册需要的指令 + 服务 (ElMessage/ElMessageBox/ElNotification/ElLoading)
+app.use(ElLoading)        // 服务指令 v-loading
+app.use(ElMessage)         // 全局提示 (某些场景不用组件实例也能用)
+app.use(ElMessageBox)      // 弹窗确认
+app.use(ElNotification)    // 通知
 bindRouterProgress(router)
 app.mount('#app')

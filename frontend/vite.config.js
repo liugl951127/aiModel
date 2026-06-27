@@ -84,6 +84,38 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    chunkSizeWarningLimit: 1500
+    chunkSizeWarningLimit: 800,
+    // ★ v3.x 拆包策略:
+    // 1) 拆主包 vendor (vue, vue-router, pinia, axios) → 首页不加载 workflow/knowledge
+    // 2) 拆 element-plus → 仅使用组件时才加载
+    // 3) 拆 echarts → 大库, 仅 Charts 页加载
+    // 4) 各业务 view 按路由自动拆 (vite 默认 dynamic import)
+    rollupOptions: {
+      output: {
+        // 手动分包 (防止 vite 默认把什么都打进 index.js)
+        manualChunks: {
+          // Vue 核心 (首屏 pre-load)
+          'vendor-vue': ['vue', 'vue-router', 'pinia'],
+          // 网络 + 工具 (首屏 pre-load)
+          'vendor-utils': ['axios']
+          // ★ Element Plus 不手动分包: 让 unplugin-auto-import + unplugin-vue-components 按需 import
+          //   各组件代码与使用它的 view 同 chunk, 首屏不加载 944KB
+          // ★ ECharts: 同上, 大库仅在 Dashboard / Distributed / Monitor 加载
+        },
+        // 拆分后 chunk 名格式
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js'
+      }
+    },
+    // Rollup 压缩选项 (提高 Tree-shaking)
+    minify: 'esbuild',
+    esbuild: {
+      // 删除 console.log / debugger (生产环境)
+      drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+      // 优化条件分支
+      pure: ['console.log']
+    },
+    // gzip 前大小报告
+    reportCompressedSize: true
   }
 })
