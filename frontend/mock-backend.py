@@ -479,6 +479,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path.startswith("/api/menu/") and method == "GET":
             return self._ok(MENUS[0])
 
+        # === workflow 节点 schema (mock 节点参数定义) ===
+        if path.startswith("/api/workflow/component-schemas/"):
+            node_id = path.split("/")[-1]
+            # 节点参数 schema, 供 Workflow.vue configSchema 渲染表单
+            schema_map = {
+                'dataset_list': [{'key': 'source', 'label': '数据源', 'type': 'string', 'defaultValue': '/data/'}],
+                'data_loader': [{'key': 'format', 'label': '格式', 'type': 'select', 'options': ['jsonl','json','csv','txt'], 'defaultValue': 'jsonl'}],
+                'data_clean': [{'key': 'rules', 'label': '清洗规则', 'type': 'textarea', 'defaultValue': '去除HTML/URL/邮箱'}],
+                'data_split': [{'key': 'ratio', 'label': '切分比例', 'type': 'string', 'defaultValue': '8:2'}],
+                'train_start': [{'key': 'epochs', 'label': '训练轮数', 'type': 'number', 'min': 1, 'max': 100, 'defaultValue': 3},
+                                 {'key': 'lr', 'label': '学习率', 'type': 'number', 'min': 0.0001, 'max': 0.1, 'step': 0.0001, 'defaultValue': 0.001}],
+                'rag_query': [{'key': 'topK', 'label': 'Top K', 'type': 'number', 'min': 1, 'max': 20, 'defaultValue': 5}],
+                'agent_think': [{'key': 'model', 'label': '模型', 'type': 'select', 'options': ['minigpt','bge-small-zh','mock'], 'defaultValue': 'minigpt'},
+                                  {'key': 'temperature', 'label': '温度', 'type': 'number', 'min': 0, 'max': 2, 'step': 0.1, 'defaultValue': 0.7}],
+            }
+            fields = schema_map.get(node_id, [])
+            return self._ok({'name': node_id, 'fields': fields})
+
         # === 通配 catch-all (避免 404) ===
         if method == "GET":
             return self._ok([])  # 列表空
@@ -489,7 +507,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = http.server.HTTPServer(("0.0.0.0", PORT), Handler)
+    # ★ v3.x 修复: ThreadingHTTPServer + allow_reuse_address, 避免 Python BaseHTTPServer 串行阻塞
+    #   单线程版多请求会被排到后面 (axios 浏览器卡住), allow_reuse_address 避 TIME_WAIT 拖卡
+    class ThreadingHTTPServer(http.server.ThreadingHTTPServer):
+        allow_reuse_address = True
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"[mock-backend] listening on http://0.0.0.0:{PORT}")
     print(f"[mock-backend] 前端 vite 配置 proxy '/api' -> 'http://127.0.0.1:{PORT}'")
     print(f"[mock-backend] 测试账号: admin/admin123, demo/demo123, manager/manager123")

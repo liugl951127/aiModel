@@ -353,11 +353,17 @@
     </el-drawer>
 
     <!-- 双击节点: 改参数 dialog (后端拉 schema + AI 建议) -->
-    <el-dialog v-model="configVisible" :title="configTitle" width="720px" align-center
+    <el-dialog v-model="configVisible" :title="configTitle" width="720px" align-center class="config-dialog"
       :close-on-click-modal="false" :close-on-press-escape="true"
       append-to-body
+      style="max-height: 80vh;"
       @close="onConfigDialogClose">
-      <div v-loading="configLoading" v-if="configNode">
+      <div v-if="configNode" style="position: relative; min-height: 200px;">
+        <!-- ★ 加载中状态 (自己控制, 避免 v-loading 蒙层不消失拦按钮) -->
+        <div v-if="configLoading" class="config-loading">
+          <el-icon class="is-loading"><Refresh /></el-icon>
+          <span>加载参数 schema 中...</span>
+        </div>
         <!-- ★ 异常 Banner (如果该节点刚运行失败, 顶部醒示) -->
         <el-alert
           v-if="configNode._failedReason"
@@ -415,7 +421,7 @@
             <el-button v-if="configSuggestions.length" type="primary" plain size="small" @click="applyAllSuggestions" style="width: 100%; margin-top: 4px">
               全部应用
             </el-button>
-            <el-scrollbar height="380px" style="margin-top: 8px;">
+            <el-scrollbar style="margin-top: 8px; max-height: 280px;">
               <div v-if="!configSuggestions.length && !suggestLoading" class="empty-tip">
                 💡 点击上面按钮, AI 会根据节点类型 + 你的当前输入给出每个参数的最佳推荐
               </div>
@@ -910,11 +916,10 @@ const openConfig = async (n) => {
     if (r.code === 200 && r.data) {
       configSchema.value = r.data.fields || []
     } else {
-      // 兌底: 走本地 paramSchema
       configSchema.value = paramSchema(n)
     }
   } catch (e) {
-    addLog('schema', `拉取失败, 用本地兌底: ${e.message}`, 'error')
+    addLog('schema', '拉取失败', 'error')
     configSchema.value = paramSchema(n)
   } finally {
     configLoading.value = false
@@ -967,8 +972,6 @@ const applyAllSuggestions = () => {
 }
 
 const cancelConfig = () => {
-  // ★ v3.x 重构: 用闭包参数保留点选快照, 避免 nextTick 异步清理导致中间状态被快速开关 dialog 污染
-  // 取消不需回滚原节点 (openConfig 已浅拷贝, 原 nodes 未被动过), 只需关闭 dialog + 清零状态
   configVisible.value = false
   addLog('配置', '取消修改', 'info')
   // 立即同步清, 不走 nextTick: 避免用户连续开关 dialog 时状态残留
@@ -1609,10 +1612,14 @@ onBeforeUnmount(() => {
 .canvas-status.ok { background: linear-gradient(90deg, #ecfdf5, #f0fdf4); color: #047857; border-bottom: 1px solid #a7f3d0; }
 .canvas-status.err { background: linear-gradient(90deg, #fef2f2, #fee2e2); color: #b91c1c; border-bottom: 1px solid #fca5a5; }
 .canvas-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; pointer-events: none; }
+.config-loading { display: flex; align-items: center; gap: 8px; padding: 24px; color: #6366f1; font-size: 13px; }
+.config-loading .is-loading { animation: rotating 2s linear infinite; }
 .canvas-empty > * { pointer-events: auto; }
 
 /* 放大画布弹窗 */
 ::v-deep(.zoom-dialog .el-dialog__body) { padding: 0; height: calc(100vh - 110px); }
+/* ★ v3.x 修复: config dialog body 限制高度 + 溢出隐藏, 防止 el-scrollbar 撑出覆盖 footer */
+::v-deep(.config-dialog .el-dialog__body) { max-height: 55vh; overflow: hidden; padding-bottom: 8px; }
 .zoom-toolbar { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--bg-top, #fff); border-bottom: 1px solid var(--border, #e5e7eb); position: absolute; top: 0; left: 0; right: 0; z-index: 10; }
 .zoom-viewport { position: absolute; top: 42px; left: 0; right: 0; bottom: 0; overflow: hidden; background: #f8fafc; cursor: grab; }
 .zoom-viewport:active { cursor: grabbing; }
