@@ -74,7 +74,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, nextTick, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, ChatDotRound, ChatLineRound, Delete, Promotion, Loading } from '@element-plus/icons-vue'
 import { agentApi, modelApi, inferenceApi } from '@/api'
