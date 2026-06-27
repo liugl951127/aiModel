@@ -497,6 +497,54 @@ class Handler(http.server.BaseHTTPRequestHandler):
             fields = schema_map.get(node_id, [])
             return self._ok({'name': node_id, 'fields': fields})
 
+
+        # === trainer (训练侧 v2: 模型列表 + 提交 + 任务) ===
+        if path == "/api/trainer/models" and method == "GET":
+            return self._ok([
+                {"id": "minigpt", "displayName": "MiniGPT 演示模型", "code": "minigpt",
+                 "hyperParams": [
+                     {"key": "epochs", "label": "训练轮数", "type": "int", "min": 1, "max": 50, "step": 1, "default": 3, "hint": "训练多少轮"},
+                     {"key": "lr", "label": "学习率", "type": "float", "min": 0.0001, "max": 0.5, "step": 0.0001, "default": 0.001, "hint": "Adam 学习率"},
+                     {"key": "batchSize", "label": "批大小", "type": "int", "min": 1, "max": 128, "step": 1, "default": 16},
+                     {"key": "warmupSteps", "label": "预热步数", "type": "int", "min": 0, "max": 1000, "step": 10, "default": 100},
+                     {"key": "weightDecay", "label": "权重衰减", "type": "float", "min": 0, "max": 0.1, "step": 0.001, "default": 0.01},
+                     {"key": "useFp16", "label": "FP16 混合精度", "type": "bool", "default": True, "hint": "节省显存"}
+                 ],
+                 "defaultParams": {"epochs": 3, "lr": 0.001, "batchSize": 16, "warmupSteps": 100, "weightDecay": 0.01, "useFp16": True}},
+                {"id": "bge-small-zh", "displayName": "BGE Small 中文嵌入", "code": "bge-small-zh",
+                 "hyperParams": [
+                     {"key": "epochs", "label": "训练轮数", "type": "int", "min": 1, "max": 20, "step": 1, "default": 5},
+                     {"key": "lr", "label": "学习率", "type": "float", "min": 0.00001, "max": 0.1, "step": 0.00001, "default": 0.0001}
+                 ],
+                 "defaultParams": {"epochs": 5, "lr": 0.0001}}
+            ])
+        if path.startswith("/api/trainer/preview/") and path.endswith("/subscribe"):
+            # SSE stream 模拟 - 训练实时事件 (开 60 秒, 每秒发 1 个 tick)
+            job_id = path.split("/")[-2]
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream;charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            import time as _t
+            for step in range(60):
+                msg = "data: " + json.dumps({"type":"step","step":step+1,"loss":round(max(0.01, 1.5-step*0.02),4),"antiHallucination":{"entropy":0.3,"repetition":0.05,"factualSupport":0.85}}) + chr(10) + chr(10)
+                try:
+                    self.wfile.write(msg.encode("utf-8"))
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    return
+                _t.sleep(1)
+            self.wfile.write(b'data: {"type":"done","status":"completed"}' + b'\n\n')
+            return
+
+            return self._ok({"jobId": "mock-job-" + str(int(time.time())), "status": "queued"})
+        if path.startswith("/api/trainer/job/"):
+            return self._ok({"jobId": path.split("/")[-1], "status": "running", "step": 12, "loss": 0.42})
+        if path == "/api/trainer/health":
+            return self._ok({"status": "UP", "name": "ai-platform-trainer", "version": "1.0.0"})
+
         # === 通配 catch-all (避免 404) ===
         if method == "GET":
             return self._ok([])  # 列表空
