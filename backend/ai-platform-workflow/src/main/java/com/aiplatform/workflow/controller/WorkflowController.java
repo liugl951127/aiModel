@@ -43,6 +43,18 @@ public class WorkflowController {
     /**
      * 保存工作流定义. body 形如 {name, nodes:[{id,type,name,x,y,params}], edges:[...]}.
      */
+
+    /**
+     * 健康检查 (公开). dashboard / monitor 用.
+     */
+    @GetMapping("/health")
+    public Result<java.util.Map<String, Object>> health() {
+        return Result.success(java.util.Map.of(
+                "service", "ai-platform-workflow",
+                "status", "UP",
+                "ts", System.currentTimeMillis()
+        ));
+    }
     @PostMapping("/spec")
     public Result<Map<String, Object>> saveSpec(@RequestBody Map<String, Object> body, HttpServletRequest req) {
         String user = req.getHeader("X-Username");

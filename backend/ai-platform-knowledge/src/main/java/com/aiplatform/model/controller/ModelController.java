@@ -20,6 +20,18 @@ public class ModelController {
 
     private final ModelRegistryService modelService;
 
+
+    /**
+     * 健康检查 (公开). dashboard / monitor 用.
+     */
+    @GetMapping("/health")
+    public Result<java.util.Map<String, Object>> health() {
+        return Result.success(java.util.Map.of(
+                "service", "ai-platform-knowledge",
+                "status", "UP",
+                "ts", System.currentTimeMillis()
+        ));
+    }
     @PostMapping
     public Result<ModelRegistry> create(@RequestBody ModelRegistry model) {
         return Result.success(modelService.register(model));

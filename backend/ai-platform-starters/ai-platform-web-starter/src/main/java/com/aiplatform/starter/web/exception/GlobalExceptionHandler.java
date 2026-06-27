@@ -15,6 +15,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.util.stream.Collectors;
@@ -71,6 +72,18 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     @ExceptionHandler(NoHandlerFoundException.class)
     public Result<Void> handle404(NoHandlerFoundException ex) {
+        return Result.fail(ResultCode.NOT_FOUND);
+    }
+
+    /**
+     * ★ 路径变量类型转换失败 (如 GET /api/agent/health 被路由到 GET /api/agent/{id} 后 id="health" 转 Long 失败)
+     * 这种情况本质是路由误匹配, 应返回 404 而不是 500.
+     */
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public Result<Void> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        log.debug("[TYPE_MISMATCH] {} -> param={}, value={}, requiredType={}",
+                request.getRequestURI(), ex.getName(), ex.getValue(), ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "n/a");
         return Result.fail(ResultCode.NOT_FOUND);
     }
 

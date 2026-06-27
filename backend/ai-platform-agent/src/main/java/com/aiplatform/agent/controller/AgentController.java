@@ -20,6 +20,18 @@ public class AgentController {
 
     private final AgentService agentService;
 
+
+    /**
+     * 健康检查 (公开). dashboard / monitor 用.
+     */
+    @GetMapping("/health")
+    public Result<java.util.Map<String, Object>> health() {
+        return Result.success(java.util.Map.of(
+                "service", "ai-platform-agent",
+                "status", "UP",
+                "ts", System.currentTimeMillis()
+        ));
+    }
     @PostMapping
     public Result<AgentEntity> create(@RequestBody AgentEntity agent) {
         return Result.success(agentService.create(agent));

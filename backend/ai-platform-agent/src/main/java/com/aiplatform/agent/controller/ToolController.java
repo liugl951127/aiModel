@@ -17,6 +17,18 @@ public class ToolController {
 
     private final ToolService toolService;
 
+
+    /**
+     * 健康检查 (公开). dashboard / monitor 用.
+     */
+    @GetMapping("/health")
+    public Result<java.util.Map<String, Object>> health() {
+        return Result.success(java.util.Map.of(
+                "service", "ai-platform-agent",
+                "status", "UP",
+                "ts", System.currentTimeMillis()
+        ));
+    }
     @PostMapping
     public Result<ToolEntity> create(@RequestBody ToolEntity tool) {
         return Result.success(toolService.create(tool));
