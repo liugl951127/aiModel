@@ -1088,12 +1088,24 @@ const PORT_R = 6      // 端口半径 10/2 = 5, 加 1 圈描边
 const PORT_OFFSET = 5 // 端口突出节点边的像素
 
 // 算某节点某方向端口的画布坐标
-const portCoord = (node, dir) => {
+const portCoord = (node, dir, portName) => {
   const w = node._renderW || NODE_W_DEFAULT
-  const y = node.y + NODE_H / 2  // 垂直中点
-  if (dir === 'out') return { x: node.x + w + PORT_OFFSET, y }
-  if (dir === 'in')  return { x: node.x - PORT_OFFSET, y }
-  return { x: node.x, y }
+  if (dir === 'in') {
+    // 输入端口在节点左边中点 (CSS: top: 50%, transform: translateY(-50%))
+    return { x: node.x - PORT_OFFSET, y: node.y + NODE_H / 2 }
+  }
+  if (dir === 'out') {
+    // 输出端口 y 根据 outPorts 序号动态算 (CSS: top: ((index+1) * 14) + 'px')
+    // 第 1 个 (默认): 14, 第 2 个: 28, 第 3 个: 42 ...
+    const outPorts = node.outPorts && node.outPorts.length ? node.outPorts : ['out']
+    const idx = portName ? outPorts.indexOf(portName) : 0
+    const portIndex = idx < 0 ? 0 : idx
+    const portTop = (portIndex + 1) * 14  // CSS: top: ((index+1) * 14)px
+    // 端口高度 8px, 要让 y 对准端口中心
+    const portCenterY = node.y + portTop + 4  // 端口 center = top + height/2
+    return { x: node.x + w + PORT_OFFSET, y: portCenterY }
+  }
+  return { x: node.x, y: node.y }
 }
 
 // 边的颜色: 选中> 环> 默认
@@ -1110,8 +1122,8 @@ const edgePath = (e) => {
   const a = findNode(e.from)
   const b = findNode(e.to)
   if (!a || !b) return ''
-  const p1 = portCoord(a, 'out')
-  const p2 = portCoord(b, 'in')
+  const p1 = portCoord(a, 'out', e.fromPort)
+  const p2 = portCoord(b, 'in', e.toPort)
 
   // 判断同行 (y 差小于 6px)
   const sameRow = Math.abs(p1.y - p2.y) < 6

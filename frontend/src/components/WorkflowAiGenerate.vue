@@ -101,6 +101,36 @@
             <el-icon v-if="i < result.nodes.length - 1" class="r-arrow"><Right /></el-icon>
           </div>
         </div>
+
+        <!-- 迷你流程图预览 (SVG): 让用户在填到画布前看到完整连接关系 -->
+        <div v-if="result.edges && result.edges.length" class="r-graph">
+          <div class="rg-label">🗺️ 连线预览 (点击'应用到画布'后会使用完整 SVG 连接):</div>
+          <svg class="rg-svg" :viewBox="`0 0 ${graphW} ${graphH}`" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <marker id="rg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#6366f1" />
+              </marker>
+            </defs>
+            <path
+              v-for="(e, i) in result.edges"
+              :key="'e'+i"
+              :d="miniEdgePath(e)"
+              fill="none"
+              stroke="#6366f1"
+              stroke-width="2"
+              marker-end="url(#rg-arrow)"
+            />
+            <g v-for="(n, i) in result.nodes" :key="'n'+n.id">
+              <rect :x="n.x - 60" :y="n.y - 14" width="120" height="28" rx="6"
+                :fill="i === 0 ? '#10b981' : (i === result.nodes.length - 1 ? '#f43f5e' : '#fff')"
+                :stroke="i === 0 ? '#10b981' : (i === result.nodes.length - 1 ? '#f43f5e' : '#6366f1')"
+                stroke-width="1.5" />
+              <text :x="n.x" :y="n.y + 4" text-anchor="middle"
+                :fill="i === 0 || i === result.nodes.length - 1 ? '#fff' : '#1f2937'"
+                font-size="11" font-weight="600">{{ miniNodeLabel(n, i) }}</text>
+            </g>
+          </svg>
+        </div>
       </div>
     </div>
 
@@ -136,6 +166,48 @@ const bus = useGlobalBus()
 const visible = ref(props.modelValue)
 watch(() => props.modelValue, v => visible.value = v)
 watch(visible, v => emit('update:modelValue', v))
+
+// ===== 迷你流程图预览 (SVG) =====
+const GRAPH_W_DEFAULT = 600
+const GRAPH_H_DEFAULT = 320
+const MINI_NODE_W = 120
+const MINI_NODE_H = 28
+const graphW = computed(() => {
+  if (!result.value || !result.value.nodes.length) return GRAPH_W_DEFAULT
+  // 按节点最大 x + 边距定宽
+  const maxX = Math.max(...result.value.nodes.map(n => n.x || 0))
+  return Math.max(GRAPH_W_DEFAULT, maxX + 80)
+})
+const graphH = computed(() => {
+  if (!result.value || !result.value.nodes.length) return GRAPH_H_DEFAULT
+  const maxY = Math.max(...result.value.nodes.map(n => n.y || 0))
+  return Math.max(GRAPH_H_DEFAULT, maxY + 60)
+})
+// 计算边路径 (用后端生成的真实坐标, 贝塞尔连接)
+const miniEdgePath = (e) => {
+  if (!result.value || !result.value.nodes) return ''
+  const a = result.value.nodes.find(n => n.id === e.from)
+  const b = result.value.nodes.find(n => n.id === e.to)
+  if (!a || !b) return ''
+  // 节点中点 (SVG viewBox 中点)
+  const ax = a.x, ay = a.y
+  const bx = b.x, by = b.y
+  const halfW = MINI_NODE_W / 2
+  // 出入点: 节点右边中点 → 节点左边中点
+  const p1x = ax + halfW, p1y = ay
+  const p2x = bx - halfW, p2y = by
+  // 同行用直线 (后端生成的节点本来就在同 y 上), 不同行用贝塞尔
+  if (Math.abs(p1y - p2y) < 5) {
+    return `M ${p1x} ${p1y} L ${p2x} ${p2y}`
+  }
+  const dx = Math.max(40, (p2x - p1x) / 2)
+  return `M ${p1x} ${p1y} C ${p1x + dx} ${p1y}, ${p2x - dx} ${p2y}, ${p2x} ${p2y}`
+}
+const miniNodeLabel = (n, i) => {
+  // 显示缩写: 中文名字优先, 否则 type
+  const name = n.name || n.type || `节点${i+1}`
+  return name.length > 10 ? name.slice(0, 10) + '...' : name
+}
 
 const userInput = ref('')
 const loading = ref(false)
@@ -458,4 +530,15 @@ const onReset = () => { userInput.value = ''; result.value = null }
 .r-node-name { font-size: 11px; font-weight: 600; color: #1e293b; }
 .r-node-type { font-size: 9px; color: #94a3b8; }
 .r-arrow { color: #22c55e; font-size: 14px; }
+
+/* ★ v3.x 迷你流程图预览 (SVG) */
+.r-graph {
+  margin-top: 12px;
+  padding: 10px;
+  background: linear-gradient(135deg, #fafbff, #f5f7ff);
+  border: 1px dashed #c7d2fe;
+  border-radius: 8px;
+}
+.rg-label { font-size: 11px; color: #6366f1; font-weight: 500; margin-bottom: 6px; }
+.rg-svg { width: 100%; height: auto; max-height: 320px; display: block; background: #fff; border-radius: 4px; }
 </style>
