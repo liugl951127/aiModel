@@ -68,6 +68,64 @@ public class DistributedCache {
         catch (Exception e) { log.warn("[Cache] evict({}) failed: {}", key, e.getMessage()); }
     }
 
+    /** evict 的别名 — 业务代码可读性更好 */
+    public void invalidate(String key) {
+        evict(key);
+    }
+
+    /**
+     * get-or-load 模式 (复杂对象, JSON 序列化).
+     * @param key cache key
+     * @param ttlSec 失效秒
+     * @param loader 加载函数 (返回复杂对象)
+     * @param typeRef 反序列化目标类型 (e.g. new TypeReference<List<ModelRegistry>>(){})
+     * @return 缓存值
+     */
+    public <T> T getOrLoadJson(String key, int ttlSec, Supplier<Object> loader, com.fasterxml.jackson.core.type.TypeReference<T> typeRef) {
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                if ("__NULL__".equals(cached)) return null;
+                return new com.fasterxml.jackson.databind.ObjectMapper().readValue(cached, typeRef);
+            }
+        } catch (Exception e) {
+            log.warn("[Cache] JSON read failed, fallback: {}", e.getMessage());
+        }
+        Object value = loader.get();
+        try {
+            String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value);
+            redis.opsForValue().set(key, value == null ? "__NULL__" : json, ttlSec, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("[Cache] JSON write failed: {}", e.getMessage());
+        }
+        @SuppressWarnings("unchecked")
+        T result = (T) value;
+        return result;
+    }
+
+    /**
+     * get-or-load 模式 (单对象, JSON 序列化).
+     */
+    public <T> T getOrLoad(String key, int ttlSec, Supplier<T> loader, Class<T> type) {
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                if ("__NULL__".equals(cached)) return null;
+                return new com.fasterxml.jackson.databind.ObjectMapper().readValue(cached, type);
+            }
+        } catch (Exception e) {
+            log.warn("[Cache] JSON read failed, fallback: {}", e.getMessage());
+        }
+        T value = loader.get();
+        try {
+            String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value);
+            redis.opsForValue().set(key, value == null ? "__NULL__" : json, ttlSec, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("[Cache] JSON write failed: {}", e.getMessage());
+        }
+        return value;
+    }
+
     public void evictByPattern(String pattern) {
         if (redis == null) return;
         try {

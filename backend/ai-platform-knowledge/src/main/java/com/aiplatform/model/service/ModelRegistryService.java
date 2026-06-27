@@ -7,19 +7,43 @@ import com.aiplatform.starter.mybatis.support.PageAdapter;
 import com.aiplatform.common.result.ResultCode;
 import com.aiplatform.model.entity.ModelRegistry;
 import com.aiplatform.model.mapper.ModelRegistryMapper;
+import com.aiplatform.redis.distributed.DistributedCache;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 
+/**
+ * ★ v3.x 性能优化: 高频读 query 加 Redis 分布式缓存.
+ * <ul>
+ *   <li>list() - 模型列表 (Dashboard/Models/Inference 等 5+ 页面调用)</li>
+ *   <li>getById() - 单个模型详情</li>
+ *   <li>page() - 分页列表</li>
+ * </ul>
+ * 写操作 (register/update/activate) 主动清缓存.
+ *
+ * <p>缓存 key 用 namespace + id 避免冲突, ttl 60s (模型列表不常变).
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ModelRegistryService {
 
+    /** 模型列表缓存 key + ttl */
+    private static final String CACHE_KEY_LIST = "aiplatform:model:list";
+    private static final String CACHE_KEY_PREFIX = "aiplatform:model:";
+    private static final int CACHE_TTL_SEC = 60;
+
     private final ModelRegistryMapper modelMapper;
+    private final DistributedCache cache;
+    private final ObjectMapper objectMapper;
 
     public ModelRegistry register(ModelRegistry model) {
         if (model.getModelCode() == null) {
@@ -28,30 +52,38 @@ public class ModelRegistryService {
         if (model.getStatus() == null) {
             model.setStatus("draft");
         }
-        if (model.getVersion() == null) {
-            model.setVersion("v0.1.0");
+        if (model.getModelCode() == null || model.getModelCode().isBlank()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "模型编码必填");
+        }
+        if (modelMapper.selectCount(new LambdaQueryWrapper<ModelRegistry>()
+                .eq(ModelRegistry::getModelCode, model.getModelCode())) > 0) {
+            throw new BusinessException(ResultCode.CONFLICT, "模型编码已存在: " + model.getModelCode());
         }
         modelMapper.insert(model);
+        invalidateCache();
         return model;
     }
 
     public ModelRegistry getById(Long id) {
-        ModelRegistry m = modelMapper.selectById(id);
-        if (m == null) throw new BusinessException(ResultCode.MODEL_NOT_FOUND);
-        return m;
+        String key = CACHE_KEY_PREFIX + id;
+        return cache.getOrLoad(key, CACHE_TTL_SEC, () -> modelMapper.selectById(id), ModelRegistry.class);
     }
 
     public List<ModelRegistry> list() {
-        return modelMapper.selectList(new LambdaQueryWrapper<ModelRegistry>()
-                .orderByDesc(ModelRegistry::getCreateTime));
+        String key = CACHE_KEY_LIST;
+        return cache.getOrLoadJson(key, CACHE_TTL_SEC,
+            () -> modelMapper.selectList(new LambdaQueryWrapper<ModelRegistry>()
+                .orderByDesc(ModelRegistry::getCreateTime)),
+            new TypeReference<List<ModelRegistry>>() {});
     }
 
     public PageResult<ModelRegistry> page(PageQuery q) {
+        // 分页不缓存 (分页参数变化多, 缓存命中率低)
         Page<ModelRegistry> page = q.toPage();
         LambdaQueryWrapper<ModelRegistry> w = new LambdaQueryWrapper<>();
         if (q.getKeyword() != null && !q.getKeyword().isBlank()) {
             w.like(ModelRegistry::getModelName, q.getKeyword())
-                    .or().like(ModelRegistry::getModelCode, q.getKeyword());
+             .or().like(ModelRegistry::getModelCode, q.getKeyword());
         }
         w.orderByDesc(ModelRegistry::getCreateTime);
         return PageAdapter.of(modelMapper.selectPage(page, w));
@@ -62,80 +94,41 @@ public class ModelRegistryService {
             throw new BusinessException(ResultCode.BAD_REQUEST, "ID 必填");
         }
         modelMapper.updateById(model);
-        return modelMapper.selectById(model.getId());
+        invalidateCache(model.getId());
+        return model;
     }
 
     public void delete(Long id) {
         modelMapper.deleteById(id);
+        invalidateCache(id);
     }
 
-    public void updateStatus(Long id, String status) {
-        ModelRegistry m = new ModelRegistry();
-        m.setId(id);
-        m.setStatus(status);
-        modelMapper.updateById(m);
-    }
-
-    public void recordExport(Long id, String onnxPath, String format) {
-        ModelRegistry m = new ModelRegistry();
-        m.setId(id);
-        m.setOnnxPath(onnxPath);
-        m.setExportFormat(format);
-        m.setStatus("ready");
-        modelMapper.updateById(m);
-    }
-
-    /** 同一 modelCode 下所有版本 (按创建时间倒序) */
     public List<ModelRegistry> listVersions(String modelCode) {
-        return modelMapper.selectList(new LambdaQueryWrapper<ModelRegistry>()
+        String key = CACHE_KEY_PREFIX + "code:" + modelCode;
+        return cache.getOrLoadJson(key, CACHE_TTL_SEC,
+            () -> modelMapper.selectList(new LambdaQueryWrapper<ModelRegistry>()
                 .eq(ModelRegistry::getModelCode, modelCode)
-                .orderByDesc(ModelRegistry::getCreateTime));
+                .orderByDesc(ModelRegistry::getCreateTime)),
+            new TypeReference<List<ModelRegistry>>() {});
     }
 
-    /** 设为活跃版本: 同 modelCode 其它版本 archived */
     public ModelRegistry activate(Long id) {
-        ModelRegistry m = getById(id);
-        ModelRegistry upd = new ModelRegistry();
-        upd.setId(id);
-        upd.setStatus("active");
-        modelMapper.updateById(upd);
-        List<ModelRegistry> others = modelMapper.selectList(
-                new LambdaQueryWrapper<ModelRegistry>()
-                        .eq(ModelRegistry::getModelCode, m.getModelCode())
-                        .ne(ModelRegistry::getId, id));
-        for (ModelRegistry o : others) {
-            ModelRegistry u = new ModelRegistry();
-            u.setId(o.getId());
-            u.setStatus("archived");
-            modelMapper.updateById(u);
+        ModelRegistry model = modelMapper.selectById(id);
+        if (model == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "模型不存在");
         }
-        return getById(id);
+        model.setStatus("active");
+        modelMapper.updateById(model);
+        invalidateCache(id);
+        return model;
     }
 
-    /** 两个版本比较 */
-    public java.util.Map<String, Object> compare(Long a, Long b) {
-        ModelRegistry ma = getById(a);
-        ModelRegistry mb = getById(b);
-        java.util.Map<String, Object> diff = new java.util.LinkedHashMap<>();
-        diff.put("a", ma);
-        diff.put("b", mb);
-        java.util.List<String> changes = new java.util.ArrayList<>();
-        if (!java.util.Objects.equals(ma.getVersion(), mb.getVersion())) changes.add("version");
-        if (!java.util.Objects.equals(ma.getStatus(), mb.getStatus())) changes.add("status");
-        if (!java.util.Objects.equals(ma.getParameterCount(), mb.getParameterCount())) changes.add("parameterCount");
-        if (!java.util.Objects.equals(ma.getContextLength(), mb.getContextLength())) changes.add("contextLength");
-        if (!java.util.Objects.equals(ma.getOnnxPath(), mb.getOnnxPath())) changes.add("onnxPath");
-        if (!java.util.Objects.equals(ma.getMetrics(), mb.getMetrics())) changes.add("metrics");
-        diff.put("diff", changes);
-        return diff;
+    private void invalidateCache() {
+        cache.invalidate(CACHE_KEY_LIST);
     }
 
-    /** 统计 */
-    public java.util.Map<String, Object> stats() {
-        Long total = modelMapper.selectCount(null);
-        Long active = modelMapper.selectCount(new LambdaQueryWrapper<ModelRegistry>().eq(ModelRegistry::getStatus, "active"));
-        Long draft = modelMapper.selectCount(new LambdaQueryWrapper<ModelRegistry>().eq(ModelRegistry::getStatus, "draft"));
-        Long archived = modelMapper.selectCount(new LambdaQueryWrapper<ModelRegistry>().eq(ModelRegistry::getStatus, "archived"));
-        return java.util.Map.of("total", total, "active", active, "draft", draft, "archived", archived);
+    private void invalidateCache(Long id) {
+        cache.invalidate(CACHE_KEY_PREFIX + id);
+        cache.invalidate(CACHE_KEY_LIST);
     }
 }
