@@ -17,8 +17,9 @@ const app = createApp(App)
 // ★ P0-PM-3 全局错误边界 — 未捕异常不会导致整页白
 // 必须在 createApp 之后设置 (TDZ: const 在声明前不可用)
 app.config.errorHandler = (err, instance, info) => {
+  // ★ v3.x 修复: 只 console.error + fetch 上报, 不用 ElMessage.error()
+  //   ElMessage 触发 Vue 渲染, 若错误发生在渲染中会导致递归 → Maximum call stack
   console.error('[Vue Error]', err, info)
-  ElMessage.error(`页面运行出错: ${err?.message || err}`)
   // 上报接口 (留 hook, 后面可接 Sentry)
   try {
     fetch('/api/log/frontend-error', {

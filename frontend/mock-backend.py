@@ -418,8 +418,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path == "/api/model/list" or path == "/api/model/page":
             return self._ok({"total": len(MODELS), "current": 1, "size": 10, "records": MODELS})
 
-        if path == "/api/knowledge/page" or path == "/api/knowledge/base/list":
+        if path == "/api/knowledge/page":
             return self._ok({"total": len(KNOWLEDGE_BASES), "current": 1, "size": 10, "records": KNOWLEDGE_BASES})
+        if path == "/api/knowledge/base/list":
+            # ★ v3.x 修复: 返回数组 (前端 Knowledge.vue 期望 r.data 是数组, 不 PageResult)
+            return self._ok(KNOWLEDGE_BASES)
 
         if path == "/api/workflow/page" or path == "/api/workflow/list" or path == "/api/workflow/spec/page":
             return self._ok({"total": len(WORKFLOWS), "current": 1, "size": 10, "records": WORKFLOWS})

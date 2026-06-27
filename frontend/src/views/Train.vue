@@ -68,7 +68,9 @@
       <div class="charts">
         <div class="chart-box">
           <div class="chart-label">Loss</div>
-          <v-chart class="chart" :option="lossOption" autoresize />
+          <!-- DEBUG: 临时注释 echarts 测试 -->
+          <!-- <v-chart class="chart" :option="lossOption" autoresize /> -->
+          <div style="height:200px">CHART DISABLED</div>
         </div>
         <div class="chart-box">
           <div class="chart-label">幻觉分数 (越低越好)</div>
@@ -319,13 +321,29 @@ function hallClass (h) { return h >= (form.params.hallucinationThreshold ?? 0.7)
 const baseChart = (name) => ({
   grid: { left: 36, right: 12, top: 28, bottom: 24 },
   tooltip: { trigger: 'axis' },
-  xAxis: { type: 'category', data: stepSeries },
+  xAxis: { type: 'category', data: stepSeries.value },
   yAxis: { type: 'value' },
   series: [{ name, type: 'line', smooth: true, data: [], showSymbol: false, areaStyle: { opacity: 0.15 } }]
 })
-const lossOption = computed(() => ({ ...baseChart('loss'), series: [{ ...baseChart('loss').series[0], data: lossSeries.value }] }))
-const hallOption = computed(() => ({ ...baseChart('hallucination'), series: [{ ...baseChart('hallucination').series[0], data: hallSeries.value }] }))
-const supportOption = computed(() => ({ ...baseChart('support'), series: [{ ...baseChart('support').series[0], data: supportSeries.value }] }))
+// ★ v3.x 修复: markRaw 包装 echarts option 防 Vue clone 递归 → Maximum call stack
+//   ECharts 选项里 xAxis.data / series.data 都是 ref 数组 (.value 是 reactive Proxy)
+//   echarts 读 option 时 Vue 试图 clone 这个 reactive Proxy → 递归到 ref.value → 栈溢出
+//   markRaw 让 Vue 不再 wrap + 不再 clone, 直接给 echarts 原始数组
+const lossOption = computed(() => markRaw({
+  ...baseChart('loss'),
+  xAxis: { ...baseChart('loss').xAxis, data: markRaw([...stepSeries.value]) },
+  series: [{ ...baseChart('loss').series[0], data: markRaw([...lossSeries.value]) }]
+}))
+const hallOption = computed(() => markRaw({
+  ...baseChart('hallucination'),
+  xAxis: { ...baseChart('hallucination').xAxis, data: markRaw([...stepSeries.value]) },
+  series: [{ ...baseChart('hallucination').series[0], data: markRaw([...hallSeries.value]) }]
+}))
+const supportOption = computed(() => markRaw({
+  ...baseChart('support'),
+  xAxis: { ...baseChart('support').xAxis, data: markRaw([...stepSeries.value]) },
+  series: [{ ...baseChart('support').series[0], data: markRaw([...supportSeries.value]) }]
+}))
 
 // 当超参数变更时热推到后端
 import { watch } from 'vue'
