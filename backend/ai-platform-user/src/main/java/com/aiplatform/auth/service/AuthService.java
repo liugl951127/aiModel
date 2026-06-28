@@ -10,6 +10,7 @@ import com.aiplatform.common.exception.BusinessException;
 import com.aiplatform.common.result.Result;
 import com.aiplatform.common.result.ResultCode;
 import com.aiplatform.common.util.JwtUtils;
+import com.aiplatform.redis.distributed.DistributedRateLimiter;
 import com.aiplatform.starter.redis.RedisUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,7 @@ public class AuthService {
     private final TenantServiceClient tenantServiceClient;
     private final SystemAuditClient systemAuditClient;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final DistributedRateLimiter loginRateLimiter;
 
     /**
      * 开发模式: 明文密码比对 (跳过 BCrypt). 通过 JVM 系统属性启用:
@@ -101,6 +103,12 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest req, String ip, String userAgent, boolean devPlainHeader) {
+        // ★ v3.x 性能优化: 登录限流 (防爆破) - 同一用户名/IP 60s 最多 10 次
+        String limitKey = "auth:login:" + (req.getUsername() == null ? "anon" : req.getUsername().toLowerCase()) + ":" + (ip == null ? "?" : ip);
+        if (!loginRateLimiter.tryAcquire(limitKey, 10, 60)) {
+            log.warn("[AUTH] 登录限流触发: {}", limitKey);
+            throw new BusinessException(ResultCode.SYSTEM_BUSY, "登录尝试过于频繁, 请稍后再试");
+        }
         Result<Map<String, Object>> resp = userServiceClient.getByUsername(req.getUsername());
         if (resp == null || resp.getCode() == null || resp.getCode() != ResultCode.SUCCESS.getCode().intValue()) {
             recordAudit(req.getUsername(), null, null, ip, userAgent, "FAILED", "用户不存在");
