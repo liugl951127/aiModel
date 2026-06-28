@@ -26,6 +26,7 @@ public class TrainJobService {
 
     private final TrainJobMapper trainJobMapper;
     private final ModelRegistryService modelService;
+    private final com.aiplatform.redis.distributed.DistributedCache cache;
 
     public TrainJob submit(TrainJob job) {
         if (job.getModelId() == null) {
@@ -45,6 +46,7 @@ public class TrainJobService {
         if (job.getLearningRate() == null) job.setLearningRate(5e-5);
         if (job.getAlgorithm() == null) job.setAlgorithm("causal-lm-finetune");
         trainJobMapper.insert(job);
+        cache.invalidate(CACHE_KEY_PREFIX + job.getId());
 
         modelService.updateStatus(job.getModelId(), "training");
 
@@ -77,12 +79,13 @@ public class TrainJobService {
             job.setFinishedAt(LocalDateTime.now());
             job.setOutputPath("/opt/ai-platform/models/" + jobId);
             trainJobMapper.updateById(job);
-
+            cache.invalidate(CACHE_KEY_PREFIX + job.getId());
             modelService.updateStatus(job.getModelId(), "ready");
         } catch (Exception e) {
             log.error("[TRAIN] job {} failed: {}", jobId, e.getMessage(), e);
             job.setStatus("failed");
             trainJobMapper.updateById(job);
+            cache.invalidate(CACHE_KEY_PREFIX + job.getId());
             modelService.updateStatus(job.getModelId(), "failed");
         }
     }
@@ -98,6 +101,12 @@ public class TrainJobService {
     }
 
     public TrainJob get(Long id) {
-        return trainJobMapper.selectById(id);
+        // ★ v3.x 优化: 训练任务查后端轮询频繁, 缓存 10s (避免 stale 但减 DB 压力)
+        // 状态变化时 (runAsync/updateStatus) 主动 invalidate
+        return cache.getOrLoad(CACHE_KEY_PREFIX + id, CACHE_TTL_SEC,
+            () -> trainJobMapper.selectById(id), TrainJob.class);
     }
+
+    private static final String CACHE_KEY_PREFIX = "aiplatform:trainjob:";
+    private static final int CACHE_TTL_SEC = 10;
 }
