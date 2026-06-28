@@ -36,7 +36,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Intercepts({
     @Signature(type = StatementHandler.class, method = "prepare", args = {java.sql.Connection.class, Integer.class}),
-    @Signature(type = StatementHandler.class, method = "query", args = {java.sql.Connection.class})
+    @Signature(type = StatementHandler.class, method = "update", args = {java.sql.Connection.class}),
+    @Signature(type = StatementHandler.class, method = "batch", args = {java.sql.Connection.class})
 })
 public class SlowSqlMybatisInterceptor implements Interceptor {
 

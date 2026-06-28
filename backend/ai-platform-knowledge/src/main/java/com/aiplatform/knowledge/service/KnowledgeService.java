@@ -38,6 +38,7 @@ public class KnowledgeService {
     private final KnowledgeSearchService searchService;
     private final QueryRewriter queryRewriter;
     private final ResultReranker resultReranker;
+    private final com.aiplatform.redis.distributed.DistributedCache cache;
     private final TextChunker chunker;
 
     @Value("${aiplatform.knowledge.storage-path:/opt/ai-platform/kb}")
@@ -50,12 +51,21 @@ public class KnowledgeService {
         if (kb.getStatus() == null) kb.setStatus(1);
         searchService.ensureIndex(kb.getIndexName());
         kbMapper.insert(kb);
+        cache.invalidate(CACHE_KEY_LIST_BASES);
         return kb;
     }
 
+    private static final String CACHE_KEY_LIST_BASES = "aiplatform:kb:list";
+    private static final int CACHE_TTL_SEC = 300;
+
+    /**
+     * ★ v3.x 性能优化: 知识库列表缓存 (Knowledge 页面高频调用, ttl 5min).
+     */
     public List<KnowledgeBase> listBases() {
-        return kbMapper.selectList(new LambdaQueryWrapper<KnowledgeBase>()
-                .orderByDesc(KnowledgeBase::getCreateTime));
+        return cache.getOrLoadJson(CACHE_KEY_LIST_BASES, CACHE_TTL_SEC,
+            () -> kbMapper.selectList(new LambdaQueryWrapper<KnowledgeBase>()
+                .orderByDesc(KnowledgeBase::getCreateTime)),
+            new com.fasterxml.jackson.core.type.TypeReference<List<KnowledgeBase>>() {});
     }
 
     public PageResult<KnowledgeDocument> listDocuments(Long kbId, PageQuery q) {

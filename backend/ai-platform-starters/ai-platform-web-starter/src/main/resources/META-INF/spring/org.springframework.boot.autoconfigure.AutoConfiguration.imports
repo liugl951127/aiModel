@@ -1,1 +1,4 @@
 com.aiplatform.starter.web.autoconfig.WebAutoConfiguration
+com.aiplatform.starter.web.config.DefaultPerformanceAutoConfig
+com.aiplatform.starter.web.config.MybatisInterceptorConfig
+com.aiplatform.starter.web.config.MybatisPlusLogConfig
